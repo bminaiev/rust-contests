@@ -47,13 +47,97 @@ impl std::io::Write for WriteDelegate {
     }
 }
 
-pub(crate) fn run_tests() -> bool {
-    let blue = "\x1B[34m";
-    let red = "\x1B[31m";
-    let green = "\x1B[32m";
-    let yellow = "\x1B[33m";
-    let def = "\x1B[0m";
+/**
+
+Returns [true] in case of successes
+
+ */
+pub(crate) fn run_single_test(name: &str) -> bool {
     let time_limit = std::time::Duration::from_millis($TIME_LIMIT);
+    let path = format!("./$TASK/tests/{}.in", name);
+    let out_path = format!("./$TASK/tests/{}.out", name);
+    println!("{}Test {}{}", BLUE, name, DEF);
+    println!("{}Input:{}", BLUE, DEF);
+    println!(
+        "{}",
+        std::fs::read_to_string(&path)
+            .expect(&format!("Can't open file with test input: {}", path))
+    );
+    let expected = match std::fs::read_to_string(out_path) {
+        Ok(res) => Some(res),
+        Err(_) => None,
+    };
+    println!("{}Expected:{}", BLUE, DEF);
+    match &expected {
+        None => {
+            println!("{}Not provided{}", YELLOW, DEF);
+        }
+        Some(expected) => {
+            println!("{}", expected);
+        }
+    }
+    println!("{}Output:{}", BLUE, DEF);
+    match std::panic::catch_unwind(|| {
+        unsafe {
+            OUT.clear();
+        }
+        let mut file = std::fs::File::open(&path).unwrap();
+        let input = Input::new(&mut file);
+        let started = std::time::Instant::now();
+        unsafe {
+            OUTPUT = Some(Output::new(Box::new(WriteDelegate {})));
+        }
+        let is_exhausted = crate::run(input);
+        let res = started.elapsed();
+        let output;
+        unsafe {
+            output = OUT.clone();
+        }
+        println!("{}", String::from_utf8_lossy(&output));
+        (output, res, is_exhausted)
+    }) {
+        Ok((output, duration, is_exhausted)) => {
+            println!(
+                "{}Time elapsed: {:.3}s{}",
+                BLUE,
+                (duration.as_millis() as f64) / 1000.,
+                DEF,
+            );
+            if !is_exhausted {
+                println!("{}Input not exhausted{}", RED, DEF);
+            }
+            if let Some(expected) = expected {
+                let mut expected_bytes = expected.as_bytes().clone();
+                match check(&mut expected_bytes, &mut &output[..]) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        println!("{}Verdict: {}Wrong Answer ({}){}", BLUE, RED, err, DEF);
+                        return false;
+                    }
+                }
+            }
+            if duration > time_limit {
+                println!("{}Verdict: {}Time Limit{}", BLUE, RED, DEF);
+                return false;
+            } else {
+                println!("{}Verdict: {}OK{}", BLUE, GREEN, DEF)
+            }
+        }
+        Err(err) => {
+            println!("{}Verdict: {}RuntimeError ({:#?}){}", BLUE, RED, err, DEF);
+            return false;
+        }
+    }
+    true
+}
+
+const BLUE: &str = "\x1B[34m";
+const RED: &str = "\x1B[31m";
+const GREEN: &str = "\x1B[32m";
+const YELLOW: &str = "\x1B[33m";
+const DEF: &str = "\x1B[0m";
+
+pub(crate) fn run_tests() -> bool {
     let mut paths = std::fs::read_dir("./$TASK/tests/")
         .unwrap()
         .map(|res| res.unwrap())
@@ -73,82 +157,8 @@ pub(crate) fn run_tests() -> bool {
                         test_total += 1;
                         let name = path.file_name().unwrap().to_str().unwrap();
                         let name = &name[..name.len() - 3];
-                        println!("{}Test {}{}", blue, name, def);
-                        println!("{}Input:{}", blue, def);
-                        println!("{}", std::fs::read_to_string(&path).unwrap());
-                        let expected = match std::fs::read_to_string(
-                            path.parent().unwrap().join(format!("{}.out", name)),
-                        ) {
-                            Ok(res) => Some(res),
-                            Err(_) => None,
-                        };
-                        println!("{}Expected:{}", blue, def);
-                        match &expected {
-                            None => {
-                                println!("{}Not provided{}", yellow, def);
-                            }
-                            Some(expected) => {
-                                println!("{}", expected);
-                            }
-                        }
-                        println!("{}Output:{}", blue, def);
-                        match std::panic::catch_unwind(|| {
-                            unsafe {
-                                OUT.clear();
-                            }
-                            let mut file = std::fs::File::open(&path).unwrap();
-                            let input = Input::new(&mut file);
-                            let started = std::time::Instant::now();
-                            unsafe {
-                                OUTPUT = Some(Output::new(Box::new(WriteDelegate {})));
-                            }
-                            let is_exhausted = crate::run(input);
-                            let res = started.elapsed();
-                            let output;
-                            unsafe {
-                                output = OUT.clone();
-                            }
-                            println!("{}", String::from_utf8_lossy(&output));
-                            (output, res, is_exhausted)
-                        }) {
-                            Ok((output, duration, is_exhausted)) => {
-                                println!(
-                                    "{}Time elapsed: {:.3}s{}",
-                                    blue,
-                                    (duration.as_millis() as f64) / 1000.,
-                                    def,
-                                );
-                                if !is_exhausted {
-                                    println!("{}Input not exhausted{}", red, def);
-                                }
-                                if let Some(expected) = expected {
-                                    let mut expected_bytes = expected.as_bytes().clone();
-                                    match check(&mut expected_bytes, &mut &output[..]) {
-                                        Ok(_) => {}
-                                        Err(err) => {
-                                            println!(
-                                                "{}Verdict: {}Wrong Answer ({}){}",
-                                                blue, red, err, def
-                                            );
-                                            test_failed += 1;
-                                            continue;
-                                        }
-                                    }
-                                }
-                                if duration > time_limit {
-                                    test_failed += 1;
-                                    println!("{}Verdict: {}Time Limit{}", blue, red, def);
-                                } else {
-                                    println!("{}Verdict: {}OK{}", blue, green, def)
-                                }
-                            }
-                            Err(err) => {
-                                test_failed += 1;
-                                println!(
-                                    "{}Verdict: {}RuntimeError ({:#?}){}",
-                                    blue, red, err, def
-                                );
-                            }
+                        if !run_single_test(name) {
+                            test_failed += 1;
                         }
                     }
                 }
@@ -158,12 +168,12 @@ pub(crate) fn run_tests() -> bool {
     if test_failed == 0 {
         println!(
             "{}All {}{}{} tests passed{}",
-            blue, green, test_total, blue, def
+            BLUE, GREEN, test_total, BLUE, DEF
         );
     } else {
         println!(
             "{}{}/{}{} tests failed{}",
-            red, test_failed, test_total, blue, def
+            RED, test_failed, test_total, BLUE, DEF
         );
     }
     test_failed == 0
