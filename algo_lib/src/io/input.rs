@@ -88,6 +88,10 @@ impl<'s> Input<'s> {
         self.peek().is_none()
     }
 
+    pub fn has_more_elements(&mut self) -> bool {
+        !self.is_exhausted()
+    }
+
     pub fn read<T: Readable>(&mut self) -> T {
         T::read(self)
     }
