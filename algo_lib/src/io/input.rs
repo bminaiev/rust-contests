@@ -146,6 +146,14 @@ impl<'s> Input<'s> {
         }
     }
 
+    pub fn string(&mut self) -> String {
+        self.read_string()
+    }
+
+    pub fn string_as_vec(&mut self) -> Vec<u8> {
+        self.read_string().into_bytes()
+    }
+
     fn read_char(&mut self) -> char {
         self.skip_whitespace();
         self.get().unwrap().into()
@@ -153,6 +161,10 @@ impl<'s> Input<'s> {
 
     fn read_float(&mut self) -> f64 {
         self.read_string().parse().unwrap()
+    }
+
+    pub fn f64(&mut self) -> f64 {
+        self.read_float()
     }
 
     fn refill_buffer(&mut self) -> bool {
