@@ -1,4 +1,4 @@
-# example-contests-workspace
+# rust-contests
 
 Repository for writing contests in Rust with rust-competitive-helper.
 
