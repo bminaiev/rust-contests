@@ -10,6 +10,15 @@ pub struct Input<'s> {
     buf_read: usize,
 }
 
+macro_rules! read_integer_fun {
+    ($t:ident) => {
+        #[allow(unused)]
+        pub fn $t(&mut self) -> $t {
+            self.read_integer()
+        }
+    };
+}
+
 impl<'s> Input<'s> {
     const DEFAULT_BUF_SIZE: usize = 4096;
 
@@ -151,6 +160,12 @@ impl<'s> Input<'s> {
             true
         }
     }
+
+    read_integer_fun!(i32);
+    read_integer_fun!(i64);
+    read_integer_fun!(u32);
+    read_integer_fun!(u64);
+    read_integer_fun!(usize);
 }
 
 pub trait Readable {
