@@ -1,11 +1,7 @@
-use crate::numbers::num_traits::add_sub::AddSub;
-use crate::numbers::num_traits::from_u8::FromU8;
-use crate::numbers::num_traits::mul_div_rem::Multable;
-use crate::numbers::num_traits::sign::IsSigned;
-use crate::numbers::num_traits::zero_one::ZeroOne;
-use std::fmt::Display;
+use std::fmt::Debug;
 use std::io::Read;
 use std::marker::PhantomData;
+use std::str::FromStr;
 
 pub struct Input<'s> {
     input: &'s mut dyn Read,
@@ -120,51 +116,12 @@ impl<'s> Input<'s> {
         }
     }
 
-    fn read_integer<T: IsSigned + ZeroOne + FromU8 + AddSub + Multable + Display>(&mut self) -> T {
-        self.skip_whitespace();
-        let mut c = self.get().unwrap();
-        let sgn = if c == b'-' {
-            if !T::SIGNED {
-                panic!("negative integer")
-            }
-            c = self.get().unwrap();
-            true
-        } else if c == b'+' {
-            c = self.get().unwrap();
-            false
-        } else {
-            false
-        };
-        let mut res = T::zero();
-        loop {
-            if !char::from(c).is_digit(10) {
-                panic!(
-                    "expected integer, found {}{}{}",
-                    if sgn { "" } else { "-" },
-                    res,
-                    char::from(c)
-                );
-            }
-            res *= T::from_u8(10);
-            res += T::from_u8(c - b'0');
-            match self.get() {
-                None => {
-                    break;
-                }
-                Some(ch) => {
-                    if char::from(ch).is_whitespace() {
-                        break;
-                    } else {
-                        c = ch;
-                    }
-                }
-            }
-        }
-        if sgn {
-            debug_assert!(T::SIGNED);
-            res = T::zero() - res
-        }
-        res
+    fn read_integer<T: FromStr>(&mut self) -> T
+    where
+        <T as FromStr>::Err: Debug,
+    {
+        let res = self.read_string();
+        res.parse::<T>().unwrap()
     }
 
     fn read_string(&mut self) -> String {

@@ -9,11 +9,11 @@ How to use it:
     cargo install --git https://github.com/rust-competitive-helper/rust-competitive-helper
     ```
 - Fork this repository on github, clone it locally, open in CLion
-- In CLion terminal run `rust-competitive-programming` from current directory
+- In CLion terminal run `rust-competitive-helper` from current directory
 
 To use with [Competitive Companion](https://github.com/jmerle/competitive-companion):
 - Add 4244 to custom ports in plugin
-- Choose "Run listener" in `rust-competitive-programming`
+- Choose "Run listener" in `rust-competitive-helper`
 - Click "Parse task" in plugin
 - Project for this task will be created and opened in CLion.
 - Testing should be done by running main.rs in corresponding crate
