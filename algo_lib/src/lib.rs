@@ -3,3 +3,5 @@
 
 pub mod io;
 pub mod misc;
+pub mod geometry;
+pub mod graph;
