@@ -25,7 +25,7 @@ pub trait FindMinMaxPos {
     fn position_of_max(&self) -> usize;
 }
 
-impl<T: PartialOrd> FindMinMaxPos for Vec<T> {
+impl<T: PartialOrd> FindMinMaxPos for [T] {
     fn position_of_min(&self) -> usize {
         let mut pos_of_best = 0;
         for (idx, val) in self.iter().enumerate().skip(1) {
@@ -45,4 +45,40 @@ impl<T: PartialOrd> FindMinMaxPos for Vec<T> {
         }
         pos_of_best
     }
+}
+
+pub fn position_of_min_by<T, F>(n: usize, f: F) -> usize
+where
+    T: PartialOrd,
+    F: Fn(usize) -> T,
+{
+    assert!(n > 0);
+    let mut best_idx = 0;
+    let mut best_val = f(0);
+    for idx in 1..n {
+        let cur_val = f(idx);
+        if cur_val < best_val {
+            best_val = cur_val;
+            best_idx = idx;
+        }
+    }
+    best_idx
+}
+
+pub fn position_of_max_by<T, F>(n: usize, f: F) -> usize
+where
+    T: PartialOrd,
+    F: Fn(usize) -> T,
+{
+    assert!(n > 0);
+    let mut best_idx = 0;
+    let mut best_val = f(0);
+    for idx in 1..n {
+        let cur_val = f(idx);
+        if cur_val > best_val {
+            best_val = cur_val;
+            best_idx = idx;
+        }
+    }
+    best_idx
 }

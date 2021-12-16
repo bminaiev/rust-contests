@@ -1,5 +1,6 @@
 use crate::misc::num_traits::Number;
 
+#[derive(Copy, Clone)]
 pub struct PointT<T: Number> {
     x: T,
     y: T,
