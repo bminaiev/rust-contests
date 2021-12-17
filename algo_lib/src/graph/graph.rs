@@ -1,5 +1,7 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
+use crate::graph::edges::weighted_edge::WeightedEdge;
 use std::ops::Index;
+use crate::misc::num_traits::Number;
 
 pub struct GraphT<E>
 where
@@ -25,6 +27,18 @@ where
         Self {
             adj: vec![vec![]; n],
         }
+    }
+
+    pub fn with_edges(n: usize, edges: &[(usize, E)]) -> Self {
+        let mut cnt_adj = vec![0; n];
+        for (fr, _) in edges.iter() {
+            cnt_adj[*fr] += 1;
+        }
+        let mut adj: Vec<_> = (0..n).map(|id| Vec::with_capacity(cnt_adj[id])).collect();
+        for (fr, edge) in edges.iter() {
+            adj[*fr].push(edge.clone());
+        }
+        Self { adj }
     }
 
     pub fn add_edge(&mut self, from: usize, edge: E) {
