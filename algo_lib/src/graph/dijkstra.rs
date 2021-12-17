@@ -1,7 +1,7 @@
 use crate::collections::min_priority_queue::MinPriorityQueue;
 use crate::graph::edges::edge_trait::EdgeTrait;
 use crate::graph::edges::weighted_edge::WeightedEdge;
-use crate::graph::graph::GraphT;
+use crate::graph::graph_trait::GraphTrait;
 use crate::misc::num_traits::Number;
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Copy, Clone, Debug)]
@@ -15,12 +15,13 @@ where
     v: usize,
 }
 
-pub fn dijkstra<T>(graph: &GraphT<WeightedEdge<T>>, source: usize) -> Vec<Vertex<T>>
+pub fn dijkstra<'a, Graph, T: 'a>(graph: &'a Graph, source: usize) -> Vec<Vertex<T>>
 where
     T: Number,
     T: Ord,
+    Graph: GraphTrait<'a, WeightedEdge<T>>,
 {
-    let n = graph.vertices_num();
+    let n = graph.num_vertices();
     let mut vertices: Vec<_> = (0..n)
         .map(|v| Vertex {
             dist: T::MAX,
@@ -42,7 +43,7 @@ where
         if vertices[vertex.v] != vertex {
             continue;
         }
-        for e in graph[vertex.v].iter() {
+        for e in graph.adj(vertex.v) {
             let new_dist = vertices[vertex.v].dist + e.cost;
             if vertices[e.to()].dist > new_dist {
                 vertices[e.to()] = Vertex {

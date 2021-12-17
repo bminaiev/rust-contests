@@ -1,6 +1,6 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
 use crate::graph::edges::weighted_edge::WeightedEdge;
-use crate::graph::graph::GraphT;
+use crate::graph::simple_graph::SimpleGraphT;
 use crate::io::input::{Input, Readable};
 use crate::misc::num_traits::Number;
 
@@ -14,7 +14,7 @@ pub enum Indexation {
     FromOne,
 }
 
-impl<T> GraphT<WeightedEdge<T>>
+impl<T> SimpleGraphT<WeightedEdge<T>>
 where
     T: Number,
     T: Readable,
