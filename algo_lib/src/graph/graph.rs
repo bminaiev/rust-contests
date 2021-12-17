@@ -1,7 +1,5 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
-use crate::graph::edges::weighted_edge::WeightedEdge;
 use std::ops::Index;
-use crate::misc::num_traits::Number;
 
 pub struct GraphT<E>
 where
