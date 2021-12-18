@@ -1,29 +1,15 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
-use crate::graph::edges::weighted_edge::WeightedEdge;
+use crate::graph::edges::simple_edge::SimpleEdge;
+use crate::graph::graph_readers::config::*;
 use crate::graph::simple_graph::SimpleGraphT;
-use crate::io::input::{Input, Readable};
-use crate::misc::num_traits::Number;
+use crate::io::input::Input;
 
-pub enum Directional {
-    Directed,
-    Undirected,
-}
-
-pub enum Indexation {
-    FromZero,
-    FromOne,
-}
-
-impl<T> SimpleGraphT<WeightedEdge<T>>
-where
-    T: Number,
-    T: Readable,
-{
+impl SimpleGraphT<SimpleEdge> {
     fn read_directed_edges(
         input: &mut Input,
         num_edges: usize,
         indexation: Indexation,
-    ) -> Vec<(usize, WeightedEdge<T>)> {
+    ) -> Vec<(usize, SimpleEdge)> {
         (0..num_edges)
             .map(|_| {
                 let mut read_v = || -> usize {
@@ -34,8 +20,7 @@ where
                 };
                 let fr = read_v();
                 let to = read_v();
-                let cost: T = input.read();
-                (fr, WeightedEdge::new(to, cost))
+                (fr, SimpleEdge::new(to))
             })
             .collect()
     }
@@ -53,7 +38,7 @@ where
             Directional::Undirected => {
                 let mut rev_edges: Vec<_> = edges
                     .iter()
-                    .map(|(fr, edge)| (edge.to(), WeightedEdge::new(*fr, edge.cost)))
+                    .map(|(fr, edge)| (edge.to(), SimpleEdge::new(*fr)))
                     .collect();
                 edges.append(&mut rev_edges);
             }
