@@ -8,15 +8,6 @@ where
     adj: Vec<Vec<E>>,
 }
 
-pub struct AllNodesEdgeIter<'a, E>
-where
-    E: EdgeTrait,
-{
-    vertex: usize,
-    pos: usize,
-    graph: &'a SimpleGraphT<E>,
-}
-
 impl<E> SimpleGraphT<E>
 where
     E: EdgeTrait,
@@ -44,49 +35,26 @@ where
     }
 }
 
-impl<'a, E: 'a> Iterator for AllNodesEdgeIter<'a, E>
-where
-    E: EdgeTrait,
-{
-    type Item = (usize, &'a E);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if self.vertex == self.graph.adj.len() {
-                return None;
-            }
-            if self.graph.adj[self.vertex].len() == self.pos {
-                self.pos = 0;
-                self.vertex += 1;
-                continue;
-            }
-            let edge = &self.graph.adj[self.vertex][self.pos];
-            self.pos += 1;
-            return Some((self.vertex, edge));
-        }
-    }
-}
-
 impl<'a, E: 'a> GraphTrait<'a, E> for SimpleGraphT<E>
 where
     E: EdgeTrait,
 {
     type OneNodeEdgeIter = core::slice::Iter<'a, E>;
-    type AllNodesEdgeIter = AllNodesEdgeIter<'a, E>;
 
     fn num_vertices(&self) -> usize {
         self.adj.len()
     }
 
-    fn all_edges(&'a self) -> Self::AllNodesEdgeIter {
-        AllNodesEdgeIter {
-            vertex: 0,
-            pos: 0,
-            graph: self,
-        }
-    }
-
     fn adj(&'a self, v: usize) -> Self::OneNodeEdgeIter {
         self.adj[v].iter()
+    }
+}
+
+impl<E> SimpleGraphT<E>
+where
+    E: EdgeTrait,
+{
+    pub fn all_edges(&self) -> impl Iterator<Item = (usize, &E)> {
+        (0..self.num_vertices()).flat_map(|v| self.adj(v).map(move |e| (v, e)))
     }
 }
