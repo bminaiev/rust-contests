@@ -1,5 +1,4 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
-use crate::misc::num_traits::Number;
 
 #[derive(Copy, Clone)]
 pub struct SimpleEdge {

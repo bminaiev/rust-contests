@@ -54,7 +54,7 @@ impl<E> SimpleGraphT<E>
 where
     E: EdgeTrait,
 {
-    pub fn all_edges(&self) -> impl Iterator<Item = (usize, &E)> {
-        (0..self.num_vertices()).flat_map(|v| self.adj(v).map(move |e| (v, e)))
+    pub fn all_edges(&self) -> impl Iterator<Item = (usize, &E)> + '_ {
+        (0..self.num_vertices()).flat_map(move |v| self.adj(v).map(move |e| (v, e)))
     }
 }

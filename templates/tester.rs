@@ -127,11 +127,11 @@ pub(crate) fn run_single_test(name: &str) -> bool {
             match err.downcast::<&str>() {
                 Ok(as_string) => println!(
                     "{}Verdict: {}RuntimeError ({:?}){}",
-                    blue, red, as_string, def
+                    BLUE, RED, as_string, DEF
                 ),
                 Err(err) => println!(
                     "{}Verdict: {}RuntimeError ({:?}){}",
-                    blue, red, err, def
+                    BLUE, RED, err, DEF
                 ),
             }
             return false;
