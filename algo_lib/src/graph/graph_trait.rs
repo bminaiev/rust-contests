@@ -1,12 +1,10 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
 
-pub trait GraphTrait<'a, E: 'a>
+pub trait GraphTrait<E>
 where
     E: EdgeTrait,
 {
-    type OneNodeEdgeIter: Iterator<Item = &'a E>;
-
     fn num_vertices(&self) -> usize;
 
-    fn adj(&'a self, v: usize) -> Self::OneNodeEdgeIter;
+    fn adj(&self, v: usize) -> &[E];
 }

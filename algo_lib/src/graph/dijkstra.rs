@@ -15,11 +15,11 @@ where
     v: usize,
 }
 
-pub fn dijkstra<'a, Graph, T: 'a>(graph: &'a Graph, source: usize) -> Vec<Vertex<T>>
+pub fn dijkstra<Graph, T>(graph: &Graph, source: usize) -> Vec<Vertex<T>>
 where
     T: Number,
     T: Ord,
-    Graph: GraphTrait<'a, WeightedEdge<T>>,
+    Graph: GraphTrait<WeightedEdge<T>>,
 {
     let n = graph.num_vertices();
     let mut vertices: Vec<_> = (0..n)

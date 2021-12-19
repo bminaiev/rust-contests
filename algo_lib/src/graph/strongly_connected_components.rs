@@ -1,4 +1,3 @@
-use crate::graph::all_edges::all_graph_edges;
 use crate::graph::edges::edge_trait::EdgeTrait;
 use crate::graph::edges::simple_edge::SimpleEdge;
 use crate::graph::graph_trait::GraphTrait;
@@ -9,9 +8,9 @@ struct State {
     g_pos: i32,
 }
 
-fn dfs1<'a, G>(v: usize, used: &mut [bool], g: &'a G, order: &mut Vec<i32>)
+fn dfs1<G>(v: usize, used: &mut [bool], g: &G, order: &mut Vec<i32>)
 where
-    G: GraphTrait<'a, SimpleEdge>,
+    G: GraphTrait<SimpleEdge>,
 {
     let n = g.num_vertices();
     let mut stack = Vec::with_capacity(n);
@@ -23,7 +22,7 @@ where
     while !stack.is_empty() {
         let cur_state = stack.last_mut().unwrap();
         let edges = g.adj(cur_state.v as usize);
-        match edges.skip(cur_state.g_pos as usize).next() {
+        match edges.get(cur_state.g_pos as usize) {
             None => {
                 order.push(cur_state.v);
                 stack.pop();
@@ -45,14 +44,9 @@ where
     }
 }
 
-fn dfs2<'a, G: 'a>(
-    v: usize,
-    used: &mut [bool],
-    g_rev: &'a G,
-    cur_comp_id: usize,
-    comp_id: &mut [usize],
-) where
-    G: GraphTrait<'a, SimpleEdge>,
+fn dfs2<'a, G>(v: usize, used: &mut [bool], g_rev: &'a G, cur_comp_id: usize, comp_id: &mut [usize])
+where
+    G: GraphTrait<SimpleEdge>,
 {
     let mut stack = vec![];
     stack.push(State {
@@ -61,15 +55,14 @@ fn dfs2<'a, G: 'a>(
     });
     while !stack.is_empty() {
         let cur_state = stack.last_mut().unwrap();
-        if g_rev.adj(cur_state.v as usize).count() == cur_state.g_pos as usize {
+        if g_rev.adj(cur_state.v as usize).len() == cur_state.g_pos as usize {
             comp_id[cur_state.v as usize] = cur_comp_id;
             stack.pop();
             continue;
         }
         let next = g_rev
             .adj(cur_state.v as usize)
-            .skip(cur_state.g_pos as usize)
-            .next()
+            .get(cur_state.g_pos as usize)
             .unwrap()
             .to() as usize;
         if used[next] {
@@ -84,20 +77,25 @@ fn dfs2<'a, G: 'a>(
     }
 }
 
-fn rev_graph<'a, G>(graph: &'a G) -> impl GraphTrait<SimpleEdge>
+fn rev_graph<G>(graph: &G) -> impl GraphTrait<SimpleEdge>
 where
-    G: GraphTrait<'a, SimpleEdge>,
+    G: GraphTrait<SimpleEdge>,
 {
-    let rev_edges: Vec<_> = all_graph_edges(graph)
-        .map(|(fr, edge)| (edge.to(), SimpleEdge::new(fr)))
+    let rev_edges: Vec<_> = (0..graph.num_vertices())
+        .flat_map(move |v| {
+            graph
+                .adj(v)
+                .iter()
+                .map(move |edge| (edge.to(), SimpleEdge::new(v)))
+        })
         .collect();
     SimpleGraphT::with_edges(graph.num_vertices(), &rev_edges)
 }
 
 // TODO: usize -> u32
-pub fn find_strongly_connected_component<'a, G>(graph: &'a G) -> Vec<usize>
+pub fn find_strongly_connected_component<G>(graph: &G) -> Vec<usize>
 where
-    G: GraphTrait<'a, SimpleEdge>,
+    G: GraphTrait<SimpleEdge>,
 {
     let n = graph.num_vertices();
     let mut comp_id = vec![0; n];

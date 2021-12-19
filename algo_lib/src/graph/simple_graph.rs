@@ -35,18 +35,16 @@ where
     }
 }
 
-impl<'a, E: 'a> GraphTrait<'a, E> for SimpleGraphT<E>
+impl<E> GraphTrait<E> for SimpleGraphT<E>
 where
     E: EdgeTrait,
 {
-    type OneNodeEdgeIter = core::slice::Iter<'a, E>;
-
     fn num_vertices(&self) -> usize {
         self.adj.len()
     }
 
-    fn adj(&'a self, v: usize) -> Self::OneNodeEdgeIter {
-        self.adj[v].iter()
+    fn adj(&self, v: usize) -> &[E] {
+        &self.adj[v]
     }
 }
 
@@ -55,6 +53,6 @@ where
     E: EdgeTrait,
 {
     pub fn all_edges(&self) -> impl Iterator<Item = (usize, &E)> + '_ {
-        (0..self.num_vertices()).flat_map(move |v| self.adj(v).map(move |e| (v, e)))
+        (0..self.num_vertices()).flat_map(move |v| self.adj[v].iter().map(move |e| (v, e)))
     }
 }
