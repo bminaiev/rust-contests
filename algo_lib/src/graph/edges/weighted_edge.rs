@@ -26,6 +26,7 @@ impl<T> EdgeTrait for WeightedEdge<T>
 where
     T: Number,
 {
+    #[inline(always)]
     fn to(&self) -> usize {
         self.to as usize
     }

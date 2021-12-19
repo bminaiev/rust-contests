@@ -81,15 +81,22 @@ fn rev_graph<G>(graph: &G) -> impl GraphTrait<SimpleEdge>
 where
     G: GraphTrait<SimpleEdge>,
 {
-    let rev_edges: Vec<_> = (0..graph.num_vertices())
-        .flat_map(move |v| {
+    let mut expected_num_edges = vec![0u32; graph.num_vertices()];
+    let iter = || {
+        (0..graph.num_vertices()).flat_map(move |v| {
             graph
                 .adj(v)
                 .iter()
                 .map(move |edge| (edge.to(), SimpleEdge::new(v)))
         })
+    };
+    iter().for_each(|(fr, _edge)| expected_num_edges[fr] += 1);
+    let mut adj: Vec<_> = expected_num_edges
+        .iter()
+        .map(|&size| Vec::with_capacity(size as usize))
         .collect();
-    SimpleGraphT::with_edges(graph.num_vertices(), &rev_edges)
+    iter().for_each(|(fr, edge)| adj[fr].push(edge));
+    SimpleGraphT::with_adj(adj)
 }
 
 // TODO: usize -> u32

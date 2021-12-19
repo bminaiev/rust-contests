@@ -18,12 +18,18 @@ where
         }
     }
 
+    pub fn with_adj(adj: Vec<Vec<E>>) -> Self {
+        Self { adj }
+    }
+
     pub fn with_edges(n: usize, edges: &[(usize, E)]) -> Self {
-        let mut cnt_adj = vec![0; n];
+        let mut cnt_adj = vec![0u32; n];
         for (fr, _) in edges.iter() {
             cnt_adj[*fr] += 1;
         }
-        let mut adj: Vec<_> = (0..n).map(|id| Vec::with_capacity(cnt_adj[id])).collect();
+        let mut adj: Vec<_> = (0..n)
+            .map(|id| Vec::with_capacity(cnt_adj[id] as usize))
+            .collect();
         for (fr, edge) in edges.iter() {
             adj[*fr].push(edge.clone());
         }

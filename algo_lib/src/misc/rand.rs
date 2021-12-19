@@ -29,4 +29,14 @@ impl Random {
         assert_ne!(seed, 0);
         Self { state: seed }
     }
+
+    #[allow(dead_code)]
+    pub fn next_permutation(&mut self, n: usize) -> Vec<usize> {
+        let mut result: Vec<_> = (0..n).collect();
+        for i in 0..n {
+            let idx = self.next_in_range(0, i + 1);
+            result.swap(i, idx);
+        }
+        result
+    }
 }

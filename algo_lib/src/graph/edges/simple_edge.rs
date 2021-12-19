@@ -12,6 +12,7 @@ impl SimpleEdge {
 }
 
 impl EdgeTrait for SimpleEdge {
+    #[inline(always)]
     fn to(&self) -> usize {
         self.to as usize
     }
