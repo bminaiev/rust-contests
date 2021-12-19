@@ -1,6 +1,6 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct SimpleEdge {
     to: u32,
 }

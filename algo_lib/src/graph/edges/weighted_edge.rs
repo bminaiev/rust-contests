@@ -1,7 +1,7 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
 use crate::misc::num_traits::Number;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct WeightedEdge<T>
 where
     T: Number,
