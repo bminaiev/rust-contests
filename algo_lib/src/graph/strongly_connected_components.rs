@@ -121,26 +121,3 @@ where
     }
     comp_id
 }
-
-pub fn find_order<G>(graph: &G) -> Vec<u32>
-where
-    G: GraphTrait<SimpleEdge>,
-{
-    let n = graph.num_vertices();
-    let mut used = BitSet::new(n);
-    let n = graph.num_vertices();
-    let mut stack = vec![];
-
-    let mut order: Vec<u32> = Vec::with_capacity(n);
-    {
-        let before = Instant::now();
-        for v in 0..n {
-            if !used.get(v) {
-                dfs1(v, &mut stack, &mut used, graph, &mut order);
-            }
-        }
-        dbg!("dfs1", before.elapsed().as_millis());
-    }
-
-    order
-}
