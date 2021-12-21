@@ -1,3 +1,4 @@
+use crate::collections::bit_set::BitSet;
 use crate::dbg;
 use crate::graph::compressed_graph::CompressedGraph;
 use crate::graph::edges::edge_trait::EdgeTrait;
@@ -10,7 +11,7 @@ struct State {
     g_pos: u32,
 }
 
-fn dfs1<G>(v: usize, stack: &mut Vec<State>, used: &mut [bool], g: &G, order: &mut Vec<u32>)
+fn dfs1<G>(v: usize, stack: &mut Vec<State>, used: &mut BitSet, g: &G, order: &mut Vec<u32>)
 where
     G: GraphTrait<SimpleEdge>,
 {
@@ -18,7 +19,7 @@ where
         v: v as u32,
         g_pos: 0,
     });
-    used[v] = true;
+    used.set(v, true);
     while !stack.is_empty() {
         let cur_state = stack.last_mut().unwrap();
         let edges = g.adj(cur_state.v as usize);
@@ -31,11 +32,11 @@ where
                 }
                 Some(edge) => {
                     let next = edge.to();
-                    if used[next] {
+                    if used.get(next) {
                         cur_state.g_pos += 1;
                         continue;
                     }
-                    used[next] = true;
+                    used.set(next, true);
                     stack.push(State {
                         v: next as u32,
                         g_pos: 0,
@@ -50,7 +51,7 @@ where
 fn dfs2<G>(
     v: usize,
     stack: &mut Vec<State>,
-    used: &mut [bool],
+    used: &mut BitSet,
     g_rev: &G,
     cur_comp_id: u32,
     comp_id: &mut [u32],
@@ -72,11 +73,11 @@ fn dfs2<G>(
             }
             Some(edge) => {
                 let next = edge.to();
-                if used[next] {
+                if used.get(next) {
                     cur_state.g_pos += 1;
                     continue;
                 }
-                used[next] = true;
+                used.set(next, true);
                 stack.push(State {
                     v: next as u32,
                     g_pos: 0,
@@ -101,38 +102,32 @@ where
     CompressedGraph::with_edge_iter(graph.num_vertices(), iter())
 }
 
-// TODO: usize -> u32
 pub fn find_strongly_connected_component<G>(graph: &G) -> Vec<u32>
 where
     G: GraphTrait<SimpleEdge>,
 {
     let n = graph.num_vertices();
     let mut comp_id = vec![0; n];
-    let mut used = vec![false; n];
+    let mut used = BitSet::new(n);
     let n = graph.num_vertices();
     let mut stack = vec![];
 
     let mut order: Vec<u32> = Vec::with_capacity(n);
     {
-        let before = Instant::now();
         for v in 0..n {
-            if !used[v] {
+            if !used.get(v) {
                 dfs1(v, &mut stack, &mut used, graph, &mut order);
             }
         }
-        dbg!("dfs1", before.elapsed().as_millis());
     }
 
-    let mut used = vec![false; n];
+    used.clear();
     let mut cur_comp_id = 0;
     {
-        let before = Instant::now();
         let rev_graph = rev_graph(graph);
-        dbg!("rev graph", before.elapsed().as_millis());
 
-        let before = Instant::now();
         for &v in order.iter().rev() {
-            if used[v as usize] {
+            if used.get(v as usize) {
                 continue;
             }
             dfs2(
@@ -145,7 +140,29 @@ where
             );
             cur_comp_id += 1;
         }
-        dbg!("dfs2", before.elapsed().as_millis());
     }
     comp_id
+}
+
+pub fn find_order<G>(graph: &G) -> Vec<u32>
+where
+    G: GraphTrait<SimpleEdge>,
+{
+    let n = graph.num_vertices();
+    let mut used = BitSet::new(n);
+    let n = graph.num_vertices();
+    let mut stack = vec![];
+
+    let mut order: Vec<u32> = Vec::with_capacity(n);
+    {
+        let before = Instant::now();
+        for v in 0..n {
+            if !used.get(v) {
+                dfs1(v, &mut stack, &mut used, graph, &mut order);
+            }
+        }
+        dbg!("dfs1", before.elapsed().as_millis());
+    }
+
+    order
 }
