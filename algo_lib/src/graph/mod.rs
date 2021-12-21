@@ -1,4 +1,5 @@
 pub mod compressed_graph;
+pub mod dfs_builder;
 pub mod dijkstra;
 pub mod dsu;
 pub mod edges;
