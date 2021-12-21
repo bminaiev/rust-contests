@@ -6,43 +6,30 @@ use crate::graph::edges::simple_edge::SimpleEdge;
 use crate::graph::graph_trait::GraphTrait;
 use std::time::Instant;
 
-struct State {
-    v: u32,
-    g_pos: u32,
+enum Frame {
+    Check(u32),
+    RemoveFrom(u32),
 }
 
-fn dfs1<G>(v: usize, stack: &mut Vec<State>, used: &mut BitSet, g: &G, order: &mut Vec<u32>)
+fn dfs1<G>(v: usize, stack: &mut Vec<Frame>, used: &mut BitSet, g: &G, order: &mut Vec<u32>)
 where
     G: GraphTrait<SimpleEdge>,
 {
-    stack.push(State {
-        v: v as u32,
-        g_pos: 0,
-    });
-    used.set(v, true);
-    while !stack.is_empty() {
-        let cur_state = stack.last_mut().unwrap();
-        let edges = g.adj(cur_state.v as usize);
-        loop {
-            match edges.get(cur_state.g_pos as usize) {
-                None => {
-                    order.push(cur_state.v);
-                    stack.pop();
-                    break;
-                }
-                Some(edge) => {
-                    let next = edge.to();
-                    if used.get(next) {
-                        cur_state.g_pos += 1;
-                        continue;
+    stack.push(Frame::Check(v as u32));
+    while let Some(frame) = stack.pop() {
+        match frame {
+            Frame::Check(v) => {
+                let v = v as usize;
+                if !used.get(v) {
+                    stack.push(Frame::RemoveFrom(v as u32));
+                    used.set(v, true);
+                    for edge in g.adj(v) {
+                        stack.push(Frame::Check(edge.to() as u32));
                     }
-                    used.set(next, true);
-                    stack.push(State {
-                        v: next as u32,
-                        g_pos: 0,
-                    });
-                    break;
                 }
+            }
+            Frame::RemoveFrom(v) => {
+                order.push(v);
             }
         }
     }
@@ -50,7 +37,7 @@ where
 
 fn dfs2<G>(
     v: usize,
-    stack: &mut Vec<State>,
+    stack: &mut Vec<Frame>,
     used: &mut BitSet,
     g_rev: &G,
     cur_comp_id: u32,
@@ -58,30 +45,21 @@ fn dfs2<G>(
 ) where
     G: GraphTrait<SimpleEdge>,
 {
-    stack.push(State {
-        v: v as u32,
-        g_pos: 0,
-    });
-    while !stack.is_empty() {
-        let cur_state = stack.last_mut().unwrap();
-        let adj = g_rev.adj(cur_state.v as usize);
-        match adj.get(cur_state.g_pos as usize) {
-            None => {
-                comp_id[cur_state.v as usize] = cur_comp_id;
-                stack.pop();
-                continue;
-            }
-            Some(edge) => {
-                let next = edge.to();
-                if used.get(next) {
-                    cur_state.g_pos += 1;
-                    continue;
+    stack.push(Frame::Check(v as u32));
+    while let Some(frame) = stack.pop() {
+        match frame {
+            Frame::Check(v) => {
+                let v = v as usize;
+                if !used.get(v) {
+                    used.set(v, true);
+                    comp_id[v] = cur_comp_id;
+                    for edge in g_rev.adj(v) {
+                        stack.push(Frame::Check(edge.to() as u32));
+                    }
                 }
-                used.set(next, true);
-                stack.push(State {
-                    v: next as u32,
-                    g_pos: 0,
-                });
+            }
+            Frame::RemoveFrom(_v) => {
+                unreachable!();
             }
         }
     }
