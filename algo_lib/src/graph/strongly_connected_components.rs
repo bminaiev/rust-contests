@@ -1,5 +1,5 @@
 use crate::graph::compressed_graph::CompressedGraph;
-use crate::graph::dfs_builder::DfsBuilder;
+use crate::graph::dfs_builder::dfs_builder;
 use crate::graph::edges::edge_trait::EdgeTrait;
 use crate::graph::edges::simple_edge::SimpleEdge;
 use crate::graph::graph_trait::GraphTrait;
@@ -27,7 +27,7 @@ where
 
     let mut order: Vec<u32> = Vec::with_capacity(n);
     {
-        let mut dfs1 = DfsBuilder::new(graph, &mut order)
+        let mut dfs1 = dfs_builder(graph, &mut order)
             .on_exit(|_parent, edge, order| order.push(edge.to() as u32));
         for v in 0..n {
             if !dfs1.seen(v) {
@@ -40,7 +40,7 @@ where
     {
         let rev_graph = rev_graph(graph);
 
-        let mut dfs2 = DfsBuilder::new(&rev_graph, &mut dfs2_state)
+        let mut dfs2 = dfs_builder(&rev_graph, &mut dfs2_state)
             .on_exit(|_parent, edge, (comp_id, cur_comp_id)| comp_id[edge.to()] = *cur_comp_id);
 
         for &v in order.iter().rev() {
