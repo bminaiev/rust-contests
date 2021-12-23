@@ -1,8 +1,9 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
-pub mod io;
-pub mod misc;
+pub mod collections;
+pub mod flows;
 pub mod geometry;
 pub mod graph;
-pub mod collections;
+pub mod io;
+pub mod misc;
