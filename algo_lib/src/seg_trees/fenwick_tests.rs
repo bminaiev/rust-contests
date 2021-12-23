@@ -32,24 +32,22 @@ fn stress_speed() {
     const MAX_N: usize = 1_000_000;
     const MAX_VAL: i32 = 1_000_000;
     const TESTS_N: usize = 1;
-    const OPS_IN_TEST: usize = 20_000_000;
+    const OPS_IN_TEST: usize = 2_000_000;
 
     for t in 0..TESTS_N {
         let mut rnd = Random::new((787788 + t) as u64);
-        let now = std::time::Instant::now();
         let n: usize = MAX_N;
         let mut tree = Fenwick::new(n);
-        let mut tot_sum = 0;
+        let mut tot_sum = 0i64;
         for _ in 0..OPS_IN_TEST {
             let pos = rnd.next_in_range(0, n);
             if rnd.next_double() < 0.5 {
-                tot_sum += tree.get_sum(pos);
+                tot_sum = tot_sum.wrapping_add(tree.get_sum(pos));
             } else {
                 let change = rnd.next_in_range(0, MAX_VAL as usize) as i64;
                 tree.add(pos, change);
             }
         }
-        eprintln!("hash val: {}", tot_sum);
-        eprintln!("done with test in {}ms", now.elapsed().as_millis());
+        assert_eq!(tot_sum, 125444302603516839);
     }
 }
