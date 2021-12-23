@@ -7,3 +7,4 @@ pub mod geometry;
 pub mod graph;
 pub mod io;
 pub mod misc;
+pub mod math;
