@@ -15,6 +15,7 @@ pub trait Number:
     + Mul<Output = Self>
     + MulAssign
     + HasConstants<Self>
+    + Default
 {
 }
 
@@ -26,7 +27,8 @@ impl<
             + SubAssign
             + Mul<Output = Self>
             + MulAssign
-            + HasConstants<Self>,
+            + HasConstants<Self>
+            + Default,
     > Number for T
 {
 }

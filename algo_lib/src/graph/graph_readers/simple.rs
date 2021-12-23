@@ -1,7 +1,7 @@
+use crate::graph::compressed_graph::CompressedGraph;
 use crate::graph::edges::edge_trait::EdgeTrait;
 use crate::graph::edges::simple_edge::SimpleEdge;
 use crate::graph::graph_readers::config::*;
-use crate::graph::simple_graph::SimpleGraphT;
 use crate::io::input::Input;
 
 fn read_directed_edges(
@@ -30,7 +30,7 @@ pub fn read_graph(
     num_edges: usize,
     directional: Directional,
     indexation: Indexation,
-) -> SimpleGraphT<SimpleEdge> {
+) -> CompressedGraph<SimpleEdge> {
     let mut edges = read_directed_edges(input, num_edges, indexation);
     match directional {
         Directional::Directed => (),
@@ -42,5 +42,5 @@ pub fn read_graph(
             edges.append(&mut rev_edges);
         }
     };
-    SimpleGraphT::with_edges(num_vertices, &edges)
+    CompressedGraph::with_edge_iter(num_vertices, edges.iter().map(|(fr, edge)| (*fr, *edge)))
 }

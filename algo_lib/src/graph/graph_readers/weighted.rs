@@ -1,7 +1,7 @@
+use crate::graph::compressed_graph::CompressedGraph;
 use crate::graph::edges::edge_trait::EdgeTrait;
 use crate::graph::edges::weighted_edge::WeightedEdge;
 use crate::graph::graph_readers::config::*;
-use crate::graph::simple_graph::SimpleGraphT;
 use crate::io::input::{Input, Readable};
 use crate::misc::num_traits::Number;
 
@@ -35,7 +35,7 @@ pub fn read_weighted_graph<T>(
     num_edges: usize,
     directional: Directional,
     indexation: Indexation,
-) -> SimpleGraphT<WeightedEdge<T>>
+) -> CompressedGraph<WeightedEdge<T>>
 where
     T: Number + Readable,
 {
@@ -50,5 +50,5 @@ where
             edges.append(&mut rev_edges);
         }
     };
-    SimpleGraphT::with_edges(num_vertices, &edges)
+    CompressedGraph::with_edge_iter(num_vertices, edges.iter().map(|(fr, edge)| (*fr, *edge)))
 }
