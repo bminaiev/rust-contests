@@ -6,5 +6,6 @@ pub mod flows;
 pub mod geometry;
 pub mod graph;
 pub mod io;
-pub mod misc;
 pub mod math;
+pub mod misc;
+pub mod seg_trees;
