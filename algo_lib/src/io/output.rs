@@ -32,6 +32,7 @@ impl Output {
         if self.at != 0 {
             self.output.write_all(&self.buf[..self.at]).unwrap();
             self.at = 0;
+            self.output.flush().expect("Couldn't flush output");
         }
     }
 
