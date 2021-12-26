@@ -10,5 +10,5 @@ pub(crate) fn run(mut input: Input) -> bool {
     }
     output().flush();
     input.skip_whitespace();
-    !input.peek().is_some()
+    input.peek().is_none()
 }
