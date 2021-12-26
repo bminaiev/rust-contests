@@ -201,7 +201,7 @@ pub type Mod9 = ModWithValue<Value9>;
 #[allow(non_camel_case_types)]
 pub struct Value_998_244_353();
 impl ConstValue for Value_998_244_353 {
-    const VAL: i32 = 1_000_000_007;
+    const VAL: i32 = 998_244_353;
 }
 #[allow(non_camel_case_types)]
 pub type Mod_998_244_353 = ModWithValue<Value_998_244_353>;
