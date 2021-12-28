@@ -19,3 +19,22 @@ where
         self
     }
 }
+
+pub trait ApplyDelta2<T> {
+    fn add_to_all(&mut self, delta: T);
+    fn sub_from_all(&mut self, sub: T);
+}
+
+impl<T> ApplyDelta2<T> for [T]
+where
+    T: Number,
+    T: Sized,
+{
+    fn add_to_all(self: &mut [T], delta: T) {
+        self.iter_mut().for_each(|x| *x += delta);
+    }
+
+    fn sub_from_all(&mut self, sub: T) {
+        self.iter_mut().for_each(|x| *x -= sub);
+    }
+}

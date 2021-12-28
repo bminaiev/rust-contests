@@ -1,3 +1,5 @@
+use crate::io::output::{Output, Writable};
+use std::io::Write;
 use std::marker::PhantomData;
 
 pub trait Value {
@@ -170,6 +172,15 @@ where
 {
     fn div_assign(&mut self, rhs: Self) {
         *self *= rhs.inv();
+    }
+}
+
+impl<M> Writable for ModWithValue<M>
+where
+    M: Value,
+{
+    fn write(&self, output: &mut Output) {
+        output.write_fmt(format_args!("{}", self.0)).unwrap();
     }
 }
 
