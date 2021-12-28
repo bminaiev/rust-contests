@@ -2,8 +2,8 @@ use crate::misc::num_traits::Number;
 
 #[derive(Copy, Clone)]
 pub struct PointT<T: Number> {
-    x: T,
-    y: T,
+    pub x: T,
+    pub y: T,
 }
 
 impl<T: Number> PointT<T> {
