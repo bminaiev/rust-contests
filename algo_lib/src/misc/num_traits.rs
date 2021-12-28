@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 pub trait HasConstants<T> {
@@ -24,6 +26,8 @@ pub trait Number:
     + PartialEq
     + HasConstants<Self>
     + Default
+    + TryFrom<i32>
+    + Debug
 {
 }
 
@@ -42,7 +46,9 @@ impl<
             + Eq
             + PartialEq
             + HasConstants<Self>
-            + Default,
+            + Default
+            + TryFrom<i32>
+            + Debug,
     > Number for T
 {
 }

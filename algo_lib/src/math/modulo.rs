@@ -1,4 +1,6 @@
 use crate::io::output::{Output, Writable};
+use crate::misc::num_traits::HasConstants;
+use std::convert::TryFrom;
 use std::io::Write;
 use std::marker::PhantomData;
 
@@ -6,7 +8,7 @@ pub trait Value {
     fn val() -> i32;
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
 pub struct ModWithValue<M>(i32, PhantomData<M>)
 where
     M: Value;
@@ -20,6 +22,9 @@ where
 
     #[allow(unused)]
     pub const ONE: Self = Self(1, PhantomData);
+
+    #[allow(unused)]
+    pub const TWO: Self = Self(2, PhantomData);
 
     fn rev_rec(a: i32, m: i32) -> i32 {
         if a == 1 {
@@ -184,7 +189,30 @@ where
     }
 }
 
-pub trait ConstValue: Value {
+impl<M> HasConstants<ModWithValue<M>> for ModWithValue<M>
+where
+    M: Value,
+{
+    // This doesn't make much sense, but hope we never use
+    const MAX: ModWithValue<M> = ModWithValue::ZERO;
+    const MIN: ModWithValue<M> = ModWithValue::ZERO;
+    const ZERO: ModWithValue<M> = ModWithValue::ZERO;
+    const ONE: ModWithValue<M> = ModWithValue::ONE;
+    const TWO: ModWithValue<M> = ModWithValue::TWO;
+}
+
+impl<M> TryFrom<i32> for ModWithValue<M>
+where
+    M: Value,
+{
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        Ok(ModWithValue::new(value))
+    }
+}
+
+pub trait ConstValue: Value + Copy {
     const VAL: i32;
 }
 
@@ -194,21 +222,21 @@ impl<V: ConstValue> Value for V {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
 pub struct Value7();
 impl ConstValue for Value7 {
     const VAL: i32 = 1_000_000_007;
 }
 pub type Mod7 = ModWithValue<Value7>;
 
-#[derive(Copy, Clone, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
 pub struct Value9();
 impl ConstValue for Value9 {
     const VAL: i32 = 1_000_000_009;
 }
 pub type Mod9 = ModWithValue<Value9>;
 
-#[derive(Copy, Clone, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
 #[allow(non_camel_case_types)]
 pub struct Value_998_244_353();
 impl ConstValue for Value_998_244_353 {
