@@ -10,6 +10,11 @@ pub trait HasConstants<T> {
     const TWO: T;
 }
 
+pub trait ConvI32<T> {
+    fn from_i32(val: i32) -> T;
+    fn to_i32(self) -> i32;
+}
+
 pub trait Number:
     Copy
     + Add<Output = Self>
@@ -26,8 +31,9 @@ pub trait Number:
     + PartialEq
     + HasConstants<Self>
     + Default
-    + TryFrom<i32>
     + Debug
+    + Sized
+    + ConvI32<Self>
 {
 }
 
@@ -47,8 +53,9 @@ impl<
             + PartialEq
             + HasConstants<Self>
             + Default
-            + TryFrom<i32>
-            + Debug,
+            + Debug
+            + Sized
+            + ConvI32<Self>,
     > Number for T
 {
 }
@@ -61,6 +68,16 @@ macro_rules! has_constants_impl {
             const ZERO: $t = 0;
             const ONE: $t = 1;
             const TWO: $t = 2;
+        }
+
+        impl ConvI32<$t> for $t {
+            fn from_i32(val: i32) -> $t {
+                val as $t
+            }
+
+            fn to_i32(self) -> i32 {
+                self as i32
+            }
         }
     };
 }

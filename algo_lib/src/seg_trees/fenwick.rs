@@ -26,7 +26,7 @@ impl Fenwick {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn new(n: usize) -> Self {
+    pub fn new(n: usize) -> Self {
         let values = vec![0; n];
         Fenwick { values }
     }

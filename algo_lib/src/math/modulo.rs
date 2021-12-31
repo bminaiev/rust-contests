@@ -1,5 +1,5 @@
 use crate::io::output::{Output, Writable};
-use crate::misc::num_traits::HasConstants;
+use crate::misc::num_traits::{ConvI32, HasConstants};
 use std::convert::TryFrom;
 use std::io::Write;
 use std::marker::PhantomData;
@@ -201,14 +201,16 @@ where
     const TWO: ModWithValue<M> = ModWithValue::TWO;
 }
 
-impl<M> TryFrom<i32> for ModWithValue<M>
+impl<M> ConvI32<ModWithValue<M>> for ModWithValue<M>
 where
     M: Value,
 {
-    type Error = ();
+    fn from_i32(val: i32) -> ModWithValue<M> {
+        ModWithValue::new(val)
+    }
 
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        Ok(ModWithValue::new(value))
+    fn to_i32(self) -> i32 {
+        self.0
     }
 }
 

@@ -21,7 +21,7 @@ where
         assert_eq!(fact_inv.len(), n + 1);
         fact_inv[n] = T::ONE / fact_inv[n];
         for i in (1..n).rev() {
-            fact_inv[i] = fact_inv[i + 1] * T::try_from((i + 1) as i32).unwrap_or(T::ZERO);
+            fact_inv[i] = fact_inv[i + 1] * T::from_i32((i + 1) as i32);
         }
         Self { fact, fact_inv }
     }

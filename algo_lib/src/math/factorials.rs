@@ -7,7 +7,7 @@ where
     let mut res = Vec::with_capacity(n);
     res.push(T::ONE);
     for x in 1..=n {
-        let num = T::try_from(x as i32).unwrap_or(T::ZERO);
+        let num = T::from_i32(x as i32);
         res.push(*res.last().unwrap() * num);
     }
     res
