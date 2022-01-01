@@ -6,3 +6,4 @@ pub mod num_traits;
 pub mod pref_sum;
 pub mod rand;
 pub mod vec_apply_delta;
+pub mod bump_allocator;
