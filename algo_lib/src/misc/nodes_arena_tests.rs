@@ -40,6 +40,13 @@ fn simple() {
             println!("{:?}, {:?}", refer.get(), refer2.get());
             let sum = refer.get().0 + refer2.get().0;
             assert_eq!(sum, 123 + 787788);
+            let zz = refer.get();
+            let old_zz = zz.0;
+            let _ids: Vec<_> = (0..100)
+                .map(|_| Arena::alloc(T(refer.get().0 + refer2.get().0 + zz.0)))
+                .collect();
+            assert_eq!(old_zz, zz.0);
+            Arena::alloc(T(zz.0));
             refer.clone()
         };
         println!("{:?}", refer3.get());
@@ -47,5 +54,5 @@ fn simple() {
     {
         let _refer4 = Arena::alloc(T(100));
     }
-    assert_eq!(arena().total_elements(), 2);
+    assert_eq!(arena().total_elements(), 103);
 }

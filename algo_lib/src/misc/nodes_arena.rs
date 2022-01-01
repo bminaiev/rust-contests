@@ -49,7 +49,8 @@ where
 {
     pub fn new() -> Self {
         Self {
-            elements: vec![],
+            // TODO: fix this
+            elements: Vec::with_capacity(1_000_000),
             empty: vec![],
         }
     }
