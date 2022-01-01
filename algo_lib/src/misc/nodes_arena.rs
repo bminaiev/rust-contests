@@ -103,3 +103,14 @@ where
         Self(self.0, self.1, self.2)
     }
 }
+
+impl<AC, T> ArenaRef<AC, T>
+where
+    AC: ArenaContainer<T>,
+    T: Clone,
+{
+    pub fn get(&self) -> &T {
+        let arena = AC::arena();
+        &arena.elements[self.0 as usize].element
+    }
+}

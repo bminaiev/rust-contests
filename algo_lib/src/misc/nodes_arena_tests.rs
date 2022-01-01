@@ -1,4 +1,4 @@
-use crate::misc::nodes_arena::{ArenaContainer, NodesArena};
+use crate::misc::nodes_arena::{ArenaContainer, ArenaRef, NodesArena};
 
 #[test]
 fn simple() {
@@ -18,26 +18,34 @@ fn simple() {
         }
     }
 
-    struct ArenaContainerImpl;
-    impl ArenaContainer<T> for ArenaContainerImpl {
+    struct Arena;
+    impl ArenaContainer<T> for Arena {
         fn arena() -> &'static mut NodesArena<T> {
             arena()
         }
     }
 
+    impl Arena {
+        pub fn alloc(element: T) -> ArenaRef<Self, T> {
+            arena().alloc::<Self>(element)
+        }
+    }
+
     {
         let refer3 = {
-            let refer = arena().alloc::<ArenaContainerImpl>(T(123));
-            let elem = &arena()[&refer];
+            let refer = Arena::alloc(T(123));
+            let elem = refer.get();
             println!("{:?}", elem);
-            let refer2 = arena().alloc::<ArenaContainerImpl>(T(787788));
-            println!("{:?}, {:?}", arena()[&refer], arena()[&refer2]);
+            let refer2 = Arena::alloc(T(787788));
+            println!("{:?}, {:?}", refer.get(), refer2.get());
+            let sum = refer.get().0 + refer2.get().0;
+            assert_eq!(sum, 123 + 787788);
             refer.clone()
         };
-        println!("{:?}", arena()[&refer3]);
+        println!("{:?}", refer3.get());
     }
     {
-        let _refer4 = arena().alloc::<ArenaContainerImpl>(T(100));
+        let _refer4 = Arena::alloc(T(100));
     }
     assert_eq!(arena().total_elements(), 2);
 }
