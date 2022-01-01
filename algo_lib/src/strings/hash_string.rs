@@ -1,6 +1,6 @@
 use crate::misc::binary_search::binary_search_last_true;
 use crate::misc::num_traits::Number;
-use crate::seg_trees::persistent_tree::{PersistentTree, PersistentTreeNode};
+use crate::seg_trees::persistent_tree::{PersistentTree, PersistentTreeNode, PersistentTreeWithoutLinks};
 use std::cmp::{max, min, Ordering};
 use std::ops::Range;
 use std::rc::Rc;
@@ -13,6 +13,7 @@ where
     multiplier: M,
 }
 
+#[derive(Copy, Clone)]
 pub struct Node<M>
 where
     M: Number,
@@ -60,7 +61,7 @@ where
         *update
     }
 
-    fn join(ctx: &Self::Context, lhs: &PersistentTree<Self>, rhs: &PersistentTree<Self>) -> Self {
+    fn join(ctx: &Self::Context, lhs: &PersistentTreeWithoutLinks<Self>, rhs: &PersistentTreeWithoutLinks<Self>) -> Self {
         Self {
             hash: lhs.node().hash * ctx.powers[rhs.size()] + rhs.node().hash,
             hash_rev: rhs.node().hash_rev * ctx.powers[lhs.size()] + lhs.node().hash_rev,
@@ -99,7 +100,7 @@ where
         str: &Rc<PersistentTree<Node<M>>>,
         range: Range<usize>,
     ) -> Rc<PersistentTree<Node<M>>> {
-        PersistentTree::calc(self, str, range)
+        PersistentTree::calc_and_save(self, str, range)
     }
 
     pub fn rev(&self, str: &Rc<PersistentTree<Node<M>>>) -> Rc<PersistentTree<Node<M>>> {
