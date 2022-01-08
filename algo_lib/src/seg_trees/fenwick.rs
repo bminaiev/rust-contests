@@ -17,6 +17,12 @@ impl Fenwick {
         }
     }
 
+    pub fn get_suffix_sum(&self, pos: usize) -> i64 {
+        let total = self.get_sum(self.values.len() - 1);
+        let before = if pos == 0 { 0 } else { self.get_sum(pos - 1) };
+        total - before
+    }
+
     #[allow(dead_code)]
     pub fn add(&mut self, mut pos: usize, change: i64) {
         while pos < self.values.len() {
@@ -29,5 +35,9 @@ impl Fenwick {
     pub fn new(n: usize) -> Self {
         let values = vec![0; n];
         Fenwick { values }
+    }
+
+    pub fn new_pow2(n: usize) -> Self {
+        Self::new(n.next_power_of_two())
     }
 }

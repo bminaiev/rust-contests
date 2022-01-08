@@ -42,8 +42,15 @@ where
     pub fn new(mut x: i32) -> Self {
         if x < 0 {
             x += M::val();
+            if x < 0 {
+                x %= M::val();
+                x += M::val();
+            }
         } else if x >= M::val() {
             x -= M::val();
+            if x >= M::val() {
+                x %= M::val();
+            }
         }
         assert!(0 <= x && x < M::val());
         Self(x, PhantomData)

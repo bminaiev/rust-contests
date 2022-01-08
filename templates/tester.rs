@@ -1,6 +1,22 @@
 use algo_lib::io::input::Input;
 use algo_lib::io::output::{Output, OUTPUT};
 
+const EPS: f64 = 1e-9;
+
+fn is_equal_floats(f_actual: f64, f_expected: f64) -> bool {
+    let abs_diff = (f_actual - f_expected).abs();
+    return abs_diff <= EPS || abs_diff <= f_expected * EPS;
+}
+
+fn is_equal_float_tokens(token_actual: Vec<u8>, token_expected: Vec<u8>) -> bool {
+    if let Ok(f_actual) = String::from_utf8(token_actual).unwrap().parse::<f64>() {
+        if let Ok(f_expected) = String::from_utf8(token_expected).unwrap().parse::<f64>() {
+            return is_equal_floats(f_actual, f_expected);
+        }
+    }
+    return false;
+}
+
 fn check(expected: &mut &[u8], actual: &mut &[u8]) -> Result<(), String> {
     let mut expected = Input::new(expected);
     let mut actual = Input::new(actual);
@@ -14,12 +30,17 @@ fn check(expected: &mut &[u8], actual: &mut &[u8]) -> Result<(), String> {
             } else if actual_token.is_none() {
                 return Err(format!("Actual has only {} tokens", token_num));
             } else {
-                return Err(format!(
-                    "Token #{} differs, expected {}, actual {}",
-                    token_num,
-                    String::from_utf8(expected_token.unwrap()).unwrap(),
-                    String::from_utf8(actual_token.unwrap()).unwrap()
-                ));
+                if !is_equal_float_tokens(
+                    actual_token.clone().unwrap(),
+                    expected_token.clone().unwrap(),
+                ) {
+                    return Err(format!(
+                        "Token #{} differs, expected {}, actual {}",
+                        token_num,
+                        String::from_utf8(expected_token.unwrap()).unwrap(),
+                        String::from_utf8(actual_token.unwrap()).unwrap()
+                    ));
+                }
             }
         }
         token_num += 1;
