@@ -5,7 +5,7 @@ const EPS: f64 = 1e-9;
 
 fn is_equal_floats(f_actual: f64, f_expected: f64) -> bool {
     let abs_diff = (f_actual - f_expected).abs();
-    return abs_diff <= EPS || abs_diff <= f_expected * EPS;
+    return abs_diff <= EPS || abs_diff <= f_expected.abs() * EPS;
 }
 
 fn is_equal_float_tokens(token_actual: Vec<u8>, token_expected: Vec<u8>) -> bool {

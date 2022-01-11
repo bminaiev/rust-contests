@@ -1,8 +1,9 @@
 use crate::io::input::{Input, Readable};
 use crate::iters::shifts::Shift;
 use crate::misc::num_traits::Number;
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub struct PointT<T: Number> {
     pub x: T,
     pub y: T,
@@ -32,6 +33,66 @@ impl<T: Number> PointT<T> {
             x: self.x + T::from_i32(shift.dx),
             y: self.y + T::from_i32(shift.dy),
         }
+    }
+
+    pub fn index_vec2d<'a, Elem>(&self, arr: &'a [Vec<Elem>]) -> Option<&'a Elem> {
+        if self.x >= T::ZERO
+            && self.x < T::from_i32(arr.len() as i32)
+            && self.y >= T::ZERO
+            && self.y < T::from_i32(arr[T::to_i32(self.x) as usize].len() as i32)
+        {
+            let x = T::to_i32(self.x) as usize;
+            let y = T::to_i32(self.y) as usize;
+            Some(&arr[x][y])
+        } else {
+            None
+        }
+    }
+
+    pub fn rotateCCW(&self) -> Self {
+        Self::new(T::ZERO - self.y, self.x)
+    }
+}
+
+impl<T> Add for PointT<T>
+where
+    T: Number,
+{
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+
+impl<T> AddAssign for PointT<T>
+where
+    T: Number,
+{
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl<T> Sub for PointT<T>
+where
+    T: Number,
+{
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::new(self.x - rhs.x, self.y - rhs.y)
+    }
+}
+
+impl<T> SubAssign for PointT<T>
+where
+    T: Number,
+{
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
     }
 }
 

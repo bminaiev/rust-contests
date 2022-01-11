@@ -1,6 +1,5 @@
 use crate::io::output::{Output, Writable};
 use crate::misc::num_traits::{ConvI32, HasConstants};
-use std::convert::TryFrom;
 use std::io::Write;
 use std::marker::PhantomData;
 

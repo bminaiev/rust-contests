@@ -1,7 +1,9 @@
 use crate::misc::binary_search::binary_search_last_true;
 use crate::misc::num_traits::Number;
-use crate::seg_trees::persistent_tree::{PersistentTree, PersistentTreeNode, PersistentTreeWithoutLinks};
-use std::cmp::{max, min, Ordering};
+use crate::seg_trees::persistent_tree::{
+    PersistentTree, PersistentTreeNode, PersistentTreeWithoutLinks,
+};
+use std::cmp::{min, Ordering};
 use std::ops::Range;
 use std::rc::Rc;
 
@@ -10,6 +12,7 @@ where
     M: Number,
 {
     powers: Vec<M>,
+    #[allow(unused)]
     multiplier: M,
 }
 
@@ -42,7 +45,7 @@ where
     type Update = bool;
     type Context = Context<M>;
 
-    fn apply_update(node: &PersistentTree<Self>, update: &Self::Update) -> Self {
+    fn apply_update(node: &PersistentTree<Self>, _update: &Self::Update) -> Self {
         Self {
             hash: node.node().hash_rev,
             hash_rev: node.node().hash,
@@ -61,7 +64,11 @@ where
         *update
     }
 
-    fn join(ctx: &Self::Context, lhs: &PersistentTreeWithoutLinks<Self>, rhs: &PersistentTreeWithoutLinks<Self>) -> Self {
+    fn join(
+        ctx: &Self::Context,
+        lhs: &PersistentTreeWithoutLinks<Self>,
+        rhs: &PersistentTreeWithoutLinks<Self>,
+    ) -> Self {
         Self {
             hash: lhs.node().hash * ctx.powers[rhs.size()] + rhs.node().hash,
             hash_rev: rhs.node().hash_rev * ctx.powers[lhs.size()] + lhs.node().hash_rev,

@@ -18,3 +18,7 @@ impl VecToString for Vec<i32> {
             .to_string()
     }
 }
+
+pub fn vec2str(v: &Vec<u8>) -> String {
+    String::from_utf8(v.clone()).unwrap()
+}

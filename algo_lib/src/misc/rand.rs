@@ -1,3 +1,7 @@
+use crate::misc::gen_vector::gen_vec;
+use crate::misc::num_traits::Number;
+use std::ops::Range;
+
 #[allow(dead_code)]
 pub struct Random {
     state: u64,
@@ -38,5 +42,21 @@ impl Random {
             result.swap(i, idx);
         }
         result
+    }
+
+    pub fn gen_range<T>(&mut self, range: Range<T>) -> T
+    where
+        T: Number,
+    {
+        let from = T::to_i32(range.start) as usize;
+        let to = T::to_i32(range.end) as usize;
+        T::from_i32(self.next_in_range(from, to) as i32)
+    }
+
+    pub fn gen_vec<T>(&mut self, n: usize, range: Range<T>) -> Vec<T>
+    where
+        T: Number,
+    {
+        gen_vec(n, |_| self.gen_range(range.clone()))
     }
 }

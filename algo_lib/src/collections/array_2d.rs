@@ -1,5 +1,6 @@
 use std::ops::{Index, IndexMut};
 
+#[derive(Clone)]
 pub struct Array2D<T> {
     rows: usize,
     cols: usize,

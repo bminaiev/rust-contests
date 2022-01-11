@@ -1,6 +1,5 @@
-use std::convert::TryFrom;
 use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 pub trait HasConstants<T> {
     const MAX: T;
@@ -89,3 +88,21 @@ has_constants_impl!(u32);
 has_constants_impl!(u64);
 has_constants_impl!(u128);
 has_constants_impl!(usize);
+
+impl ConvI32<Self> for f64 {
+    fn from_i32(val: i32) -> Self {
+        val as f64
+    }
+
+    fn to_i32(self) -> i32 {
+        self as i32
+    }
+}
+
+impl HasConstants<Self> for f64 {
+    const MAX: Self = Self::MAX;
+    const MIN: Self = -Self::MAX;
+    const ZERO: Self = 0.0;
+    const ONE: Self = 1.0;
+    const TWO: Self = 2.0;
+}
