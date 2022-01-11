@@ -5,6 +5,8 @@ use std::cmp::{min, Ordering};
 use std::fmt::{Debug, Display, Formatter};
 use std::io::Write;
 use std::ops::Neg;
+use std::str::FromStr;
+use std::num::ParseFloatError;
 
 #[derive(PartialOrd, PartialEq, Copy, Clone, Default)]
 pub struct OrdF64(pub f64);
@@ -141,5 +143,16 @@ impl ConvI32<Self> for OrdF64 {
 
     fn to_i32(self) -> i32 {
         self.0 as i32
+    }
+}
+
+impl FromStr for OrdF64 {
+    type Err = ParseFloatError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.parse::<f64>() {
+            | Ok(value ) => Ok(Self(value)),
+            | Err(error) => Err(error),
+        }
     }
 }

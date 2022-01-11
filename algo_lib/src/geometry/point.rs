@@ -25,7 +25,15 @@ impl<T: Number> PointT<T> {
     }
 
     pub fn scal_mul(p1: &PointT<T>, p2: &PointT<T>, p3: &PointT<T>) -> T {
-        (p2.x - p1.x) * (p3.x - p1.x) + (p2.y - p1.y) * (p3.y - p1.y)
+        Self::scal_mul2(&(*p2 - *p1), &(*p3 - *p1))
+    }
+
+    pub fn scal_mul2(p1: &PointT<T>, p2: &PointT<T>) -> T {
+        p1.x * p2.x + p1.y * p2.y
+    }
+
+    pub fn vect_mul2(p1: &PointT<T>, p2: &PointT<T>) -> T {
+        p1.x * p2.y - p1.y * p2.x
     }
 
     pub fn apply_shift(&self, shift: &Shift) -> Self {
@@ -52,6 +60,11 @@ impl<T: Number> PointT<T> {
     pub fn rotateCCW(&self) -> Self {
         Self::new(T::ZERO - self.y, self.x)
     }
+
+    pub const ZERO: PointT<T> = PointT {
+        x: T::ZERO,
+        y: T::ZERO,
+    };
 }
 
 impl<T> Add for PointT<T>
