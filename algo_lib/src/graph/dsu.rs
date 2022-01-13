@@ -1,6 +1,7 @@
 pub struct Dsu {
     p: Vec<u32>,
     size: Vec<u32>,
+    num_comps: u32,
 }
 
 impl Dsu {
@@ -11,12 +12,14 @@ impl Dsu {
         for val in self.size.iter_mut() {
             *val = 1;
         }
+        self.num_comps = self.p.len() as u32;
     }
 
     pub fn new(n: usize) -> Self {
         let mut res = Self {
             p: vec![0; n],
             size: vec![0; n],
+            num_comps: n as u32,
         };
         res.clear();
         res
@@ -37,6 +40,7 @@ impl Dsu {
         } else {
             self.p[v1 as usize] = v2 as u32;
             self.size[v2 as usize] += self.size[v1 as usize];
+            self.num_comps -= 1;
             true
         }
     }
@@ -57,5 +61,9 @@ impl Dsu {
             res[self.get(v) as usize].push(v);
         }
         res.into_iter().filter(|vec| !vec.is_empty()).collect()
+    }
+
+    pub fn num_components(&self) -> usize {
+        self.num_comps as usize
     }
 }

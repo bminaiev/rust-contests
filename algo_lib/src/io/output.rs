@@ -191,6 +191,12 @@ impl<T: Writable, U: Writable, V: Writable> Writable for (T, U, V) {
 
 pub static mut OUTPUT: Option<Output> = None;
 
+pub fn set_global_output_to_stdout() {
+    unsafe {
+        OUTPUT = Some(Output::new(Box::new(std::io::stdout())));
+    }
+}
+
 pub fn output() -> &'static mut Output {
     unsafe {
         match &mut OUTPUT {

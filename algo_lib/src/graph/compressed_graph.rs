@@ -55,3 +55,12 @@ where
         &self.edges[from..to]
     }
 }
+
+impl<E> CompressedGraph<E>
+where
+    E: EdgeTrait,
+{
+    pub fn all_edges(&self) -> impl Iterator<Item = (usize, &E)> + '_ {
+        (0..self.num_vertices()).flat_map(move |v| self.adj(v).iter().map(move |e| (v, e)))
+    }
+}

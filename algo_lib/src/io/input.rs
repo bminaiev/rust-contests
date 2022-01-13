@@ -23,6 +23,22 @@ macro_rules! read_integer_fun {
 impl<'s> Input<'s> {
     const DEFAULT_BUF_SIZE: usize = 4096;
 
+    ///
+    /// Using with stdin:
+    /// ```
+    /// use algo_lib::io::input::Input;
+    /// let mut stdin = std::io::stdin();
+    /// let input = Input::new(&mut stdin);
+    /// ```
+    ///
+    /// Using file file:
+    /// ```
+    /// use algo_lib::io::input::Input;
+    /// let mut file = std::fs::File::open("input.txt").unwrap();
+    /// let input = Input::new(&mut file);
+    ///```
+    ///
+    ///
     pub fn new(input: &'s mut dyn Read) -> Self {
         Self {
             input,

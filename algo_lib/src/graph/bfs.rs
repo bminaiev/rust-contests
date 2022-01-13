@@ -32,3 +32,18 @@ where
     }
     state
 }
+
+impl BfsState {
+    pub fn get_path(&self, mut to: usize) -> Option<Vec<usize>> {
+        if self.dist[to] == u32::MAX {
+            return None;
+        }
+        let mut res = vec![to];
+        while self.prev[to] != to {
+            to = self.prev[to];
+            res.push(to);
+        }
+        res.reverse();
+        Some(res)
+    }
+}

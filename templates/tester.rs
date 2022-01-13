@@ -1,5 +1,5 @@
 use algo_lib::io::input::Input;
-use algo_lib::io::output::{Output, OUTPUT};
+use algo_lib::io::output::{Output, OUTPUT, set_global_output_to_stdout};
 
 const EPS: f64 = 1e-9;
 
@@ -207,4 +207,11 @@ pub(crate) fn run_tests() -> bool {
         );
     }
     test_failed == 0
+}
+
+pub fn run_locally() {
+    let mut sin = std::io::stdin();
+    let input = Input::new(&mut sin);
+    set_global_output_to_stdout();
+    crate::run(input);
 }
