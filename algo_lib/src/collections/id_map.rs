@@ -1,4 +1,3 @@
-use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Index;

@@ -57,7 +57,7 @@ impl<T: Number> PointT<T> {
         }
     }
 
-    pub fn rotateCCW(&self) -> Self {
+    pub fn rotate_ccw(&self) -> Self {
         Self::new(T::ZERO - self.y, self.x)
     }
 

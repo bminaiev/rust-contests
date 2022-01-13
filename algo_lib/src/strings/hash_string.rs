@@ -53,7 +53,7 @@ where
     }
 
     fn join_updates(
-        ctx: &Self::Context,
+        _ctx: &Self::Context,
         old_update: &Self::Update,
         new_update: &Self::Update,
     ) -> Self::Update {

@@ -209,6 +209,7 @@ pub(crate) fn run_tests() -> bool {
     test_failed == 0
 }
 
+#[allow(unused)]
 pub fn run_locally() {
     let mut sin = std::io::stdin();
     let input = Input::new(&mut sin);
