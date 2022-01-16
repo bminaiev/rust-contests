@@ -4,6 +4,7 @@ pub mod bits;
 pub mod bump_allocator;
 pub mod dbg_macro;
 pub mod digits;
+pub mod func;
 pub mod gen_vector;
 pub mod min_max;
 pub mod nodes_arena;

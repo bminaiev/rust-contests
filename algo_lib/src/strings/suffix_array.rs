@@ -3,7 +3,7 @@ use crate::collections::sparse_table_min::SparseTableMin;
 use crate::misc::gen_vector::gen_vec;
 use crate::misc::num_traits::Number;
 use crate::strings::utils::vec2str;
-use std::cell::{Cell, Ref, RefCell};
+use std::cell::{Ref, RefCell};
 use std::cmp::{max, min};
 use std::ops::Index;
 

@@ -10,3 +10,4 @@ pub mod graph_trait;
 pub mod simple_graph;
 pub mod strongly_connected_components;
 pub mod trees;
+pub mod weighted_graph;

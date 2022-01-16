@@ -39,6 +39,18 @@ where
     pub fn add_edge(&mut self, from: usize, edge: E) {
         self.adj[from].push(edge);
     }
+
+    fn ensure_vertex_exist(&mut self, v: usize) {
+        if v >= self.adj.len() {
+            self.adj.resize(v + 1, vec![]);
+        }
+    }
+
+    pub fn add_edge_maybe_new_vertices(&mut self, from: usize, edge: E) {
+        self.ensure_vertex_exist(from);
+        self.ensure_vertex_exist(edge.to());
+        self.adj[from].push(edge);
+    }
 }
 
 impl<E> GraphTrait<E> for SimpleGraphT<E>
