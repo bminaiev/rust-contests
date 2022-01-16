@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 #[allow(dead_code)]
 pub struct Fenwick {
     values: Vec<i64>,
@@ -14,6 +16,18 @@ impl Fenwick {
                 return res;
             }
             pos -= 1;
+        }
+    }
+
+    pub fn get_range_sum(&self, range: Range<usize>) -> i64 {
+        if range.end == 0 {
+            return 0;
+        }
+        let res = self.get_sum(range.end - 1);
+        if range.start == 0 {
+            res
+        } else {
+            res - self.get_sum(range.start - 1)
         }
     }
 

@@ -20,6 +20,10 @@ impl<T: Number> PointT<T> {
         dx * dx + dy * dy
     }
 
+    pub fn swap_x_y(&self) -> Self {
+        Self::new(self.y, self.x)
+    }
+
     pub fn vect_mul(p1: &PointT<T>, p2: &PointT<T>, p3: &PointT<T>) -> T {
         (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x)
     }

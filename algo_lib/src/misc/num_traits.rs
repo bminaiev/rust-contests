@@ -88,6 +88,7 @@ has_constants_impl!(u32);
 has_constants_impl!(u64);
 has_constants_impl!(u128);
 has_constants_impl!(usize);
+has_constants_impl!(u8);
 
 impl ConvI32<Self> for f64 {
     fn from_i32(val: i32) -> Self {

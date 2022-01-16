@@ -1,7 +1,8 @@
 use crate::misc::num_traits::Number;
 use std::ops::{Index, IndexMut, Mul};
 
-#[derive(Clone)]
+// TODO: implement good Debug
+#[derive(Clone, Debug)]
 pub struct Array2D<T> {
     rows: usize,
     cols: usize,

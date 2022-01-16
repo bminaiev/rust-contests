@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::collections::sparse_table::SparseTableMax;
+    use crate::collections::sparse_table_max::SparseTableMax;
     use crate::misc::rand::Random;
 
     #[test]

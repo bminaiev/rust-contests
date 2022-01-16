@@ -1,3 +1,4 @@
+pub mod bfs;
 pub mod compressed_graph;
 pub mod dfs_builder;
 pub mod dijkstra;
@@ -8,4 +9,4 @@ pub mod graph_readers;
 pub mod graph_trait;
 pub mod simple_graph;
 pub mod strongly_connected_components;
-pub mod bfs;
+pub mod trees;

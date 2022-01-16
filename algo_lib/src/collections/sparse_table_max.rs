@@ -3,9 +3,10 @@ use crate::misc::bits::index_of_highest_set_bit;
 use std::fmt::Debug;
 use std::ops::Range;
 
+#[derive(Debug)]
 pub struct SparseTableMax<T>
 where
-    T: Ord + Clone,
+    T: Ord + Clone + Debug,
 {
     max: Array2D<u32>,
     values: Vec<T>,
