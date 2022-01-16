@@ -1,4 +1,3 @@
-use crate::geometry::line::Line;
 use crate::geometry::point::PointT;
 use crate::geometry::segment::SegmentT;
 use crate::misc::ord_f64::OrdF64;
@@ -16,9 +15,7 @@ fn inside_bounding_box(seg: &Segment, p: &Point) -> bool {
 }
 
 pub fn segment_intersection(seg1: &Segment, seg2: &Segment) -> Option<Point> {
-    let line1 = Line::new(&seg1.from, &seg1.to);
-    let line2 = Line::new(&seg2.from, &seg2.to);
-    if let Some(inter) = line1.intersect(&line2) {
+    if let Some(inter) = seg1.to_line().intersect(&seg2.to_line()) {
         if inside_bounding_box(seg1, &inter) && inside_bounding_box(seg2, &inter) {
             Some(inter)
         } else {

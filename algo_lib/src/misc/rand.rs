@@ -48,9 +48,10 @@ impl Random {
     where
         T: Number,
     {
-        let from = T::to_i32(range.start) as usize;
-        let to = T::to_i32(range.end) as usize;
-        T::from_i32(self.next_in_range(from, to) as i32)
+        let from = T::to_i32(range.start);
+        let to = T::to_i32(range.end);
+        let len = (to - from) as usize;
+        T::from_i32(self.next_in_range(0, len) as i32 + from)
     }
 
     pub fn gen_vec<T>(&mut self, n: usize, range: Range<T>) -> Vec<T>

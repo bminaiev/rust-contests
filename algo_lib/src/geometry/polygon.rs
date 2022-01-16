@@ -1,7 +1,8 @@
 use crate::geometry::point::PointT;
 use crate::geometry::segment::SegmentT;
 use crate::io::input::{Input, Readable};
-use crate::misc::num_traits::Number;
+use crate::misc::num_traits::{HasConstants, Number};
+use crate::misc::ord_f64::OrdF64;
 use std::fmt::{Debug, Formatter};
 
 pub struct PolygonT<T>
@@ -55,6 +56,18 @@ where
     pub fn max_y(&self) -> T {
         self.points.iter().map(|p| p.y).max().unwrap()
     }
+
+    pub fn area_x2(&self) -> T {
+        let mut res = T::ZERO;
+        for edge in self.edges() {
+            res += edge.from.x * edge.to.y - edge.to.x * edge.from.y;
+        }
+        if res < T::ZERO {
+            T::ZERO - res
+        } else {
+            res
+        }
+    }
 }
 
 impl<'a, T> Iterator for PolygonEdgeIter<'a, T>
@@ -95,5 +108,11 @@ where
             writeln!(f, " {}:: ({:?}; {:?})", id, p.x, p.y)?;
         }
         writeln!(f, "]")
+    }
+}
+
+impl PolygonT<OrdF64> {
+    pub fn area(&self) -> OrdF64 {
+        self.area_x2() / OrdF64::TWO
     }
 }

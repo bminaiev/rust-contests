@@ -7,13 +7,13 @@ mod tests {
         #[derive(Clone, Debug)]
         struct T(i32);
 
-        static mut arena_: Option<NodesArena<T>> = None;
+        static mut ARENA_: Option<NodesArena<T>> = None;
         fn arena() -> &'static mut NodesArena<T> {
             unsafe {
-                if arena_.is_none() {
-                    arena_ = Some(NodesArena::new());
+                if ARENA_.is_none() {
+                    ARENA_ = Some(NodesArena::new());
                 }
-                match &mut arena_ {
+                match &mut ARENA_ {
                     None => unreachable!(),
                     Some(arena_not_opt) => return arena_not_opt,
                 }

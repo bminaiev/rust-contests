@@ -3,7 +3,7 @@ use crate::misc::num_traits::{ConvI32, HasConstants};
 use std::io::Write;
 use std::marker::PhantomData;
 
-pub trait Value {
+pub trait Value: Clone + Copy {
     fn val() -> i32;
 }
 
@@ -53,6 +53,22 @@ where
         }
         assert!(0 <= x && x < M::val());
         Self(x, PhantomData)
+    }
+
+    pub fn pown(self, pw: usize) -> Self {
+        if pw == 0 {
+            Self::ONE
+        } else if pw == 1 {
+            self
+        } else {
+            let half = self.pown(pw / 2);
+            let res = half * half;
+            if pw % 2 == 0 {
+                res
+            } else {
+                res * self
+            }
+        }
     }
 }
 

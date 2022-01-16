@@ -47,6 +47,20 @@ impl<T: Number> PointT<T> {
         }
     }
 
+    pub fn shift(&self, dx: T, dy: T) -> Self {
+        Self {
+            x: self.x + dx,
+            y: self.y + dy,
+        }
+    }
+
+    pub fn scale(&self, coef: T) -> Self {
+        Self {
+            x: self.x * coef,
+            y: self.y * coef,
+        }
+    }
+
     pub fn index_vec2d<'a, Elem>(&self, arr: &'a [Vec<Elem>]) -> Option<&'a Elem> {
         if self.x >= T::ZERO
             && self.x < T::from_i32(arr.len() as i32)

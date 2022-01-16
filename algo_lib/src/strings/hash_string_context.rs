@@ -1,14 +1,13 @@
 use crate::collections::last_exn::LastExn;
 use crate::math::modulo::Mod9;
 use crate::misc::num_traits::{ConvI32, Number};
-use std::cmp::{min, Ordering};
-use std::ops::Range;
+use std::ops::{Index, Range};
 
 pub struct HashContext<M>
 where
     M: Number,
 {
-    powers: Vec<M>,
+    pub powers: Vec<M>,
     #[allow(unused)]
     multiplier: M,
 }
@@ -21,6 +20,18 @@ where
     string: Vec<S>,
     prefix_hash: Vec<Hash>,
     ctx: &'a HashContext<Hash>,
+}
+
+impl<'a, Hash, S> Index<usize> for HashString<'a, Hash, S>
+where
+    Hash: Number,
+    S: Number,
+{
+    type Output = S;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.string[index]
+    }
 }
 
 impl<'a, Hash, S> HashString<'a, Hash, S>

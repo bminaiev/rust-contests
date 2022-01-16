@@ -1,4 +1,5 @@
 pub mod aho_corasick;
+pub mod english_dictionary;
 pub mod hash_string_context;
 pub mod suffix_array;
 pub mod suffix_array_test;

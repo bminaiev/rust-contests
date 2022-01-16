@@ -23,6 +23,9 @@ impl NodeId {
     pub fn is_none(&self) -> bool {
         self == &Self::NONE
     }
+    pub fn is_some(&self) -> bool {
+        self != &Self::NONE
+    }
 
     pub fn from_raw(x: usize) -> Self {
         Self(x as u32)
@@ -157,6 +160,7 @@ where
     }
 
     pub fn next(&self, node_id: NodeId, symbol: usize) -> NodeId {
+        assert!(symbol < self.alph_size);
         self.nodes[node_id.id()].next[symbol]
     }
 

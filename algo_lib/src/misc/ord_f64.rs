@@ -4,23 +4,28 @@ use crate::misc::num_traits::{ConvI32, HasConstants};
 use std::cmp::{min, Ordering};
 use std::fmt::{Debug, Display, Formatter};
 use std::io::Write;
+use std::num::ParseFloatError;
 use std::ops::Neg;
 use std::str::FromStr;
-use std::num::ParseFloatError;
 
 #[derive(PartialOrd, PartialEq, Copy, Clone, Default)]
 pub struct OrdF64(pub f64);
 
 impl OrdF64 {
     pub(crate) const EPS: Self = Self(1e-9);
+    pub const SMALL_EPS: Self = Self(1e-4);
 
     pub fn abs(&self) -> Self {
         Self(self.0.abs())
     }
 
-    pub fn eq_with_eps(&self, other: &Self) -> bool {
+    pub fn eq_with_eps(&self, other: &Self, eps: Self) -> bool {
         let abs_diff = (*self - *other).abs();
-        abs_diff <= Self::EPS || abs_diff <= min(self.abs(), other.abs()) * Self::EPS
+        abs_diff <= eps || abs_diff <= min(self.abs(), other.abs()) * eps
+    }
+
+    pub fn eq_with_default_eps(&self, other: &Self) -> bool {
+        self.eq_with_eps(other, Self::EPS)
     }
 
     pub fn sqrt(&self) -> Self {
@@ -151,8 +156,8 @@ impl FromStr for OrdF64 {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.parse::<f64>() {
-            | Ok(value ) => Ok(Self(value)),
-            | Err(error) => Err(error),
+            Ok(value) => Ok(Self(value)),
+            Err(error) => Err(error),
         }
     }
 }

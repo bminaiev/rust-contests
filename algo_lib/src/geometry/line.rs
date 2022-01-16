@@ -28,26 +28,29 @@ impl Line {
     }
 
     pub fn on_line(&self, p: &Point) -> bool {
-        (self.a * p.x + self.b * p.y + self.c).eq_with_eps(&OrdF64::ZERO)
+        (self.a * p.x + self.b * p.y + self.c).eq_with_default_eps(&OrdF64::ZERO)
     }
 
     pub fn intersect(&self, other: &Self) -> Option<Point> {
         let denum = self.b * other.a - other.b * self.a;
-        if denum.eq_with_eps(&OrdF64::ZERO) {
+        if denum.eq_with_default_eps(&OrdF64::ZERO) {
             return None;
         }
         let y_num = other.c * self.a - self.c * other.a;
         let x_num = self.c * other.b - other.c * self.b;
         let res = Point::new(x_num / denum, y_num / denum);
         debug_assert!(
-            self.abs_dist(&res).eq_with_eps(&OrdF64::EPS),
+            self.abs_dist(&res)
+                .eq_with_eps(&OrdF64::ZERO, OrdF64::SMALL_EPS),
             "line = {:?}, p = {:?}, dist = {:?}",
             self,
             res,
             self.abs_dist(&res)
         );
         debug_assert!(
-            other.abs_dist(&res).eq_with_eps(&OrdF64::EPS),
+            other
+                .abs_dist(&res)
+                .eq_with_eps(&OrdF64::ZERO, OrdF64::SMALL_EPS),
             "line = {:?}, p = {:?}, dist = {:?}",
             other,
             res,

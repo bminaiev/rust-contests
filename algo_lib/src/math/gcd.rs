@@ -1,3 +1,5 @@
+use crate::misc::num_traits::Number;
+
 #[allow(dead_code)]
 fn extended_gcd(a: i64, b: i64, x: &mut i64, y: &mut i64) -> i64 {
     if a == 0 {
@@ -37,10 +39,20 @@ pub fn diophantine(a: i64, b: i64, c: i64, x0: &mut i64, y0: &mut i64, g: &mut i
 }
 
 #[allow(dead_code)]
-pub fn gcd(x: usize, y: usize) -> usize {
-    if x == 0 {
+pub fn gcd<T>(x: T, y: T) -> T
+where
+    T: Number + std::ops::Rem<Output = T>,
+{
+    if x == T::ZERO {
         y
     } else {
         gcd(y % x, x)
     }
+}
+
+pub fn lcm<T>(x: T, y: T) -> T
+where
+    T: Number + std::ops::Rem<Output = T>,
+{
+    x / gcd(x, y) * y
 }
