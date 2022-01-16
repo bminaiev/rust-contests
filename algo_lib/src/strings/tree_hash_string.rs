@@ -76,7 +76,7 @@ where
     }
 }
 
-pub fn default_hash_string_context<M>(max_len: usize) -> Context<M>
+pub fn default_tree_hash_string_context<M>(max_len: usize) -> Context<M>
 where
     M: Number,
 {
