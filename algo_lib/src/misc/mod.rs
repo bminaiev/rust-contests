@@ -13,6 +13,7 @@ pub mod num_traits;
 pub mod ord_f64;
 pub mod pref_sum;
 pub mod rand;
+pub mod range_intersect;
 pub mod rec_function;
 pub mod ternary_search;
 pub mod vec_apply_delta;
