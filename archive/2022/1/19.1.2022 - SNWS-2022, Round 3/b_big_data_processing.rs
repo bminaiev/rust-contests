@@ -8,9 +8,8 @@ use algo_lib::misc::min_max::UpdateMinMax;
 use algo_lib::{dbg, out, out_line};
 use std::cmp::{max, min};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct Node {
-    raw_values: Vec<i64>,
     set_min: i64,
     set_max: i64,
     add: i64,
@@ -18,18 +17,6 @@ struct Node {
 }
 
 impl Node {
-    pub fn new(a: &[i64]) -> Self {
-        let mut res = Self {
-            raw_values: a.to_vec(),
-            set_min: i64::MIN,
-            set_max: i64::MAX,
-            add: 0,
-            sorted_values: vec![],
-        };
-        res.rebuild();
-        res
-    }
-
     fn apply_op(&self, raw: i64) -> i64 {
         min(self.set_max, max(self.set_min, raw)) + self.add
     }
@@ -42,15 +29,17 @@ impl Node {
 }
 
 impl SqrtNode for Node {
-    fn relax(&mut self) {
-        for pos in 0..self.raw_values.len() {
-            self.raw_values[pos] = self.apply_op(self.raw_values[pos]);
+    type Value = i64;
+
+    fn relax(&mut self, raw_values: &mut [Self::Value]) {
+        for value in raw_values.iter_mut() {
+            *value = self.apply_op(*value);
         }
     }
 
-    fn rebuild(&mut self) {
+    fn rebuild(&mut self, raw_values: &[Self::Value]) {
         self.sorted_values.clear();
-        for x in self.raw_values.iter() {
+        for x in raw_values.iter() {
             self.sorted_values.push(*x);
         }
         self.sorted_values.sort();
@@ -65,30 +54,28 @@ fn solve(input: &mut Input, _test_case: usize) {
     let n = input.usize();
     let q = input.usize();
     let a = input.read_vec::<i64>(n);
-    let mut sqrt = SqrtDecomposition::new(n, 300, |range| Node::new(&a[range]));
+    let mut sqrt = SqrtDecomposition::new(a, 300, Node::default());
     for _ in 0..q {
         let query_type = input.usize() - 1;
-        let full_range = input.usize() - 1..input.usize();
+        let range = input.usize() - 1..input.usize();
         if query_type == 3 {
             let min_val = input.i64();
             let max_val = input.i64();
             let mut res = 0;
-            sqrt.iter_mut(full_range, |part| match part {
+            sqrt.iter_mut(range, |part| match part {
                 Part::Full(node) => {
                     res += node.count_le_values(max_val) - node.count_le_values(min_val - 1);
                 }
-                Part::Range(node, range) => {
-                    for &val in node.raw_values[range].iter() {
-                        if val >= min_val && val <= max_val {
-                            res += 1;
-                        }
+                Part::Single(_node, &mut val) => {
+                    if val >= min_val && val <= max_val {
+                        res += 1;
                     }
                 }
             });
             out_line!(res);
         } else {
             let x = input.i64();
-            sqrt.iter_mut(full_range, |part| match part {
+            sqrt.iter_mut(range, |part| match part {
                 Part::Full(node) => {
                     match query_type {
                         0 => {
@@ -103,19 +90,17 @@ fn solve(input: &mut Input, _test_case: usize) {
                         _ => unreachable!(),
                     };
                 }
-                Part::Range(node, range) => {
-                    for val in node.raw_values[range].iter_mut() {
-                        match query_type {
-                            0 => {
-                                val.update_min(x);
-                            }
-                            1 => {
-                                val.update_max(x);
-                            }
-                            2 => *val += x,
-                            _ => unreachable!(),
-                        };
-                    }
+                Part::Single(_node, val) => {
+                    match query_type {
+                        0 => {
+                            val.update_min(x);
+                        }
+                        1 => {
+                            val.update_max(x);
+                        }
+                        2 => *val += x,
+                        _ => unreachable!(),
+                    };
                 }
             });
         }
