@@ -11,3 +11,4 @@ pub mod sparse_table_test;
 pub mod sqrt_decomposition;
 pub mod sqrt_decomposition_example;
 pub mod value_to_positions;
+pub mod sqrt_decomposition_test;

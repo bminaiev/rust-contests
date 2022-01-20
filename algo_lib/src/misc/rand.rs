@@ -60,4 +60,18 @@ impl Random {
     {
         gen_vec(n, |_| self.gen_range(range.clone()))
     }
+
+    pub fn gen_nonempty_range(&mut self, n: usize) -> Range<usize> {
+        let x = self.gen_range(0..n);
+        let y = self.gen_range(0..n);
+        if x <= y {
+            x..y + 1
+        } else {
+            y..x + 1
+        }
+    }
+
+    pub fn gen_bool(&mut self) -> bool {
+        self.gen_range(0..2) == 0
+    }
 }
