@@ -54,11 +54,12 @@ where
     {
         let first_block = range.start / self.block_size;
         let last_block = (range.end + self.block_size - 1) / self.block_size;
+        let block_size = self.block_size;
 
         let handle_side_block =
             |id: usize, f: &mut F, block: &mut T, raw_values: &mut [T::Value]| {
                 let n = raw_values.len();
-                let cur_block = self.block_size * id..min(n, self.block_size * (id + 1));
+                let cur_block = block_size * id..min(n, block_size * (id + 1));
                 let range = range_intersect(cur_block.clone(), range.clone());
                 if range == cur_block {
                     f(Part::Full(block));
