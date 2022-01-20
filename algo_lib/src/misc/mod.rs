@@ -17,3 +17,4 @@ pub mod range_intersect;
 pub mod rec_function;
 pub mod ternary_search;
 pub mod vec_apply_delta;
+pub mod vec_binary_search;
