@@ -282,10 +282,15 @@ pub type Mod_998_244_353 = ModWithValue<Value_998_244_353>;
 
 pub trait ModuloTrait: Number {
     fn mod_value() -> i32;
+    fn pown(self, n: usize) -> Self;
 }
 
 impl<V: Value> ModuloTrait for ModWithValue<V> {
     fn mod_value() -> i32 {
         V::val()
+    }
+
+    fn pown(self, n: usize) -> Self {
+        self.pown(n)
     }
 }
