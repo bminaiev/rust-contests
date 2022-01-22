@@ -1,3 +1,4 @@
+use crate::collections::last_exn::LastExn;
 use crate::io::input::{Input, Readable};
 use crate::io::output::{Output, Writable};
 use crate::misc::num_traits::{ConvI32, HasConstants, Number};
@@ -70,6 +71,15 @@ where
                 res * self
             }
         }
+    }
+
+    pub fn gen_powers(base: Self, n: usize) -> Vec<Self> {
+        let mut res = Vec::with_capacity(n);
+        res.push(Self::ONE);
+        for _ in 1..n {
+            res.push(*res.last_exn() * base);
+        }
+        res
     }
 }
 
