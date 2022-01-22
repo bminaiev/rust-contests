@@ -1,9 +1,10 @@
+use crate::io::input::{Input, Readable};
 use crate::io::output::{Output, Writable};
-use crate::misc::num_traits::{ConvI32, HasConstants};
+use crate::misc::num_traits::{ConvI32, HasConstants, Number};
 use std::io::Write;
 use std::marker::PhantomData;
 
-pub trait Value: Clone + Copy {
+pub trait Value: Clone + Copy + Eq + Default + Ord {
     fn val() -> i32;
 }
 
@@ -211,6 +212,16 @@ where
     }
 }
 
+impl<M> Readable for ModWithValue<M>
+where
+    M: Value,
+{
+    fn read(input: &mut Input) -> Self {
+        let i32 = input.i32();
+        Self::new(i32)
+    }
+}
+
 impl<M> HasConstants<ModWithValue<M>> for ModWithValue<M>
 where
     M: Value,
@@ -269,75 +280,12 @@ impl ConstValue for Value_998_244_353 {
 #[allow(non_camel_case_types)]
 pub type Mod_998_244_353 = ModWithValue<Value_998_244_353>;
 
-#[cfg(test)]
-mod tests {
-    use crate::math::modulo::*;
+pub trait ModuloTrait: Number {
+    fn mod_value() -> i32;
+}
 
-    type Mod = Mod7;
-
-    #[test]
-    fn add() {
-        let x = Mod::new(1);
-        let y = Mod::new(2);
-        assert_eq!(format!("{}", x + y), "3");
-    }
-
-    #[test]
-    fn sub() {
-        let x = Mod::new(1);
-        let y = Mod::new(2);
-        assert_eq!(format!("{}", x - y), "1000000006");
-        assert_eq!(format!("{:?}", x - y), "-1");
-    }
-
-    #[test]
-    fn mul() {
-        let x = Mod::new(3);
-        let y = Mod::new(5);
-        assert_eq!(format!("{}", x * y), "15");
-    }
-
-    #[test]
-    fn div() {
-        let x = Mod::new(3);
-        let y = Mod::new(5);
-        assert_eq!(format!("{}", x / y), "200000002");
-        assert_eq!(format!("{:?}", x / y), "3/5");
-    }
-
-    #[test]
-    fn div_assign() {
-        let mut x = Mod::new(3);
-        let y = Mod::new(5);
-        x /= y;
-        assert_eq!(format!("{}", x), "200000002");
-        assert_eq!(format!("{:?}", x), "3/5");
-    }
-
-    #[test]
-    fn dbg_format() {
-        let x = Mod::new(1) / Mod::new(2);
-        let y = Mod::new(1) / Mod::new(3);
-        assert_eq!(format!("{}", x + y), "833333340");
-        assert_eq!(format!("{:?}", x + y), "5/6");
-    }
-
-    #[test]
-    fn dbg_format_big() {
-        let x = Mod::new(123) / Mod::new(457);
-        assert_eq!(format!("{:?}", x), "(?? 262582059 ??)");
-    }
-
-    #[test]
-    fn dbg_format_more() {
-        assert_eq!(format!("{:?}", Mod::new(1)), "1");
-        assert_eq!(format!("{:?}", Mod::new(3)), "3");
-        assert_eq!(format!("{:?}", Mod::new(-5)), "-5");
-    }
-
-    #[test]
-    fn consts() {
-        let one = Mod::ONE - Mod::ZERO;
-        assert_eq!(format!("{:?}", one), "1");
+impl<V: Value> ModuloTrait for ModWithValue<V> {
+    fn mod_value() -> i32 {
+        V::val()
     }
 }

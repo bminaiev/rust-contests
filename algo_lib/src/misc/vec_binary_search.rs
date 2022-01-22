@@ -1,21 +1,19 @@
-use crate::misc::num_traits::Number;
-
 pub trait VecBinarySearch<T> {
     fn higher_or_equal(&self, val: &T) -> Option<T>
     where
-        T: Number;
+        T: Ord + Clone;
     fn lower(&self, val: &T) -> Option<T>
     where
-        T: Number;
+        T: Ord + Clone;
 }
 
 impl<T> VecBinarySearch<T> for Vec<T>
 where
-    T: Number,
+    T: Ord + Clone,
 {
     fn higher_or_equal(&self, val: &T) -> Option<T>
     where
-        T: Number,
+        T: Ord + Clone,
     {
         match self.binary_search(val) {
             Ok(pos) => Some(self[pos].clone()),
@@ -31,7 +29,7 @@ where
 
     fn lower(&self, val: &T) -> Option<T>
     where
-        T: Number,
+        T: Ord + Clone,
     {
         match self.binary_search(&val) {
             Ok(pos) | Err(pos) => {
@@ -47,11 +45,11 @@ where
 
 impl<T> VecBinarySearch<T> for &[T]
 where
-    T: Number,
+    T: Ord + Clone,
 {
     fn higher_or_equal(&self, val: &T) -> Option<T>
     where
-        T: Number,
+        T: Ord + Clone,
     {
         match self.binary_search(val) {
             Ok(pos) => Some(self[pos].clone()),
@@ -67,7 +65,7 @@ where
 
     fn lower(&self, val: &T) -> Option<T>
     where
-        T: Number,
+        T: Ord + Clone,
     {
         match self.binary_search(&val) {
             Ok(pos) | Err(pos) => {

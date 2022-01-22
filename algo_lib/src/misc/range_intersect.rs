@@ -2,7 +2,7 @@ use crate::misc::num_traits::Number;
 use std::cmp::{max, min};
 use std::ops::Range;
 
-pub fn range_intersect(r1: Range<usize>, r2: Range<usize>) -> Range<usize> {
+pub fn range_intersect<T>(r1: Range<T>, r2: Range<T>) -> Range<T> where T : Number {
     max(r1.start, r2.start)..min(r1.end, r2.end)
 }
 
