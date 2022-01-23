@@ -196,6 +196,7 @@ impl<'s> Input<'s> {
 
     read_integer_fun!(i32);
     read_integer_fun!(i64);
+    read_integer_fun!(i128);
     read_integer_fun!(u32);
     read_integer_fun!(u64);
     read_integer_fun!(usize);

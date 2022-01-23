@@ -1,9 +1,12 @@
+pub mod all_submasks_iter;
 pub mod big_stack;
 pub mod binary_search;
+pub mod binary_search_float;
 pub mod bits;
 pub mod bump_allocator;
 pub mod dbg_macro;
 pub mod digits;
+pub mod float_min_max;
 pub mod func;
 pub mod gen_vector;
 pub mod longest_increasing_subsequence;

@@ -11,5 +11,6 @@ mod tester;
 
 fn main() {
     tester::run_tests();
+    // tester::run_single_test("1");
 }
 //END MAIN

@@ -36,6 +36,10 @@ where
         self.rows
     }
 
+    pub fn len(&self) -> usize {
+        self.rows()
+    }
+
     pub fn cols(&self) -> usize {
         self.cols
     }

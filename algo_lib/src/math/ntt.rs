@@ -1,8 +1,7 @@
 // partially copied from https://github.com/EgorKulikov/rust_algo/blob/master/algo_lib/src/numbers/prime_fft.rs
 // article: https://cp-algorithms.com/algebra/fft.html#:~:text=and%20their%20powers.-,Number%20theoretic%20transform,-Now%20we%20switch
 
-use crate::math::modulo::{ModWithValue, ModuloTrait, Value};
-use crate::misc::num_traits::ConvI32;
+use crate::math::modulo::ModuloTrait;
 
 pub struct NTT<M>
 where
