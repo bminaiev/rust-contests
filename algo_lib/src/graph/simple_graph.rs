@@ -40,6 +40,12 @@ where
         self.adj[from].push(edge);
     }
 
+    pub fn add_bi_edge(&mut self, from: usize, edge: E) {
+        self.adj[from].push(edge);
+        let rev_edge = edge.rev(from);
+        self.adj[edge.to()].push(rev_edge);
+    }
+
     fn ensure_vertex_exist(&mut self, v: usize) {
         if v >= self.adj.len() {
             self.adj.resize(v + 1, vec![]);

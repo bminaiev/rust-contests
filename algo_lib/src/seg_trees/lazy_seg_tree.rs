@@ -118,6 +118,9 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
     }
 
     pub fn modify(&mut self, ql: usize, qr: usize, update: T::Update) {
+        if ql == qr {
+            return;
+        }
         assert!(ql < qr);
         self.modify_(0, 0, self.n, ql, qr, &update);
     }
@@ -151,5 +154,9 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
             self.build_f(vr, m, r, f);
             self.pull(v, vr);
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.n
     }
 }

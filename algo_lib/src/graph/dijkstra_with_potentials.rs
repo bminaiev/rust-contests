@@ -15,7 +15,18 @@ where
     v: usize,
 }
 
-pub fn dijkstra<Graph, T>(graph: &Graph, source: usize) -> Vec<Vertex<T>>
+///
+/// Cost of edge [fr] -> [to] will be
+/// w + potential[to] - potential[fr]
+///
+/// If you have negative edge [fr] -> [to],
+/// potential[to] > potential[fr]
+///
+pub fn dijkstra_with_potentials<Graph, T>(
+    graph: &Graph,
+    source: usize,
+    potential: &[T],
+) -> Vec<Vertex<T>>
 where
     T: Number,
     T: Ord,
@@ -31,7 +42,7 @@ where
         .collect();
 
     vertices[source] = Vertex {
-        dist: T::ZERO,
+        dist: potential[source],
         v: source,
         prev: source,
     };
@@ -44,8 +55,9 @@ where
             continue;
         }
         for e in graph.adj(vertex.v) {
-            assert!(e.cost >= T::ZERO, "Negative edge");
-            let new_dist = vertices[vertex.v].dist + e.cost;
+            let cost = e.cost + potential[e.to()] - potential[vertex.v];
+            assert!(cost >= T::ZERO, "Negative edge");
+            let new_dist = vertices[vertex.v].dist + cost;
             if vertices[e.to()].dist > new_dist {
                 vertices[e.to()] = Vertex {
                     v: e.to(),
@@ -54,6 +66,11 @@ where
                 };
                 heap.push(vertices[e.to()].clone());
             }
+        }
+    }
+    for v in vertices.iter_mut() {
+        if v.dist != T::MAX {
+            v.dist -= potential[v.v];
         }
     }
     vertices

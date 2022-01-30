@@ -62,8 +62,9 @@ impl<
 macro_rules! has_constants_impl {
     ($t: ident) => {
         impl HasConstants<$t> for $t {
-            const MAX: $t = $t::MAX;
-            const MIN: $t = $t::MIN;
+            // TODO: remove `std` for new rust version..
+            const MAX: $t = std::$t::MAX;
+            const MIN: $t = std::$t::MIN;
             const ZERO: $t = 0;
             const ONE: $t = 1;
             const TWO: $t = 2;

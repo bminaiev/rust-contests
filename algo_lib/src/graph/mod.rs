@@ -2,6 +2,7 @@ pub mod bfs;
 pub mod compressed_graph;
 pub mod dfs_builder;
 pub mod dijkstra;
+pub mod dijkstra_with_potentials;
 pub mod dsu;
 pub mod edges;
 pub mod graph_builder;

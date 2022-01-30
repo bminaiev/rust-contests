@@ -1,3 +1,4 @@
+use crate::collections::array_2d::Array2D;
 use crate::misc::ord_f64::OrdF64;
 use std::fmt::Debug;
 use std::io::Read;
@@ -119,6 +120,13 @@ impl<'s> Input<'s> {
             res.push(self.read());
         }
         res
+    }
+
+    pub fn read_matrix<T: Readable>(&mut self, rows: usize, cols: usize) -> Array2D<T>
+    where
+        T: Clone,
+    {
+        Array2D::gen(rows, cols, |_, _| self.read())
     }
 
     pub fn read_line(&mut self) -> String {

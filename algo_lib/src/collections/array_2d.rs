@@ -1,4 +1,6 @@
+use crate::io::output::{Output, Writable};
 use crate::misc::num_traits::Number;
+use std::io::Write;
 use std::ops::{Index, IndexMut, Mul};
 
 // TODO: implement good Debug
@@ -51,6 +53,22 @@ where
             for col in 0..self.cols {
                 self.v.swap(row1 * self.cols + col, row2 * self.cols + col);
             }
+        }
+    }
+
+    pub fn transpose(&self) -> Self {
+        Self::gen(self.cols, self.rows, |r, c| self[c][r].clone())
+    }
+}
+
+impl<T> Writable for Array2D<T>
+where
+    T: Writable,
+{
+    fn write(&self, output: &mut Output) {
+        for r in 0..self.rows {
+            self[r].write(output);
+            output.write(&[b'\n']).unwrap();
         }
     }
 }

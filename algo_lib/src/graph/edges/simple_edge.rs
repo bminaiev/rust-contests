@@ -16,4 +16,8 @@ impl EdgeTrait for SimpleEdge {
     fn to(&self) -> usize {
         self.to as usize
     }
+
+    fn rev(&self, from: usize) -> Self {
+        Self { to: from as u32 }
+    }
 }
