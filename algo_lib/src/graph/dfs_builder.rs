@@ -96,6 +96,10 @@ where
         self.seen.get(v)
     }
 
+    pub fn set_seen(&mut self, v: usize, value : bool) {
+        self.seen.set(v, value)
+    }
+
     pub fn run(&mut self, fake_edge: Edge) {
         assert!(self.stack.is_empty());
         self.stack

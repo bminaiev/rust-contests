@@ -6,6 +6,8 @@ pub mod min_priority_queue;
 pub mod permutation;
 pub mod rev_permutation;
 pub mod reversed;
+pub mod sparse_table;
+pub mod sparse_table_gcd;
 pub mod sparse_table_max;
 pub mod sparse_table_min;
 pub mod sparse_table_test;
