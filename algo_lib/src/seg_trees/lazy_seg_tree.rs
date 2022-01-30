@@ -118,14 +118,16 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
     }
 
     pub fn modify(&mut self, ql: usize, qr: usize, update: T::Update) {
+        assert!(ql < qr);
         self.modify_(0, 0, self.n, ql, qr, &update);
     }
 
     pub fn get(&mut self, ql: usize, qr: usize) -> T {
+        assert!(ql < qr);
         self.get_(0, 0, self.n, ql, qr)
     }
 
-    pub(crate) fn new_f(n: usize, f: &dyn Fn(usize) -> T, context: T::Context) -> Self {
+    pub fn new_f(n: usize, f: &dyn Fn(usize) -> T, context: T::Context) -> Self {
         assert!(n > 0);
         let tree = vec![T::default(); 2 * n - 1];
         let updates_to_push = vec![None; 2 * n - 1];

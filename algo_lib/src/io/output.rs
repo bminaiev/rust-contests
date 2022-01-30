@@ -201,7 +201,7 @@ pub fn output() -> &'static mut Output {
     unsafe {
         match &mut OUTPUT {
             None => {
-                panic!("Panic");
+                panic!("Global output wasn't initialized");
             }
             Some(output) => output,
         }
