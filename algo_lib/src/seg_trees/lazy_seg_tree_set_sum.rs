@@ -1,7 +1,7 @@
 use crate::misc::gen_vector::gen_vec;
 use crate::misc::num_traits::Number;
 use crate::seg_trees::lazy_seg_tree::{LazySegTree, LazySegTreeNodeSpec};
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 
 #[derive(Clone, Default, Copy, Debug)]
 pub struct Node<T>

@@ -56,8 +56,8 @@ mod tests {
             },
             context,
         );
-        let aba = seg_tree.get(0, 3);
-        let aba2 = seg_tree.get(4, 7);
+        let aba = seg_tree.get(0..3);
+        let aba2 = seg_tree.get(4..7);
         assert_eq!(aba.hash, aba2.hash);
         assert_ne!(aba2.hash, Mod7::ZERO);
     }
