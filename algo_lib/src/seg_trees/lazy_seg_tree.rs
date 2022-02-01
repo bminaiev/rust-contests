@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 pub trait LazySegTreeNodeSpec: Clone + Default {
     fn unite(l: &Self, r: &Self, context: &Self::Context) -> Self;
 
@@ -117,19 +119,20 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
         self.pull(v, vr);
     }
 
-    pub fn modify(&mut self, ql: usize, qr: usize, update: T::Update) {
-        if ql == qr {
+    pub fn update(&mut self, range: Range<usize>, update: T::Update) {
+        if range.len() == 0 {
             return;
         }
-        assert!(ql < qr);
-        self.modify_(0, 0, self.n, ql, qr, &update);
+        assert!(range.len() > 0);
+        self.modify_(0, 0, self.n, range.start, range.end, &update);
     }
 
-    pub fn get(&mut self, ql: usize, qr: usize) -> T {
-        assert!(ql < qr);
-        self.get_(0, 0, self.n, ql, qr)
+    pub fn get(&mut self, range: Range<usize>) -> T {
+        assert!(range.len() > 0);
+        self.get_(0, 0, self.n, range.start, range.end)
     }
 
+    // TODO: remove context, have separate fun [new_f_with_context]
     pub fn new_f(n: usize, f: &dyn Fn(usize) -> T, context: T::Context) -> Self {
         assert!(n > 0);
         let tree = vec![T::default(); 2 * n - 1];

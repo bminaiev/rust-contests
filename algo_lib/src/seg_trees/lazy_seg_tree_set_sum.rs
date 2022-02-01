@@ -41,6 +41,6 @@ pub type SegTreeSetSum = LazySegTree<Node<i64>>;
 
 impl SegTreeSetSum {
     pub fn values(&mut self) -> Vec<i64> {
-        gen_vec(self.len(), |pos| self.get(pos, pos + 1).sum)
+        gen_vec(self.len(), |pos| self.get(pos..pos + 1).sum)
     }
 }

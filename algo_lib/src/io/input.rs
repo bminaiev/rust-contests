@@ -171,11 +171,11 @@ impl<'s> Input<'s> {
         }
     }
 
-    pub fn string(&mut self) -> String {
+    pub fn string_as_string(&mut self) -> String {
         self.read_string()
     }
 
-    pub fn string_as_vec(&mut self) -> Vec<u8> {
+    pub fn string(&mut self) -> Vec<u8> {
         self.read_string().into_bytes()
     }
 
