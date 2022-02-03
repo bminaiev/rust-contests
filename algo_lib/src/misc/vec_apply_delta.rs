@@ -20,6 +20,27 @@ where
     }
 }
 
+impl<T> ApplyDelta<T> for Vec<(T, T)>
+where
+    T: Number,
+{
+    fn add_to_all(mut self, delta: T) -> Self {
+        self.iter_mut().for_each(|(val1, val2)| {
+            *val1 += delta;
+            *val2 += delta
+        });
+        self
+    }
+
+    fn sub_from_all(mut self, sub: T) -> Self {
+        self.iter_mut().for_each(|(val1, val2)| {
+            *val1 -= sub;
+            *val2 -= sub;
+        });
+        self
+    }
+}
+
 pub trait ApplyDelta2<T> {
     fn add_to_all(&mut self, delta: T);
     fn sub_from_all(&mut self, sub: T);

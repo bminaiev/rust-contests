@@ -75,7 +75,7 @@ impl SingleSizeAllocator {
         self.parts[last].alloc()
     }
 
-    fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
+    fn dealloc(&mut self, ptr: *mut u8, _layout: Layout) {
         self.free_pointers.push(ptr);
     }
 }

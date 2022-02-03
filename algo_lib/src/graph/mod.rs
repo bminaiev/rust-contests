@@ -8,6 +8,7 @@ pub mod edges;
 pub mod graph_builder;
 pub mod graph_readers;
 pub mod graph_trait;
+pub mod minimal_spanning_tree;
 pub mod simple_graph;
 pub mod strongly_connected_components;
 pub mod trees;

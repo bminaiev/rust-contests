@@ -6,6 +6,7 @@ where
     E: EdgeTrait,
 {
     adj: Vec<Vec<E>>,
+    num_edges: usize,
 }
 
 impl<E> SimpleGraphT<E>
@@ -15,11 +16,13 @@ where
     pub fn new(n: usize) -> Self {
         Self {
             adj: vec![vec![]; n],
+            num_edges: 0,
         }
     }
 
     pub fn with_adj(adj: Vec<Vec<E>>) -> Self {
-        Self { adj }
+        let num_edges = adj.iter().map(|v| v.len()).sum();
+        Self { adj, num_edges }
     }
 
     pub fn with_edges(n: usize, edges: &[(usize, E)]) -> Self {
@@ -33,14 +36,17 @@ where
         for (fr, edge) in edges.iter() {
             adj[*fr].push(edge.clone());
         }
-        Self { adj }
+        Self {
+            adj,
+            num_edges: edges.len(),
+        }
     }
 
-    pub fn add_edge(&mut self, from: usize, edge: E) {
+    pub fn add_complex_edge(&mut self, from: usize, edge: E) {
         self.adj[from].push(edge);
     }
 
-    pub fn add_bi_edge(&mut self, from: usize, edge: E) {
+    pub fn add_complex_bi_edge(&mut self, from: usize, edge: E) {
         self.adj[from].push(edge);
         let rev_edge = edge.rev(from);
         self.adj[edge.to()].push(rev_edge);
@@ -65,6 +71,10 @@ where
 {
     fn num_vertices(&self) -> usize {
         self.adj.len()
+    }
+
+    fn num_edges(&self) -> usize {
+        self.num_edges
     }
 
     fn adj(&self, v: usize) -> &[E] {

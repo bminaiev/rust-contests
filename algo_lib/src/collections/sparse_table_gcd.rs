@@ -14,11 +14,11 @@ where
     type Element = T;
     type Result = T;
 
-    fn convert(pos: usize, elem: &Self::Element) -> Self::Result {
+    fn convert(_pos: usize, elem: &Self::Element) -> Self::Result {
         *elem
     }
 
-    fn join(lhs: &Self::Result, rhs: &Self::Result, elements: &[Self::Element]) -> Self::Result {
+    fn join(lhs: &Self::Result, rhs: &Self::Result, _elements: &[Self::Element]) -> Self::Result {
         gcd(*lhs, *rhs)
     }
 }

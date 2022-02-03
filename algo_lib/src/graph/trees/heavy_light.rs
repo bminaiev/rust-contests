@@ -18,7 +18,7 @@ impl<T> SubPath<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum GoDirection {
     LeftToRight,
     RightToLeft,
@@ -79,7 +79,7 @@ impl<T> HeavyLight<T> {
         }
     }
 
-    fn construct_path(&self, mut v_from: usize, lca: usize) -> Vec<(&SubPath<T>, Range<usize>)> {
+    fn construct_path(&self, mut v_from: usize, lca: usize) -> Vec<(usize, Range<usize>)> {
         let mut res = vec![];
         let mut more_len = self.binary_lifting.height(v_from) - self.binary_lifting.height(lca);
         while more_len > 0 {
@@ -87,29 +87,49 @@ impl<T> HeavyLight<T> {
             let pos_in_path = self.position_inside_path[v_from];
             let use_len = min(more_len, pos_in_path);
             let range = pos_in_path - use_len..pos_in_path;
-            let subpath = &self.paths[sub_path_id];
-            res.push((subpath, range));
+            res.push((sub_path_id, range));
             more_len -= use_len;
-            v_from = subpath.vertices[0];
+            v_from = self.paths[sub_path_id].vertices[0];
         }
         res
     }
 
+    ///
+    /// Works fine for going through edges. Maybe need something else
+    /// for going through vertices...
+    ///
+    /// range.len() -- always number of edges in the subpath
+    ///
+    /// subpath[0] doesn't belong to this specific subpath,
+    /// it is the "next" vertex on the parent subpath
+    ///
+    /// edges on the path from
+    /// subpath[range.start] and subpath[range.end]
+    /// should be handled inside [f]
+    ///
     pub fn go_path(
-        &self,
+        &mut self,
         v_from: usize,
         v_to: usize,
-        mut f: impl FnMut(&SubPath<T>, Range<usize>, GoDirection),
+        mut f: impl FnMut(&mut SubPath<T>, Range<usize>, GoDirection),
     ) {
         let lca = self.binary_lifting.lca(v_from, v_to);
         let to_lca = self.construct_path(v_from, lca);
-        for (sub, range) in to_lca.into_iter() {
-            f(sub, range, GoDirection::RightToLeft);
+        for (sub_path_id, range) in to_lca.into_iter() {
+            f(
+                &mut self.paths[sub_path_id],
+                range,
+                GoDirection::RightToLeft,
+            );
         }
         let mut from_lca = self.construct_path(v_to, lca);
         from_lca.reverse();
-        for (sub, range) in from_lca.into_iter() {
-            f(sub, range, GoDirection::LeftToRight);
+        for (sub_path_id, range) in from_lca.into_iter() {
+            f(
+                &mut self.paths[sub_path_id],
+                range,
+                GoDirection::LeftToRight,
+            );
         }
     }
 }

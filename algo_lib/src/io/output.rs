@@ -215,6 +215,7 @@ macro_rules! out {
         $(output().put(b' ');
         output().print(&$args);
         )*
+        output().maybe_flush();
     }
 }
 
@@ -223,8 +224,10 @@ macro_rules! out_line {
     ($first: expr $(, $args:expr )* ) => {
         out!($first $(,$args)*);
         output().put(b'\n');
+        output().maybe_flush();
     };
     () => {
         output().put(b'\n');
+        output().maybe_flush();
     };
 }

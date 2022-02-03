@@ -1,4 +1,5 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
+use crate::graph::weighted_graph::WeightedGraph;
 use crate::misc::num_traits::Number;
 
 #[derive(Copy, Clone, Default)]
@@ -36,5 +37,16 @@ where
             to: from as u32,
             cost: self.cost,
         }
+    }
+}
+
+impl<T: Number> WeightedGraph<T> {
+    pub fn add_weighted_edge(&mut self, fr: usize, to: usize, cost: T) {
+        self.add_complex_edge(fr, WeightedEdge::new(to, cost));
+    }
+
+    pub fn add_bi_weighted_edge(&mut self, fr: usize, to: usize, cost: T) {
+        self.add_complex_edge(fr, WeightedEdge::new(to, cost));
+        self.add_complex_edge(to, WeightedEdge::new(fr, cost));
     }
 }

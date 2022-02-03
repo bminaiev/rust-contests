@@ -5,6 +5,7 @@ where
     E: EdgeTrait,
 {
     fn num_vertices(&self) -> usize;
+    fn num_edges(&self) -> usize;
 
     fn adj(&self, v: usize) -> &[E];
 }

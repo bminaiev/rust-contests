@@ -48,6 +48,10 @@ where
         self.num_vertices
     }
 
+    fn num_edges(&self) -> usize {
+        self.edges.len()
+    }
+
     #[inline(always)]
     fn adj(&self, v: usize) -> &[E] {
         let from = self.start_of_edges[v] as usize;

@@ -132,8 +132,7 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
         self.get_(0, 0, self.n, range.start, range.end)
     }
 
-    // TODO: remove context, have separate fun [new_f_with_context]
-    pub fn new_f(n: usize, f: &dyn Fn(usize) -> T, context: T::Context) -> Self {
+    pub fn new_f_with_context(n: usize, f: &dyn Fn(usize) -> T, context: T::Context) -> Self {
         assert!(n > 0);
         let tree = vec![T::default(); 2 * n - 1];
         let updates_to_push = vec![None; 2 * n - 1];
@@ -142,6 +141,23 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
             tree,
             updates_to_push,
             context,
+        };
+        res.build_f(0, 0, n, f);
+        res
+    }
+
+    pub fn new_f(n: usize, f: &dyn Fn(usize) -> T) -> Self
+    where
+        T::Context: Default,
+    {
+        assert!(n > 0);
+        let tree = vec![T::default(); 2 * n - 1];
+        let updates_to_push = vec![None; 2 * n - 1];
+        let mut res = LazySegTree {
+            n,
+            tree,
+            updates_to_push,
+            context: T::Context::default(),
         };
         res.build_f(0, 0, n, f);
         res
