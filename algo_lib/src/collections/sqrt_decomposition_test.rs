@@ -30,7 +30,8 @@ pub mod tests {
             }
         }
 
-        let n = 500_000;
+        // replaced to make tests faster
+        let n = 50_000;
         const MAX_VAL: i64 = 1_000_000;
         const BLOCK_SIZE: usize = 333;
         for test_id in 0..5 {

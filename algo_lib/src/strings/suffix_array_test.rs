@@ -5,8 +5,8 @@ mod tests {
 
     #[test]
     fn simple() {
-        const MAX: usize = 100;
-        for test in 0..1000 {
+        const MAX: usize = 30;
+        for test in 0..100 {
             let mut rnd = Random::new(787788 + test);
             let n = rnd.gen_range(1..MAX);
             let alph_size = rnd.gen_range(1..10);

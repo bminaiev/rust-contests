@@ -48,7 +48,7 @@ mod tests {
             powers[i] = powers[i - 1] * Mod::new(239);
         }
         let context = Context { pow: powers };
-        let mut seg_tree = LazySegTree::new_f(
+        let mut seg_tree = LazySegTree::new_f_with_context(
             s.len(),
             &|pos| HashNode {
                 hash: Mod::new(s[pos] as i32),
