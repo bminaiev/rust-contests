@@ -7,13 +7,17 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 pub struct OneTest {
+    base_dir: String,
+    output_dir: String,
     name: String,
     output_path: PathBuf,
 }
 
 impl OneTest {
-    pub fn new(name: String, output_path: String) -> Self {
+    pub fn new(base_dir: String, output_dir: String, name: String, output_path: String) -> Self {
         Self {
+            base_dir,
+            output_dir,
             name,
             output_path: PathBuf::from(&output_path).canonicalize().unwrap(),
         }
@@ -30,9 +34,17 @@ impl OneTest {
             .expect("Can't create symbolic link");
         set_global_output_to_none();
     }
+
+    pub fn additional_file_name(&self, suffix: &str) -> String {
+        format!(
+            "{}/{}/{}{}",
+            self.base_dir, self.output_dir, self.name, suffix
+        )
+    }
 }
 
 pub fn hashcode_solver(
+    base_dir: &str,
     input_dir: &str,
     output_dir: &str,
     tasks: Range<u8>,
@@ -44,7 +56,10 @@ pub fn hashcode_solver(
             "\nCurrently running in DEBUG mode. Are you sure you don't want to compile in Release???\n"
         );
     }
-    let inputs = fs::read_dir(input_dir).expect(&format!("Can't read {}", input_dir));
+    let inputs = {
+        let input_dir = &format!("{}/{}", base_dir, input_dir);
+        fs::read_dir(input_dir).expect(&format!("Can't read {}", input_dir))
+    };
 
     let good_test = |input: &str| -> bool {
         let first_char = input.as_bytes()[0];
@@ -73,10 +88,16 @@ pub fn hashcode_solver(
     for test in all_tests.iter() {
         println!("Running test {}", test);
 
-        let mut input_file = std::fs::File::open(&format!("{}/{}", input_dir, test)).unwrap();
+        let mut input_file =
+            std::fs::File::open(&format!("{}/{}/{}", base_dir, input_dir, test)).unwrap();
         let mut input = Input::new(&mut input_file);
 
-        let mut test = OneTest::new(test.clone(), format!("{}/{}.out", output_dir, test));
+        let mut test = OneTest::new(
+            base_dir.to_string(),
+            output_dir.to_string(),
+            test.clone(),
+            format!("{}/{}/{}.out", base_dir, output_dir, test),
+        );
 
         solver(&mut input, &mut test);
 
