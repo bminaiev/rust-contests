@@ -167,6 +167,7 @@ const GREEN: &str = "\x1B[32m";
 const YELLOW: &str = "\x1B[33m";
 const DEF: &str = "\x1B[0m";
 
+#[allow(unused)]
 pub(crate) fn run_tests() -> bool {
     let mut paths = std::fs::read_dir("./$TASK/tests/")
         .unwrap()

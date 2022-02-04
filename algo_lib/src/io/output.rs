@@ -197,6 +197,23 @@ pub fn set_global_output_to_stdout() {
     }
 }
 
+pub fn set_global_output_to_file(path: &str) {
+    unsafe {
+        let out_file = std::fs::File::create(path).expect(&format!("Can't create file {}", path));
+        OUTPUT = Some(Output::new(Box::new(out_file)));
+    }
+}
+
+pub fn set_global_output_to_none() {
+    unsafe {
+        match &mut OUTPUT {
+            None => {}
+            Some(output) => output.flush(),
+        }
+        OUTPUT = None;
+    }
+}
+
 pub fn output() -> &'static mut Output {
     unsafe {
         match &mut OUTPUT {

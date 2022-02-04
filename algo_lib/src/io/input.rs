@@ -1,7 +1,7 @@
 use crate::collections::array_2d::Array2D;
 use crate::misc::ord_f64::OrdF64;
 use std::fmt::Debug;
-use std::io::Read;
+use std::io::{Read, BufReader};
 use std::marker::PhantomData;
 use std::str::FromStr;
 
@@ -118,6 +118,14 @@ impl<'s> Input<'s> {
         let mut res = Vec::with_capacity(size);
         for _ in 0usize..size {
             res.push(self.read());
+        }
+        res
+    }
+
+    pub fn read_string_vec(&mut self, size: usize) -> Vec<Vec<u8>> {
+        let mut res = Vec::with_capacity(size);
+        for _ in 0usize..size {
+            res.push(self.string());
         }
         res
     }
