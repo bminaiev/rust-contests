@@ -1,0 +1,8 @@
+[package]
+name = "marathon_utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+algo_lib = { path = "../algo_lib" }
+image = "0.24.0"

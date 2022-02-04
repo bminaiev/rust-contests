@@ -1,7 +1,7 @@
 use crate::collections::array_2d::Array2D;
 use crate::misc::ord_f64::OrdF64;
 use std::fmt::Debug;
-use std::io::{Read, BufReader};
+use std::io::Read;
 use std::marker::PhantomData;
 use std::str::FromStr;
 

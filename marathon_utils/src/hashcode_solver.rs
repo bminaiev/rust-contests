@@ -1,6 +1,6 @@
-use crate::dbg;
-use crate::io::input::Input;
-use crate::io::output::{set_global_output_to_file, set_global_output_to_none};
+use algo_lib::dbg;
+use algo_lib::io::input::Input;
+use algo_lib::io::output::{set_global_output_to_file, set_global_output_to_none};
 use std::fs;
 use std::fs::create_dir_all;
 use std::ops::Range;

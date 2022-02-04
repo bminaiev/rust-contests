@@ -5,7 +5,6 @@ pub mod collections;
 pub mod flows;
 pub mod geometry;
 pub mod graph;
-pub mod hashcode_utils;
 pub mod io;
 pub mod iters;
 pub mod math;
