@@ -34,6 +34,11 @@ where
 }
 
 impl BfsState {
+    ///
+    /// ``path[0]`` = root
+    ///
+    /// ``path[len - 1]`` = to
+    ///
     pub fn get_path(&self, mut to: usize) -> Option<Vec<usize>> {
         if self.dist[to] == u32::MAX {
             return None;

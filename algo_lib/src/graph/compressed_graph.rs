@@ -1,6 +1,7 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
 use crate::graph::graph_trait::GraphTrait;
 
+#[derive(Clone)]
 pub struct CompressedGraph<E>
 where
     E: EdgeTrait,
@@ -44,6 +45,10 @@ impl<E> GraphTrait<E> for CompressedGraph<E>
 where
     E: EdgeTrait,
 {
+    fn len(&self) -> usize {
+        self.num_vertices
+    }
+
     fn num_vertices(&self) -> usize {
         self.num_vertices
     }

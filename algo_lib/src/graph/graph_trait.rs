@@ -4,6 +4,8 @@ pub trait GraphTrait<E>
 where
     E: EdgeTrait,
 {
+    // alias for [num_vertices]
+    fn len(&self) -> usize;
     fn num_vertices(&self) -> usize;
     fn num_edges(&self) -> usize;
 

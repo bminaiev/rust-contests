@@ -44,7 +44,7 @@ pub mod tests {
                 let full_range = rnd.gen_nonempty_range(n);
                 if rnd.gen_bool() {
                     // add to elements
-                    let add = rnd.gen_range(0..MAX_VAL);
+                    let add = rnd.gen_in_range(0..MAX_VAL);
                     sqrt.iter_mut(full_range, |p: Part<SumNode>| match p {
                         Part::Full(node) => {
                             node.add_to_each += add;
@@ -84,7 +84,7 @@ pub mod tests {
         impl SqrtNode for SortedNode {
             type Value = i64;
 
-            fn relax(&mut self, raw_values: &mut [i64]) {}
+            fn relax(&mut self, _raw_values: &mut [i64]) {}
 
             fn rebuild(&mut self, raw_values: &[i64]) {
                 self.sort_values.clear();
@@ -108,11 +108,11 @@ pub mod tests {
                 let full_range = rnd.gen_nonempty_range(n);
                 if rnd.gen_bool() {
                     // add to elements
-                    let add = rnd.gen_range(0..MAX_VAL);
+                    let add = rnd.gen_in_range(0..MAX_VAL);
                     sqrt.iter_mut(
                         full_range.start..full_range.start + 1,
                         |p: Part<SortedNode>| match p {
-                            Part::Full(node) => {}
+                            Part::Full(_node) => {}
                             Part::Single(_node, value) => {
                                 *value = add;
                             }
@@ -120,7 +120,7 @@ pub mod tests {
                     );
                 } else {
                     let mut res = 0;
-                    let le = rnd.gen_range(0..MAX_VAL);
+                    let le = rnd.gen_in_range(0..MAX_VAL);
                     sqrt.iter_mut(full_range, |p| match p {
                         Part::Full(node) => {
                             res += binary_search_first_true(0..node.sort_values.len(), |pos| {

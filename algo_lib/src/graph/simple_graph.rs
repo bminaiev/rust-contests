@@ -69,6 +69,10 @@ impl<E> GraphTrait<E> for SimpleGraphT<E>
 where
     E: EdgeTrait,
 {
+    fn len(&self) -> usize {
+        self.num_vertices()
+    }
+
     fn num_vertices(&self) -> usize {
         self.adj.len()
     }

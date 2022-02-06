@@ -5,6 +5,7 @@ pub mod binary_search;
 pub mod binary_search_float;
 pub mod bits;
 pub mod bump_allocator;
+pub mod current_package;
 pub mod dbg_macro;
 pub mod digits;
 pub mod float_min_max;

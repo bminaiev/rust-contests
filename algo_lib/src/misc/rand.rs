@@ -1,6 +1,7 @@
 use crate::misc::gen_vector::gen_vec;
 use crate::misc::num_traits::Number;
 use std::ops::Range;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[allow(dead_code)]
 pub struct Random {
@@ -8,7 +9,7 @@ pub struct Random {
 }
 
 impl Random {
-    pub fn next(&mut self) -> u64 {
+    pub fn gen_u64(&mut self) -> u64 {
         let mut x = self.state;
         x ^= x << 13;
         x ^= x >> 7;
@@ -20,22 +21,36 @@ impl Random {
     #[allow(dead_code)]
     pub fn next_in_range(&mut self, from: usize, to: usize) -> usize {
         assert!(from < to);
-        (from as u64 + self.next() % ((to - from) as u64)) as usize
+        (from as u64 + self.gen_u64() % ((to - from) as u64)) as usize
+    }
+
+    pub fn gen_index<T>(&mut self, a: &[T]) -> usize {
+        self.gen_in_range(0..a.len())
     }
 
     #[allow(dead_code)]
-    pub fn next_double(&mut self) -> f64 {
-        (self.next() as f64) / (usize::MAX as f64)
+    pub fn gen_double(&mut self) -> f64 {
+        (self.gen_u64() as f64) / (usize::MAX as f64)
     }
 
     #[allow(dead_code)]
     pub fn new(seed: u64) -> Self {
-        assert_ne!(seed, 0);
-        Self { state: seed }
+        let state = if seed == 0 { 787788 } else { seed };
+        Self { state }
+    }
+
+    pub fn new_time_seed() -> Self {
+        let time = SystemTime::now();
+        let seed = (time.duration_since(UNIX_EPOCH).unwrap().as_nanos() % 1_000_000_000) as u64;
+        if seed == 0 {
+            Self::new(787788)
+        } else {
+            Self::new(seed)
+        }
     }
 
     #[allow(dead_code)]
-    pub fn next_permutation(&mut self, n: usize) -> Vec<usize> {
+    pub fn gen_permutation(&mut self, n: usize) -> Vec<usize> {
         let mut result: Vec<_> = (0..n).collect();
         for i in 0..n {
             let idx = self.next_in_range(0, i + 1);
@@ -44,7 +59,7 @@ impl Random {
         result
     }
 
-    pub fn gen_range<T>(&mut self, range: Range<T>) -> T
+    pub fn gen_in_range<T>(&mut self, range: Range<T>) -> T
     where
         T: Number,
     {
@@ -58,12 +73,12 @@ impl Random {
     where
         T: Number,
     {
-        gen_vec(n, |_| self.gen_range(range.clone()))
+        gen_vec(n, |_| self.gen_in_range(range.clone()))
     }
 
     pub fn gen_nonempty_range(&mut self, n: usize) -> Range<usize> {
-        let x = self.gen_range(0..n);
-        let y = self.gen_range(0..n);
+        let x = self.gen_in_range(0..n);
+        let y = self.gen_in_range(0..n);
         if x <= y {
             x..y + 1
         } else {
@@ -72,6 +87,6 @@ impl Random {
     }
 
     pub fn gen_bool(&mut self) -> bool {
-        self.gen_range(0..2) == 0
+        self.gen_in_range(0..2) == 0
     }
 }

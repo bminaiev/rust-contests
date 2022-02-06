@@ -16,7 +16,7 @@ mod tests {
             let mut slow_vec = vec![0i64; n];
             for _ in 0..TESTS_N {
                 let pos = rnd.next_in_range(0, n);
-                if rnd.next_double() < 0.5 {
+                if rnd.gen_double() < 0.5 {
                     let sum_from_fenw = fenw.get_sum(pos);
                     let sum_slow = slow_vec[0..=pos].iter().sum();
                     assert_eq!(sum_from_fenw, sum_slow);
@@ -43,7 +43,7 @@ mod tests {
             let mut tot_sum = 0i64;
             for _ in 0..OPS_IN_TEST {
                 let pos = rnd.next_in_range(0, n);
-                if rnd.next_double() < 0.5 {
+                if rnd.gen_double() < 0.5 {
                     tot_sum = tot_sum.wrapping_add(tree.get_sum(pos));
                 } else {
                     let change = rnd.next_in_range(0, MAX_VAL as usize) as i64;

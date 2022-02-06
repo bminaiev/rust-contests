@@ -1,5 +1,6 @@
 use std::ops::Not;
 
+#[derive(Hash, Clone, Eq, PartialOrd, PartialEq)]
 pub struct BitSet {
     values: Vec<u64>,
 }
