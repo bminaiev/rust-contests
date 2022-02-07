@@ -217,3 +217,20 @@ impl ConvI32<ModRuntime> for ModRuntime {
         self.value
     }
 }
+
+pub struct RuntimeModBuilder {
+    modulo: i32,
+}
+
+impl RuntimeModBuilder {
+    pub fn new_builder(modulo: i32) -> Self {
+        Self { modulo }
+    }
+
+    pub fn new(&self, x: i32) -> ModRuntime {
+        ModRuntime {
+            value: x,
+            m: self.modulo,
+        }
+    }
+}
