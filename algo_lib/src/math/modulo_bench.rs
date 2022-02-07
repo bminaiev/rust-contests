@@ -1,7 +1,10 @@
 mod tests {
     extern crate test;
+    #[allow(unused)]
     use self::test::Bencher;
-    use crate::math::modulo::{Mod7, Mod9};
+    #[allow(unused)]
+    use crate::math::modulo::Mod9;
+    #[allow(unused)]
     use crate::math::modulo_runtime::ModRuntime;
 
     // around 57 ns

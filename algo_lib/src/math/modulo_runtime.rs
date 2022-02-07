@@ -1,5 +1,4 @@
 use crate::collections::last_exn::LastExn;
-use crate::io::input::{Input, Readable};
 use crate::io::output::{Output, Writable};
 use crate::misc::num_traits::{ConvI32, HasConstants};
 use std::io::Write;
