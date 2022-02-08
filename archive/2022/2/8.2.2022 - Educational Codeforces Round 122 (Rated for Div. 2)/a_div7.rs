@@ -2,6 +2,7 @@
 
 use algo_lib::io::input::Input;
 use algo_lib::io::output::output;
+#[allow(unused)]
 use algo_lib::{dbg, out, out_line};
 
 fn solve(input: &mut Input, _test_case: usize) {
@@ -10,13 +11,12 @@ fn solve(input: &mut Input, _test_case: usize) {
         out_line!(x);
     } else {
         for last in 0..10 {
-            let check = (x / 10) * 10 + last;
+            let check = (x / 10 * 10) + last;
             if check % 7 == 0 {
                 out_line!(check);
                 return;
             }
         }
-        panic!();
     }
 }
 
