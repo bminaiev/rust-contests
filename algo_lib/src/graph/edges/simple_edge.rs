@@ -1,5 +1,4 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
-use crate::graph::simple_graph::SimpleGraphT;
 
 #[derive(Copy, Clone, Default)]
 pub struct SimpleEdge {
@@ -20,16 +19,5 @@ impl EdgeTrait for SimpleEdge {
 
     fn rev(&self, from: usize) -> Self {
         Self { to: from as u32 }
-    }
-}
-
-impl SimpleGraphT<SimpleEdge> {
-    pub fn add_edge(&mut self, fr: usize, to: usize) {
-        self.add_complex_edge(fr, SimpleEdge::new(to));
-    }
-
-    pub fn add_bi_edge(&mut self, fr: usize, to: usize) {
-        self.add_complex_edge(fr, SimpleEdge::new(to));
-        self.add_complex_edge(to, SimpleEdge::new(fr));
     }
 }

@@ -1,5 +1,10 @@
 use crate::graph::edges::edge_trait::EdgeTrait;
 use crate::graph::graph_trait::GraphTrait;
+use crate::misc::num_traits::Number;
+
+use crate::graph::edges::simple_edge::SimpleEdge;
+use crate::graph::edges::weighted_edge::WeightedEdge;
+use crate::graph::weighted_graph::WeightedGraph;
 
 pub struct SimpleGraphT<E>
 where
@@ -92,5 +97,27 @@ where
 {
     pub fn all_edges(&self) -> impl Iterator<Item = (usize, &E)> + '_ {
         (0..self.num_vertices()).flat_map(move |v| self.adj[v].iter().map(move |e| (v, e)))
+    }
+}
+
+impl SimpleGraphT<SimpleEdge> {
+    pub fn add_edge(&mut self, fr: usize, to: usize) {
+        self.add_complex_edge(fr, SimpleEdge::new(to));
+    }
+
+    pub fn add_bi_edge(&mut self, fr: usize, to: usize) {
+        self.add_complex_edge(fr, SimpleEdge::new(to));
+        self.add_complex_edge(to, SimpleEdge::new(fr));
+    }
+}
+
+impl<T: Number> WeightedGraph<T> {
+    pub fn add_weighted_edge(&mut self, fr: usize, to: usize, cost: T) {
+        self.add_complex_edge(fr, WeightedEdge::new(to, cost));
+    }
+
+    pub fn add_bi_weighted_edge(&mut self, fr: usize, to: usize, cost: T) {
+        self.add_complex_edge(fr, WeightedEdge::new(to, cost));
+        self.add_complex_edge(to, WeightedEdge::new(fr, cost));
     }
 }
