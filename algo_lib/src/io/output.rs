@@ -239,12 +239,16 @@ macro_rules! out {
 #[macro_export]
 macro_rules! out_line {
     ($first: expr $(, $args:expr )* ) => {
-        out!($first $(,$args)*);
-        output().put(b'\n');
-        output().maybe_flush();
+        {
+            out!($first $(,$args)*);
+            output().put(b'\n');
+            output().maybe_flush();
+        }
     };
     () => {
-        output().put(b'\n');
-        output().maybe_flush();
+        {
+            output().put(b'\n');
+            output().maybe_flush();
+        }
     };
 }
