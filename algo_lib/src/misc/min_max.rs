@@ -21,12 +21,12 @@ pub trait UpdateMinMax: PartialOrd + Sized {
 impl<T: PartialOrd + Sized> UpdateMinMax for T {}
 
 pub trait FindMinMaxPos {
-    fn position_of_min(&self) -> usize;
-    fn position_of_max(&self) -> usize;
+    fn index_of_min(&self) -> usize;
+    fn index_of_max(&self) -> usize;
 }
 
 impl<T: PartialOrd> FindMinMaxPos for [T] {
-    fn position_of_min(&self) -> usize {
+    fn index_of_min(&self) -> usize {
         let mut pos_of_best = 0;
         for (idx, val) in self.iter().enumerate().skip(1) {
             if val < &self[pos_of_best] {
@@ -36,7 +36,7 @@ impl<T: PartialOrd> FindMinMaxPos for [T] {
         pos_of_best
     }
 
-    fn position_of_max(&self) -> usize {
+    fn index_of_max(&self) -> usize {
         let mut pos_of_best = 0;
         for (idx, val) in self.iter().enumerate().skip(1) {
             if val > &self[pos_of_best] {
@@ -47,7 +47,7 @@ impl<T: PartialOrd> FindMinMaxPos for [T] {
     }
 }
 
-pub fn position_of_min_by<T, F>(n: usize, f: F) -> usize
+pub fn index_of_min_by<T, F>(n: usize, f: F) -> usize
 where
     T: PartialOrd,
     F: Fn(usize) -> T,
@@ -65,7 +65,7 @@ where
     best_idx
 }
 
-pub fn position_of_max_by<T, F>(n: usize, f: F) -> usize
+pub fn index_of_max_by<T, F>(n: usize, f: F) -> usize
 where
     T: PartialOrd,
     F: Fn(usize) -> T,

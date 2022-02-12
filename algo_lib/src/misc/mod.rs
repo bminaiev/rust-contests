@@ -12,6 +12,7 @@ pub mod float_min_max;
 pub mod func;
 pub mod gen_vector;
 pub mod longest_increasing_subsequence;
+pub mod matrix_id_converter;
 pub mod min_max;
 pub mod nodes_arena;
 pub mod nodes_arena_tests;

@@ -1,3 +1,4 @@
+pub mod bounding_box;
 pub mod direction;
 pub mod half_plane_intersection;
 pub mod half_plane_intersection_test;
