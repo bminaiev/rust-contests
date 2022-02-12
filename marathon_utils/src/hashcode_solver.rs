@@ -1,4 +1,5 @@
 use crate::html_report::HtmlReport;
+#[allow(unused)]
 use algo_lib::dbg;
 use algo_lib::io::input::Input;
 use algo_lib::io::output::{set_global_output_to_file, set_global_output_to_none};
