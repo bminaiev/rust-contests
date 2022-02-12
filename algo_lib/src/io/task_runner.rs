@@ -19,7 +19,7 @@ pub fn run_task<Res>(io: TaskIoSettings, run: impl FnOnce(Input) -> Res) -> Res 
         if io.is_interactive {
             OUTPUT = Some(Output::new_with_auto_flush(output));
         } else {
-            OUTPUT = Some(Output::new(Box::new(output)));
+            OUTPUT = Some(Output::new(output));
         }
     }
 
