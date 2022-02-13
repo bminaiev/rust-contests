@@ -11,6 +11,7 @@ pub trait LazySegTreeNodeSpec: Clone + Default {
 }
 
 #[allow(unused)]
+#[derive(Clone)]
 pub struct LazySegTree<T: LazySegTreeNodeSpec> {
     n: usize,
     tree: Vec<T>,
