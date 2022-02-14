@@ -2,18 +2,20 @@ use crate::io::input::{Input, Readable};
 use crate::io::output::{Output, Writable};
 use crate::misc::num_traits::{ConvI32, HasConstants};
 use std::cmp::{min, Ordering};
+use std::f64::consts::PI;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::Write;
 use std::num::ParseFloatError;
-use std::ops::Neg;
+use std::ops::{Neg, Rem};
 use std::str::FromStr;
 
 #[derive(PartialOrd, PartialEq, Copy, Clone, Default)]
 pub struct OrdF64(pub f64);
 
 impl OrdF64 {
-    pub(crate) const EPS: Self = Self(1e-9);
+    pub const EPS: Self = Self(1e-9);
     pub const SMALL_EPS: Self = Self(1e-4);
+    pub const PI: Self = Self(PI);
 
     pub fn abs(&self) -> Self {
         Self(self.0.abs())
@@ -159,5 +161,19 @@ impl FromStr for OrdF64 {
             Ok(value) => Ok(Self(value)),
             Err(error) => Err(error),
         }
+    }
+}
+
+impl From<OrdF64> for f64 {
+    fn from(x: OrdF64) -> Self {
+        x.0
+    }
+}
+
+impl Rem for OrdF64 {
+    type Output = Self;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        Self(self.0 % rhs.0)
     }
 }

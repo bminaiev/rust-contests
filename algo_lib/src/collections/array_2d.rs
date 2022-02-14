@@ -11,6 +11,12 @@ pub struct Array2D<T> {
     v: Vec<T>,
 }
 
+pub struct Iter<'a, T> {
+    array: &'a Array2D<T>,
+    row: usize,
+    col: usize,
+}
+
 impl<T> Array2D<T>
 where
     T: Clone,
@@ -58,6 +64,14 @@ where
 
     pub fn transpose(&self) -> Self {
         Self::gen(self.cols, self.rows, |r, c| self[c][r].clone())
+    }
+
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            array: self,
+            row: 0,
+            col: 0,
+        }
     }
 }
 
@@ -130,5 +144,22 @@ where
                 &half2 * &self
             }
         }
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.col == self.array.cols {
+            self.col = 0;
+            self.row += 1;
+        }
+        if self.row >= self.array.rows {
+            return None;
+        }
+        let elem = &self.array[self.row][self.col];
+        self.col += 1;
+        Some(elem)
     }
 }

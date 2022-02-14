@@ -1,6 +1,7 @@
 use crate::io::input::{Input, Readable};
 use crate::iters::shifts::Shift;
 use crate::misc::num_traits::Number;
+use crate::misc::ord_f64::OrdF64;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
@@ -18,6 +19,15 @@ impl<T: Number> PointT<T> {
         let dx = self.x - p2.x;
         let dy = self.y - p2.y;
         dx * dx + dy * dy
+    }
+
+    pub fn angle_to(&self, other: &PointT<T>) -> OrdF64
+    where
+        f64: From<T>,
+    {
+        let dy = other.y - self.y;
+        let dx = other.x - self.x;
+        OrdF64(f64::atan2(dy.try_into().unwrap(), dx.try_into().unwrap()))
     }
 
     pub fn swap_x_y(&self) -> Self {
