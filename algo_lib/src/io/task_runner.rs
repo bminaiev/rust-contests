@@ -23,24 +23,23 @@ pub fn run_task<Res>(io: TaskIoSettings, run: impl FnOnce(Input) -> Res) -> Res 
         }
     }
 
-    match io.input {
+    let input = match io.input {
         TaskIoType::Std => {
-            let mut sin = std::io::stdin();
-            let input = if io.is_interactive {
-                Input::new_with_size(&mut sin, 1)
+            let sin = std::io::stdin();
+            if io.is_interactive {
+                Input::new_with_size(Box::new(sin), 1)
             } else {
-                Input::new(&mut sin)
-            };
-            run(input)
+                Input::new(Box::new(sin))
+            }
         }
         TaskIoType::File(file) => {
-            let mut in_file = std::fs::File::open(file).unwrap();
-            let input = if io.is_interactive {
-                Input::new_with_size(&mut in_file, 1)
+            if io.is_interactive {
+                Input::new_file_with_size(file, 1)
             } else {
-                Input::new(&mut in_file)
-            };
-            run(input)
+                Input::new_file(file)
+            }
         }
-    }
+    };
+
+    run(input)
 }

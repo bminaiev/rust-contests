@@ -9,11 +9,10 @@ pub struct Word {
 ///
 pub fn read_english_dict(path: &str) -> Vec<Word> {
     let mut res = vec![];
-    let mut file = std::fs::File::open(path).unwrap();
-    let mut input = Input::new(&mut file);
+    let mut input = Input::new_file(path);
     while input.has_more_elements() {
         let line = input.read_line();
-        let parts : Vec<_> = line.split(" ").collect();
+        let parts: Vec<_> = line.split(" ").collect();
         let word = parts[0].as_bytes().to_vec();
         // assert_eq!(word.len(), len, "str = {}", vec2str(&word));
         let word_freq = parts[2].parse().unwrap();

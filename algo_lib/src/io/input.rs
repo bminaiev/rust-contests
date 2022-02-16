@@ -3,10 +3,11 @@ use crate::misc::ord_f64::OrdF64;
 use std::fmt::Debug;
 use std::io::Read;
 use std::marker::PhantomData;
+use std::path::Path;
 use std::str::FromStr;
 
-pub struct Input<'s> {
-    input: &'s mut dyn Read,
+pub struct Input {
+    input: Box<dyn Read>,
     buf: Vec<u8>,
     at: usize,
     buf_read: usize,
@@ -21,26 +22,21 @@ macro_rules! read_integer_fun {
     };
 }
 
-impl<'s> Input<'s> {
+impl Input {
     const DEFAULT_BUF_SIZE: usize = 4096;
 
     ///
     /// Using with stdin:
     /// ```no_run
     /// use algo_lib::io::input::Input;
-    /// let mut stdin = std::io::stdin();
-    /// let input = Input::new(&mut stdin);
+    /// let stdin = std::io::stdin();
+    /// let input = Input::new(Box::new(stdin));
     /// ```
     ///
-    /// Using file file:
-    /// ```no_run
-    /// use algo_lib::io::input::Input;
-    /// let mut file = std::fs::File::open("input.txt").unwrap();
-    /// let input = Input::new(&mut file);
-    ///```
+    /// For read files use ``new_file`` instead.
     ///
     ///
-    pub fn new(input: &'s mut dyn Read) -> Self {
+    pub fn new(input: Box<dyn Read>) -> Self {
         Self {
             input,
             buf: vec![0; Self::DEFAULT_BUF_SIZE],
@@ -49,13 +45,25 @@ impl<'s> Input<'s> {
         }
     }
 
-    pub fn new_with_size(input: &'s mut dyn Read, buf_size: usize) -> Self {
+    pub fn new_file<P: AsRef<Path>>(path: P) -> Self {
+        let file = std::fs::File::open(&path)
+            .unwrap_or_else(|_| panic!("Can't open file: {:?}", path.as_ref().as_os_str()));
+        Self::new(Box::new(file))
+    }
+
+    pub fn new_with_size(input: Box<dyn Read>, buf_size: usize) -> Self {
         Self {
             input,
             buf: vec![0; buf_size],
             at: 0,
             buf_read: 0,
         }
+    }
+
+    pub fn new_file_with_size<P: AsRef<Path>>(path: P, buf_size: usize) -> Self {
+        let file = std::fs::File::open(&path)
+            .unwrap_or_else(|_| panic!("Can't open file: {:?}", path.as_ref().as_os_str()));
+        Self::new_with_size(Box::new(file), buf_size)
     }
 
     pub fn get(&mut self) -> Option<u8> {
@@ -155,7 +163,7 @@ impl<'s> Input<'s> {
     }
 
     #[allow(clippy::should_implement_trait)]
-    pub fn into_iter<T: Readable>(self) -> InputIterator<'s, T> {
+    pub fn into_iter<T: Readable>(self) -> InputIterator<T> {
         InputIterator {
             input: self,
             phantom: Default::default(),
@@ -247,12 +255,12 @@ impl<T: Readable> Readable for Vec<T> {
     }
 }
 
-pub struct InputIterator<'s, T: Readable> {
-    input: Input<'s>,
+pub struct InputIterator<T: Readable> {
+    input: Input,
     phantom: PhantomData<T>,
 }
 
-impl<'s, T: Readable> Iterator for InputIterator<'s, T> {
+impl<T: Readable> Iterator for InputIterator<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {

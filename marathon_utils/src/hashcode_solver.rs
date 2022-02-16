@@ -115,9 +115,8 @@ pub fn hashcode_solver(
     for test_name in all_tests.iter() {
         println!("Running test {}", test_name);
 
-        let mut input_file =
-            std::fs::File::open(&format!("{}/{}/{}", base_dir, input_dir, test_name)).unwrap();
-        let mut input = Input::new(&mut input_file);
+        let input_file = &format!("{}/{}/{}", base_dir, input_dir, test_name);
+        let mut input = Input::new_file(input_file);
 
         let mut test = OneTest::new(
             base_dir.to_string(),
