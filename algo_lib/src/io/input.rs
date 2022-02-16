@@ -26,18 +26,18 @@ impl<'s> Input<'s> {
 
     ///
     /// Using with stdin:
-    /// ``
+    /// ```no_run
     /// use algo_lib::io::input::Input;
     /// let mut stdin = std::io::stdin();
     /// let input = Input::new(&mut stdin);
-    /// ``
+    /// ```
     ///
     /// Using file file:
-    /// ``
+    /// ```no_run
     /// use algo_lib::io::input::Input;
     /// let mut file = std::fs::File::open("input.txt").unwrap();
     /// let input = Input::new(&mut file);
-    ///``
+    ///```
     ///
     ///
     pub fn new(input: &'s mut dyn Read) -> Self {
