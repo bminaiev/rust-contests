@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use algo_lib::io::input::Input;
 use algo_lib::io::output::{Output, OUTPUT, set_global_output_to_stdout};
 
@@ -18,8 +20,8 @@ fn is_equal_float_tokens(token_actual: Vec<u8>, token_expected: Vec<u8>) -> bool
 }
 
 fn check(expected: &mut &[u8], actual: &mut &[u8]) -> Result<(), String> {
-    let mut expected = Input::new(expected);
-    let mut actual = Input::new(actual);
+    let mut expected = Input::new(Box::new(Cursor::new(expected.to_vec())));
+    let mut actual = Input::new(Box::new(Cursor::new(actual.to_vec())));
     let mut token_num = 0usize;
     loop {
         let expected_token = expected.next_token();
@@ -102,8 +104,7 @@ pub(crate) fn run_single_test(name: &str) -> bool {
         unsafe {
             OUT.clear();
         }
-        let mut file = std::fs::File::open(&path).unwrap();
-        let input = Input::new(&mut file);
+        let input = Input::new_file(path);
         let started = std::time::Instant::now();
         unsafe {
             OUTPUT = Some(Output::new(Box::new(WriteDelegate {})));
@@ -212,8 +213,8 @@ pub(crate) fn run_tests() -> bool {
 
 #[allow(unused)]
 pub fn run_locally() {
-    let mut sin = std::io::stdin();
-    let input = Input::new(&mut sin);
+    let sin = std::io::stdin();
+    let input = Input::new(Box::new(sin));
     set_global_output_to_stdout();
     crate::run(input);
 }
