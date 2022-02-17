@@ -1,3 +1,4 @@
+use crate::distribution_stat::DistributionStat;
 use crate::html_report::{HtmlReport, ImageData};
 #[allow(unused)]
 use algo_lib::dbg;
@@ -24,6 +25,13 @@ impl<'a> Report<'a> {
 
     pub fn add_image(&mut self, name: &str, image: ImageData) {
         self.html.add_image(name, image);
+    }
+
+    pub fn add_distribution_stat<T: Ord + Clone>(&mut self, stat: &DistributionStat<T>)
+    where
+        f64: From<T>,
+    {
+        self.html.add_distribution_stat(stat);
     }
 }
 

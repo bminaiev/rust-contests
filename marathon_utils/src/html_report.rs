@@ -1,16 +1,24 @@
 use image::{ImageBuffer, Rgb};
+use plotlib::{
+    page::Page,
+    repr::{Histogram, HistogramBins},
+    style::BoxStyle,
+    view::ContinuousView,
+};
 use std::{fmt::Display, fs};
+
+use crate::distribution_stat::DistributionStat;
 
 pub type ImageData = ImageBuffer<Rgb<u8>, Vec<u8>>;
 
 pub struct Image {
-    name: String,
-    data: ImageData,
+    desciption: String,
+    path: String,
 }
 
 impl Image {
-    pub fn new(name: String, data: ImageData) -> Self {
-        Self { name, data }
+    pub fn new(desciption: String, path: String) -> Self {
+        Self { desciption, path }
     }
 }
 
@@ -30,6 +38,7 @@ pub struct HtmlReport {
     prefix: String,
     relative_path: String,
     elements: Vec<Element>,
+    uniq_id: usize,
 }
 
 impl HtmlReport {
@@ -39,7 +48,13 @@ impl HtmlReport {
             prefix,
             relative_path,
             elements: vec![],
+            uniq_id: 0,
         }
+    }
+
+    pub fn gen_uniq_name(&mut self, suffix: &str) -> String {
+        self.uniq_id += 1;
+        format!("{}{}.{}", self.prefix, self.uniq_id, suffix)
     }
 
     pub fn add_text(&mut self, text: &str) {
@@ -52,8 +67,32 @@ impl HtmlReport {
     }
 
     pub fn add_image(&mut self, name: &str, image: ImageData) {
+        let full_name = format!("{}{}", self.prefix, name);
+        image
+            .save(&format!("{}/{}", self.base_dir, full_name))
+            .expect("Can't save image :(");
+
         self.elements
-            .push(Element::Image(Image::new(name.to_string(), image)));
+            .push(Element::Image(Image::new(name.to_owned(), full_name)));
+    }
+
+    pub fn add_distribution_stat<T: Ord + Clone>(&mut self, stat: &DistributionStat<T>)
+    where
+        f64: From<T>,
+    {
+        let img_name = self.gen_uniq_name("svg");
+        let data = stat.f64_data();
+        let h = Histogram::from_slice(&data, HistogramBins::Count(20))
+            .style(&BoxStyle::new().fill("burlywood"));
+        let v = ContinuousView::new().add(h);
+        Page::single(&v)
+            .save(&format!("{}/{}", self.base_dir, img_name))
+            .expect("saving svg");
+
+        self.elements.push(Element::Image(Image::new(
+            stat.name.clone(),
+            img_name.clone(),
+        )));
     }
 
     pub fn add_link(&mut self, text: &str, link: &str) {
@@ -86,17 +125,13 @@ impl HtmlReport {
                     write!(div, "{}", text)?;
                 }
                 Element::Image(image) => {
-                    let name = format!("{}{}", self.prefix, image.name);
-                    image
-                        .data
-                        .save(&format!("{}/{}", self.base_dir, name))
-                        .expect("Can't save image :(");
+                    write!(div.div(), "{}", image.desciption)?;
                     let mut a = div
                         .a()
-                        .attr(&format!("href='{}'", name))
+                        .attr(&format!("href='{}'", image.path))
                         .attr("target=_blank");
                     a.img()
-                        .attr(&format!("src='{}'", name))
+                        .attr(&format!("src='{}'", image.path))
                         .attr("width=500")
                         .attr("style=\"image-rendering:pixelated;\"");
                 }
