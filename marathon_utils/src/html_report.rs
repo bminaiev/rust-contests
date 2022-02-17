@@ -1,8 +1,7 @@
-use crate::html_report::Element::Text;
 use image::{ImageBuffer, Rgb};
-use std::fs;
+use std::{fmt::Display, fs};
 
-type ImageData = ImageBuffer<Rgb<u8>, Vec<u8>>;
+pub type ImageData = ImageBuffer<Rgb<u8>, Vec<u8>>;
 
 pub struct Image {
     name: String,
@@ -44,7 +43,12 @@ impl HtmlReport {
     }
 
     pub fn add_text(&mut self, text: &str) {
-        self.elements.push(Text(text.to_string()));
+        self.elements.push(Element::Text(text.to_string()));
+    }
+
+    pub fn add_value<V: Display>(&mut self, name: &str, value: &V) {
+        self.elements
+            .push(Element::Text(format!("{}: {}", name, value)))
     }
 
     pub fn add_image(&mut self, name: &str, image: ImageData) {
@@ -98,6 +102,8 @@ impl HtmlReport {
                 }
             }
         }
+
+        body.hr();
 
         // Text contents in an inner node
         let mut footer = body.footer();

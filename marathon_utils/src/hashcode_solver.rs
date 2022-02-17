@@ -1,8 +1,9 @@
-use crate::html_report::HtmlReport;
+use crate::html_report::{HtmlReport, ImageData};
 #[allow(unused)]
 use algo_lib::dbg;
 use algo_lib::io::input::Input;
 use algo_lib::io::output::{set_global_output_to_file, set_global_output_to_none};
+use std::fmt::Display;
 use std::fs;
 use std::fs::create_dir_all;
 use std::ops::Range;
@@ -10,16 +11,38 @@ use std::path::{Path, PathBuf};
 
 // TODO: better directory structure
 
-pub struct OneTest {
+pub struct Report<'a> {
+    html: HtmlReport,
+    global_html: &'a mut HtmlReport,
+}
+
+impl<'a> Report<'a> {
+    pub fn add_value<V: Display>(&mut self, name: &str, value: &V) {
+        self.html.add_value(name, value);
+        self.global_html.add_value(name, value);
+    }
+
+    pub fn add_image(&mut self, name: &str, image: ImageData) {
+        self.html.add_image(name, image);
+    }
+}
+
+pub struct OneTest<'a> {
     base_dir: String,
     output_dir: String,
     name: String,
     output_path: PathBuf,
-    html: HtmlReport,
+    pub report: Report<'a>,
 }
 
-impl OneTest {
-    pub fn new(base_dir: String, output_dir: String, name: String, output_path: String) -> Self {
+impl<'a> OneTest<'a> {
+    pub fn new(
+        base_dir: String,
+        output_dir: String,
+        name: String,
+        output_path: String,
+        global_html: &'a mut HtmlReport,
+    ) -> Self {
         let mut html = HtmlReport::new(
             format!("{}/{}", &base_dir, &output_dir),
             name.clone(),
@@ -31,11 +54,11 @@ impl OneTest {
             html.add_text("Report was generated in DEBUG mode. Are you sure you don't want to compile in Release???");
         }
         Self {
-            html,
             base_dir,
             output_dir,
             name,
             output_path: PathBuf::from(&output_path).canonicalize().unwrap(),
+            report: Report { html, global_html },
         }
     }
 
@@ -57,10 +80,6 @@ impl OneTest {
             "{}/{}/{}{}",
             self.base_dir, self.output_dir, self.name, suffix
         )
-    }
-
-    pub fn html(&mut self) -> &mut HtmlReport {
-        &mut self.html
     }
 }
 
@@ -123,11 +142,14 @@ pub fn hashcode_solver(
             output_dir.to_string(),
             test_name.clone(),
             format!("{}/{}/{}.out", base_dir, output_dir, test_name),
+            &mut index_html,
         );
 
-        index_html.add_link(test_name, test.html.relative_path());
+        test.report
+            .global_html
+            .add_link(test_name, test.report.html.relative_path());
         solver(&mut input, &mut test);
-        test.html.save().expect("Can't save html report");
+        test.report.html.save().expect("Can't save html report");
 
         println!("Test finished\n");
     }
