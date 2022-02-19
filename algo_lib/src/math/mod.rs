@@ -8,3 +8,4 @@ pub mod modulo_bench;
 pub mod modulo_runtime;
 pub mod modulo_tests;
 pub mod ntt;
+pub mod primes;

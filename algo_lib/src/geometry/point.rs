@@ -2,6 +2,7 @@ use crate::io::input::{Input, Readable};
 use crate::iters::shifts::Shift;
 use crate::misc::num_traits::Number;
 use crate::misc::ord_f64::OrdF64;
+use std::convert::TryInto;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]

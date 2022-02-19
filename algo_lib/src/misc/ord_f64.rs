@@ -177,3 +177,10 @@ impl Rem for OrdF64 {
         Self(self.0 % rhs.0)
     }
 }
+
+#[macro_export]
+macro_rules! f {
+    ($a:expr) => {
+        OrdF64($a)
+    };
+}

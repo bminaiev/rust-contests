@@ -94,7 +94,7 @@ where
 {
     fn read(input: &mut Input) -> Self {
         let n = input.usize();
-        Self::new(input.read_vec::<PointT<T>>(n))
+        Self::new(input.vec::<PointT<T>>(n))
     }
 }
 

@@ -122,7 +122,7 @@ impl Input {
         T::read(self)
     }
 
-    pub fn read_vec<T: Readable>(&mut self, size: usize) -> Vec<T> {
+    pub fn vec<T: Readable>(&mut self, size: usize) -> Vec<T> {
         let mut res = Vec::with_capacity(size);
         for _ in 0usize..size {
             res.push(self.read());
@@ -130,7 +130,7 @@ impl Input {
         res
     }
 
-    pub fn read_string_vec(&mut self, size: usize) -> Vec<Vec<u8>> {
+    pub fn string_vec(&mut self, size: usize) -> Vec<Vec<u8>> {
         let mut res = Vec::with_capacity(size);
         for _ in 0usize..size {
             res.push(self.string());
@@ -138,7 +138,7 @@ impl Input {
         res
     }
 
-    pub fn read_matrix<T: Readable>(&mut self, rows: usize, cols: usize) -> Array2D<T>
+    pub fn matrix<T: Readable>(&mut self, rows: usize, cols: usize) -> Array2D<T>
     where
         T: Clone,
     {
@@ -251,7 +251,7 @@ impl Readable for f64 {
 impl<T: Readable> Readable for Vec<T> {
     fn read(input: &mut Input) -> Self {
         let size = input.read();
-        input.read_vec(size)
+        input.vec(size)
     }
 }
 

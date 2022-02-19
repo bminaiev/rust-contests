@@ -13,8 +13,8 @@ where
 {
     let mut state = BfsState {
         queue: vec![root],
-        dist: vec![u32::MAX; graph.num_vertices()],
-        prev: vec![usize::MAX; graph.num_vertices()],
+        dist: vec![std::u32::MAX; graph.num_vertices()],
+        prev: vec![std::usize::MAX; graph.num_vertices()],
     };
     state.dist[root] = 0;
     state.prev[root] = root;
@@ -23,7 +23,7 @@ where
         let v = state.queue[it];
         it += 1;
         for edge in graph.adj(v) {
-            if state.dist[edge.to()] == u32::MAX {
+            if state.dist[edge.to()] == std::u32::MAX {
                 state.dist[edge.to()] = state.dist[v] + 1;
                 state.queue.push(edge.to());
                 state.prev[edge.to()] = v;
@@ -40,7 +40,7 @@ impl BfsState {
     /// ``path[len - 1]`` = to
     ///
     pub fn get_path(&self, mut to: usize) -> Option<Vec<usize>> {
-        if self.dist[to] == u32::MAX {
+        if self.dist[to] == std::u32::MAX {
             return None;
         }
         let mut res = vec![to];
