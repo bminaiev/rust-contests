@@ -184,3 +184,9 @@ macro_rules! f {
         OrdF64($a)
     };
 }
+
+impl From<usize> for OrdF64 {
+    fn from(x: usize) -> Self {
+        f!(x as f64)
+    }
+}

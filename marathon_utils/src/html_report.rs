@@ -7,7 +7,7 @@ use plotlib::{
 };
 use std::{fmt::Display, fs};
 
-use crate::distribution_stat::DistributionStat;
+use crate::{distribution_stat::DistributionStat, dynamic_plot::DynamicPlot};
 
 pub type ImageData = ImageBuffer<Rgb<u8>, Vec<u8>>;
 
@@ -31,6 +31,8 @@ pub enum Element {
     Text(String),
     Image(Image),
     Link(Link),
+    Hr(),
+    DynamicPlot(String, DynamicPlot),
 }
 
 pub struct HtmlReport {
@@ -40,6 +42,9 @@ pub struct HtmlReport {
     elements: Vec<Element>,
     uniq_id: usize,
 }
+
+#[derive(Clone, Copy)]
+pub struct DynamicPlotId(usize);
 
 impl HtmlReport {
     pub fn new(base_dir: String, prefix: String, relative_path: String) -> Self {
@@ -76,23 +81,43 @@ impl HtmlReport {
             .push(Element::Image(Image::new(name.to_owned(), full_name)));
     }
 
+    fn image_by_continius_view(
+        &self,
+        img_name: &str,
+        description: &str,
+        view: &ContinuousView,
+    ) -> Image {
+        Page::single(view)
+            .save(&format!("{}/{}", self.base_dir, img_name))
+            .expect("saving svg");
+
+        Image::new(description.to_owned(), img_name.to_owned())
+    }
+
     pub fn add_distribution_stat<T: Ord + Clone>(&mut self, stat: &DistributionStat<T>)
     where
         f64: From<T>,
     {
-        let img_name = self.gen_uniq_name("svg");
         let data = stat.f64_data();
         let h = Histogram::from_slice(&data, HistogramBins::Count(20))
             .style(&BoxStyle::new().fill("burlywood"));
         let v = ContinuousView::new().add(h);
-        Page::single(&v)
-            .save(&format!("{}/{}", self.base_dir, img_name))
-            .expect("saving svg");
+        let img_name = self.gen_uniq_name("svg");
+        let elem = self.image_by_continius_view(&img_name, &stat.name, &v);
+        self.elements.push(Element::Image(elem));
+    }
 
-        self.elements.push(Element::Image(Image::new(
-            stat.name.clone(),
-            img_name.clone(),
-        )));
+    pub fn add_dynamic_plot(&mut self, plot: DynamicPlot) -> DynamicPlotId {
+        let img_name = self.gen_uniq_name("svg");
+        self.elements.push(Element::DynamicPlot(img_name, plot));
+        DynamicPlotId(self.elements.len() - 1)
+    }
+
+    pub fn get_dynamic_plot(&mut self, id: DynamicPlotId) -> &mut DynamicPlot {
+        match &mut self.elements[id.0] {
+            Element::DynamicPlot(_name, plot) => plot,
+            _ => panic!("BUG in code!"),
+        }
     }
 
     pub fn add_link(&mut self, text: &str, link: &str) {
@@ -100,6 +125,10 @@ impl HtmlReport {
             text: text.to_string(),
             link: link.to_string(),
         }));
+    }
+
+    pub fn add_hr(&mut self) {
+        self.elements.push(Element::Hr());
     }
 
     // TODO: do not save too often
@@ -116,6 +145,18 @@ impl HtmlReport {
 
         for element in self.elements.iter() {
             let mut div = body.div();
+            let handle_image = |div: &mut Node, image: &Image| -> std::fmt::Result {
+                write!(div.div(), "{}", image.desciption)?;
+                let mut a = div
+                    .a()
+                    .attr(&format!("href='{}'", image.path))
+                    .attr("target=_blank");
+                a.img()
+                    .attr(&format!("src='{}'", image.path))
+                    .attr("width=500")
+                    .attr("style=\"image-rendering:pixelated;\"");
+                Ok(())
+            };
             match element {
                 Element::Link(link) => {
                     let mut a = div.a().attr(&format!("href='{}'", link.link));
@@ -125,15 +166,15 @@ impl HtmlReport {
                     write!(div, "{}", text)?;
                 }
                 Element::Image(image) => {
-                    write!(div.div(), "{}", image.desciption)?;
-                    let mut a = div
-                        .a()
-                        .attr(&format!("href='{}'", image.path))
-                        .attr("target=_blank");
-                    a.img()
-                        .attr(&format!("src='{}'", image.path))
-                        .attr("width=500")
-                        .attr("style=\"image-rendering:pixelated;\"");
+                    handle_image(&mut div, image)?;
+                }
+                Element::Hr() => {
+                    body.hr();
+                }
+                Element::DynamicPlot(img_name, plot) => {
+                    let image =
+                        self.image_by_continius_view(img_name, &plot.y_name, &plot.gen_image());
+                    handle_image(&mut div, &image)?;
                 }
             }
         }

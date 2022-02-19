@@ -1,5 +1,6 @@
 use crate::distribution_stat::DistributionStat;
-use crate::html_report::{HtmlReport, ImageData};
+use crate::dynamic_plot::DynamicPlot;
+use crate::html_report::{DynamicPlotId, HtmlReport, ImageData};
 #[allow(unused)]
 use algo_lib::dbg;
 use algo_lib::io::input::Input;
@@ -33,12 +34,29 @@ impl<'a> Report<'a> {
     {
         self.html.add_distribution_stat(stat);
     }
+
+    pub fn add_link(&mut self, text: &str, link: &str) {
+        self.html.add_link(text, link);
+        self.global_html.add_link(text, link);
+    }
+
+    pub fn add_dynamic_plot(&mut self, plot: DynamicPlot) -> DynamicPlotId {
+        self.html.add_dynamic_plot(plot)
+    }
+
+    pub fn get_dynamic_plot(&mut self, id: DynamicPlotId) -> &mut DynamicPlot {
+        self.html.get_dynamic_plot(id)
+    }
+
+    pub fn save(&self) {
+        self.html.save().expect("Can't save report")
+    }
 }
 
 pub struct OneTest<'a> {
     base_dir: String,
     output_dir: String,
-    name: String,
+    pub name: String,
     output_path: PathBuf,
     pub report: Report<'a>,
 }
@@ -71,7 +89,7 @@ impl<'a> OneTest<'a> {
     }
 
     // TODO: make this atomic.. (or we can lose result)
-    pub fn save_result(&mut self, f: &mut dyn FnMut()) {
+    pub fn save_result(&self, f: &mut dyn FnMut()) {
         set_global_output_to_file(&self.output_path.to_str().unwrap());
         f();
         let symlink_path = &format!("/home/borys/{}.out", self.name);
@@ -81,6 +99,19 @@ impl<'a> OneTest<'a> {
         std::os::unix::fs::symlink(&self.output_path, symlink_path)
             .expect("Can't create symbolic link");
         set_global_output_to_none();
+        self.report
+            .html
+            .save()
+            .unwrap_or_else(|_| dbg!("Failed  to save report"));
+    }
+
+    pub fn load_existing_result(&self, f: impl FnOnce(Input)) {
+        if Path::new(&self.output_path).exists() {
+            let input = Input::new_file(&self.output_path);
+            f(input);
+        } else {
+            dbg!("No existing solution");
+        }
     }
 
     pub fn additional_file_name(&self, suffix: &str) -> String {
@@ -157,7 +188,12 @@ pub fn hashcode_solver(
             .global_html
             .add_link(test_name, test.report.html.relative_path());
         solver(&mut input, &mut test);
+        test.report
+            .add_link(&"input", &format!("../{}/{}", input_dir, test_name));
+        test.report
+            .add_link(&"output", &format!("{}.out", test_name));
         test.report.html.save().expect("Can't save html report");
+        test.report.global_html.add_hr();
 
         println!("Test finished\n");
     }
