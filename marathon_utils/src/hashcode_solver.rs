@@ -1,5 +1,6 @@
 use crate::distribution_stat::DistributionStat;
 use crate::dynamic_plot::DynamicPlot;
+use crate::html_merger::HtmlMerger;
 use crate::html_report::{DynamicPlotId, HtmlReport, ImageData};
 #[allow(unused)]
 use algo_lib::dbg;
@@ -8,20 +9,20 @@ use algo_lib::io::output::{set_global_output_to_file, set_global_output_to_none}
 use std::fmt::Display;
 use std::fs;
 use std::fs::create_dir_all;
-use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 // TODO: better directory structure
 
 pub struct Report<'a> {
     html: HtmlReport,
-    global_html: &'a mut HtmlReport,
+    short_html: HtmlReport,
+    html_merger: &'a HtmlMerger,
 }
 
 impl<'a> Report<'a> {
     pub fn add_value<V: Display>(&mut self, name: &str, value: &V) {
         self.html.add_value(name, value);
-        self.global_html.add_value(name, value);
+        self.short_html.add_value(name, value);
     }
 
     pub fn add_image(&mut self, name: &str, image: ImageData) {
@@ -37,7 +38,7 @@ impl<'a> Report<'a> {
 
     pub fn add_link(&mut self, text: &str, link: &str) {
         self.html.add_link(text, link);
-        self.global_html.add_link(text, link);
+        self.short_html.add_link(text, link);
     }
 
     pub fn add_dynamic_plot(&mut self, plot: DynamicPlot) -> DynamicPlotId {
@@ -49,7 +50,9 @@ impl<'a> Report<'a> {
     }
 
     pub fn save(&self) {
-        self.html.save().expect("Can't save report")
+        self.html.save().expect("Can't save report");
+        self.short_html.save().expect("Can't save short report");
+        self.html_merger.regenerate();
     }
 }
 
@@ -67,7 +70,7 @@ impl<'a> OneTest<'a> {
         output_dir: String,
         name: String,
         output_path: String,
-        global_html: &'a mut HtmlReport,
+        html_merger: &'a HtmlMerger,
     ) -> Self {
         let mut html = HtmlReport::new(
             format!("{}/{}", &base_dir, &output_dir),
@@ -75,16 +78,26 @@ impl<'a> OneTest<'a> {
             format!("{}.html", &name),
         );
         html.add_link("all tests", "index.html");
-        html.add_text(&format!("Test: {}", &name));
+        let short_html = HtmlReport::new(
+            format!("{}/{}", &base_dir, &output_dir),
+            name.clone(),
+            format!("{}-short.html", &name),
+        );
         if cfg!(debug_assertions) {
             html.add_text("Report was generated in DEBUG mode. Are you sure you don't want to compile in Release???");
         }
+        let mut report = Report {
+            html,
+            short_html,
+            html_merger,
+        };
+        report.add_value(&"Test", &name);
         Self {
             base_dir,
             output_dir,
             name,
             output_path: PathBuf::from(&output_path).canonicalize().unwrap(),
-            report: Report { html, global_html },
+            report,
         }
     }
 
@@ -126,7 +139,7 @@ pub fn hashcode_solver(
     base_dir: &str,
     input_dir: &str,
     output_dir: &str,
-    tasks: Range<u8>,
+    tasks: impl Iterator<Item = u8>,
     solver: &mut dyn FnMut(&mut Input, &mut OneTest),
 ) {
     println!("Hello to the hashcode solver!");
@@ -140,6 +153,7 @@ pub fn hashcode_solver(
         fs::read_dir(input_dir).expect(&format!("Can't read {}", input_dir))
     };
 
+    let tasks: Vec<_> = tasks.collect();
     let good_test = |input: &str| -> bool {
         let first_char = input.as_bytes()[0];
         tasks.contains(&first_char)
@@ -164,12 +178,7 @@ pub fn hashcode_solver(
     create_dir_all(output_dir).expect(&format!("Can't create outputs dir: {}", &output_dir));
     set_global_output_to_none();
 
-    // TODO: it will contain only subset of tests?
-    let mut index_html = HtmlReport::new(
-        format!("{}/{}", &base_dir, &output_dir),
-        "".to_string(),
-        "index.html".to_string(),
-    );
+    let html_merger = HtmlMerger::new(format!("{}/{}", &base_dir, &output_dir));
     for test_name in all_tests.iter() {
         println!("Running test {}", test_name);
 
@@ -181,21 +190,19 @@ pub fn hashcode_solver(
             output_dir.to_string(),
             test_name.clone(),
             format!("{}/{}/{}.out", base_dir, output_dir, test_name),
-            &mut index_html,
+            &html_merger,
         );
 
         test.report
-            .global_html
+            .short_html
             .add_link(test_name, test.report.html.relative_path());
         solver(&mut input, &mut test);
         test.report
             .add_link(&"input", &format!("../{}/{}", input_dir, test_name));
         test.report
             .add_link(&"output", &format!("{}.out", test_name));
-        test.report.html.save().expect("Can't save html report");
-        test.report.global_html.add_hr();
+        test.report.save();
 
         println!("Test finished\n");
     }
-    index_html.save().expect("Can't save index.html");
 }
