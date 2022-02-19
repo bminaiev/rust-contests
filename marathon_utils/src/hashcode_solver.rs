@@ -91,6 +91,7 @@ impl<'a> OneTest<'a> {
             short_html,
             html_merger,
         };
+        report.short_html.add_hr();
         report.add_value(&"Test", &name);
         Self {
             base_dir,
@@ -195,7 +196,7 @@ pub fn hashcode_solver(
 
         test.report
             .short_html
-            .add_link(test_name, test.report.html.relative_path());
+            .add_link("details", test.report.html.relative_path());
         solver(&mut input, &mut test);
         test.report
             .add_link(&"input", &format!("../{}/{}", input_dir, test_name));

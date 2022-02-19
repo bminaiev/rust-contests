@@ -172,14 +172,15 @@ impl HtmlReport {
                     body.hr();
                 }
                 Element::DynamicPlot(img_name, plot) => {
-                    let image =
-                        self.image_by_continius_view(img_name, &plot.y_name, &plot.gen_image());
+                    let image = self.image_by_continius_view(
+                        img_name,
+                        &plot.description,
+                        &plot.gen_image(),
+                    );
                     handle_image(&mut div, &image)?;
                 }
             }
         }
-
-        body.hr();
 
         // Text contents in an inner node
         let mut footer = body.footer();

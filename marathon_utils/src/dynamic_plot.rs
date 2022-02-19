@@ -9,6 +9,7 @@ type Point = PointT<OrdF64>;
 pub struct DynamicPlot {
     points: Vec<Point>,
     max_points: usize,
+    pub description: String,
     pub x_name: String,
     pub y_name: String,
     rnd: Random,
@@ -16,10 +17,11 @@ pub struct DynamicPlot {
 }
 
 impl DynamicPlot {
-    pub fn new(x_name: &str, y_name: &str) -> Self {
+    pub fn new(description: &str, x_name: &str, y_name: &str) -> Self {
         Self {
             points: vec![],
             max_points: 2_000,
+            description: description.to_owned(),
             x_name: x_name.to_owned(),
             y_name: y_name.to_owned(),
             rnd: Random::new(787788),
