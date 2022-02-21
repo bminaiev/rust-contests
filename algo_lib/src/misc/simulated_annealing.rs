@@ -1,6 +1,6 @@
 use std::{cmp::max, time::Instant};
 
-use crate::f;
+use crate::{f, misc::human_readable_usize::HumanReadableUsize};
 
 use super::{num_traits::HasConstants, ord_f64::OrdF64, rand::Random};
 
@@ -59,8 +59,10 @@ impl SimulatedAnnealing {
     fn print_status(&self) {
         let elapsed_ms = self.instant.elapsed().as_millis();
         eprintln!(
-            "After {}ms ({} iters) score is: {}",
-            elapsed_ms, self.iterations_passed, self.last_score
+            "After {}ms ({:?} iters) score is: {}",
+            elapsed_ms,
+            HumanReadableUsize(self.iterations_passed),
+            self.last_score
         );
     }
 

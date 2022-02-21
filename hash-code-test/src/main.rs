@@ -90,24 +90,11 @@ fn solve(input: &mut Input, test: &mut OneTest) {
     ));
 
     let mut sa = SimulatedAnnealing::new(3.0, SearchFor::MaximumScore, 20.0, 0.02);
-    let mut iter = 0;
     while sa.should_continue() {
         score_plot.add_point(test, sa.elapsed_ms(), scorer.num_ok_clients());
         temp_plot.add_point(test, sa.elapsed_ms(), sa.current_temperature());
         delta_plot.add_point(test, sa.elapsed_ms(), sa.last_delta());
-        iter += 1;
-        if iter % 10000 == 0 {
-            // dbg!(
-            //     test.name,
-            //     iter,
-            //     scorer.num_ok_clients,
-            //     best_scorer.num_ok_clients
-            // );
-            // test.report.save();
-            // for _ in 0..100 {
-            // scorer.switch_ingredient(rnd.gen_in_range(0..ingredients.len()));
-            // }
-        }
+
         if scorer.num_ok_clients() > best_scorer.num_ok_clients() {
             best_scorer = scorer.clone();
 

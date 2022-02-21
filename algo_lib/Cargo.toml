@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 rayon = "~1.5"
+expect-test = "1.2.2"

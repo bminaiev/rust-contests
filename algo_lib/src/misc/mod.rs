@@ -11,6 +11,8 @@ pub mod digits;
 pub mod float_min_max;
 pub mod func;
 pub mod gen_vector;
+pub mod human_readable_usize;
+pub mod human_readable_usize_test;
 pub mod longest_increasing_subsequence;
 pub mod matrix_id_converter;
 pub mod min_max;
