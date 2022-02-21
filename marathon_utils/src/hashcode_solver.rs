@@ -127,13 +127,6 @@ impl<'a> OneTest<'a> {
             dbg!("No existing solution");
         }
     }
-
-    pub fn additional_file_name(&self, suffix: &str) -> String {
-        format!(
-            "{}/{}/{}{}",
-            self.base_dir, self.output_dir, self.name, suffix
-        )
-    }
 }
 
 pub fn hashcode_solver(
