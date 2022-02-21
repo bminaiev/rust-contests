@@ -57,8 +57,6 @@ impl<'a> Report<'a> {
 }
 
 pub struct OneTest<'a> {
-    base_dir: String,
-    output_dir: String,
     pub name: String,
     output_path: PathBuf,
     pub report: Report<'a>,
@@ -94,8 +92,6 @@ impl<'a> OneTest<'a> {
         report.short_html.add_hr();
         report.add_value(&"Test", &name);
         Self {
-            base_dir,
-            output_dir,
             name,
             output_path: PathBuf::from(&output_path).canonicalize().unwrap(),
             report,
