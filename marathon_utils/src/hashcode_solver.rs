@@ -70,16 +70,11 @@ impl<'a> OneTest<'a> {
         output_path: String,
         html_merger: &'a HtmlMerger,
     ) -> Self {
-        let mut html = HtmlReport::new(
-            format!("{}/{}", &base_dir, &output_dir),
-            name.clone(),
-            format!("{}.html", &name),
-        );
+        let mut html = HtmlReport::new(format!("{}/{}", &base_dir, &output_dir), &name);
         html.add_link("all tests", "index.html");
         let short_html = HtmlReport::new(
             format!("{}/{}", &base_dir, &output_dir),
-            name.clone(),
-            format!("{}-short.html", &name),
+            &format!("{}-short", &name),
         );
         if cfg!(debug_assertions) {
             html.add_text("Report was generated in DEBUG mode. Are you sure you don't want to compile in Release???");

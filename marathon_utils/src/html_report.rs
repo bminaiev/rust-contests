@@ -60,11 +60,11 @@ impl DynamicPlotId {
 }
 
 impl HtmlReport {
-    pub fn new(base_dir: String, prefix: String, relative_path: String) -> Self {
+    pub fn new(base_dir: String, name: &str) -> Self {
         Self {
             base_dir,
-            prefix,
-            relative_path,
+            prefix: name.to_owned(),
+            relative_path: format!("{}.html", name),
             elements: vec![],
             uniq_id: 0,
         }
