@@ -1,3 +1,4 @@
+use algo_lib::misc::ord_f64::OrdF64;
 use image::{ImageBuffer, Rgb};
 use plotlib::{
     page::Page,
@@ -7,7 +8,9 @@ use plotlib::{
 };
 use std::{fmt::Display, fs};
 
-use crate::{distribution_stat::DistributionStat, dynamic_plot::DynamicPlot};
+use crate::{
+    distribution_stat::DistributionStat, dynamic_plot::DynamicPlot, hashcode_solver::OneTest,
+};
 
 pub type ImageData = ImageBuffer<Rgb<u8>, Vec<u8>>;
 
@@ -45,6 +48,16 @@ pub struct HtmlReport {
 
 #[derive(Clone, Copy)]
 pub struct DynamicPlotId(usize);
+
+impl DynamicPlotId {
+    pub fn add_point<T, U>(&self, test: &mut OneTest, x: T, y: U)
+    where
+        OrdF64: From<T>,
+        OrdF64: From<U>,
+    {
+        test.report.get_dynamic_plot(*self).add_point(x, y);
+    }
+}
 
 impl HtmlReport {
     pub fn new(base_dir: String, prefix: String, relative_path: String) -> Self {
@@ -153,7 +166,7 @@ impl HtmlReport {
                     .attr("target=_blank");
                 a.img()
                     .attr(&format!("src='{}'", image.path))
-                    .attr("width=500")
+                    .attr("width=1000")
                     .attr("style=\"image-rendering:pixelated;\"");
                 Ok(())
             };

@@ -190,3 +190,9 @@ impl From<usize> for OrdF64 {
         f!(x as f64)
     }
 }
+
+impl From<f64> for OrdF64 {
+    fn from(x: f64) -> Self {
+        f!(x)
+    }
+}

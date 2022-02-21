@@ -29,11 +29,12 @@ impl DynamicPlot {
         }
     }
 
-    pub fn add_point<T>(&mut self, x: T, y: T)
+    pub fn add_point<T, U>(&mut self, x: T, y: U)
     where
         OrdF64: From<T>,
+        OrdF64: From<U>,
     {
-        let p = Point::new(x.try_into().unwrap(), y.try_into().unwrap());
+        let p = Point::new(x.into(), y.into());
         if self.rnd.gen_double() < self.cur_stay_prob {
             self.points.push(p);
         }

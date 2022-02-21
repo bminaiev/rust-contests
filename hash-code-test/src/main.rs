@@ -6,6 +6,7 @@ use algo_lib::io::input::Input;
 use algo_lib::io::output::{output, set_global_output_to_stdout};
 use algo_lib::misc::gen_vector::gen_vec;
 use algo_lib::misc::rand::Random;
+use algo_lib::misc::simulated_annealing::{SearchFor, SimulatedAnnealing};
 use algo_lib::strings::utils::vec2str;
 use algo_lib::{dbg, out, out_line};
 use marathon_utils::dynamic_plot::DynamicPlot;
@@ -71,16 +72,30 @@ fn solve(input: &mut Input, test: &mut OneTest) {
     };
 
     let score_plot = test.report.add_dynamic_plot(DynamicPlot::new(
-        &"Score on each iteration of local optimizations:",
-        &"iteration",
+        &"Score on each iteration of SA:",
+        &"time (ms)",
         &"score",
     ));
 
-    let mut not_changed = 0;
-    for iter in 0..1_000_000 {
-        test.report
-            .get_dynamic_plot(score_plot)
-            .add_point(iter, scorer.num_ok_clients());
+    let delta_plot = test.report.add_dynamic_plot(DynamicPlot::new(
+        &"Delta of scores checked by SA:",
+        &"time (ms)",
+        &"delta",
+    ));
+
+    let temp_plot = test.report.add_dynamic_plot(DynamicPlot::new(
+        &"Temperature of SA:",
+        &"time (ms)",
+        &"temperature",
+    ));
+
+    let mut sa = SimulatedAnnealing::new(3.0, SearchFor::MaximumScore, 20.0, 0.02);
+    let mut iter = 0;
+    while sa.should_continue() {
+        score_plot.add_point(test, sa.elapsed_ms(), scorer.num_ok_clients());
+        temp_plot.add_point(test, sa.elapsed_ms(), sa.current_temperature());
+        delta_plot.add_point(test, sa.elapsed_ms(), sa.last_delta());
+        iter += 1;
         if iter % 10000 == 0 {
             // dbg!(
             //     test.name,
@@ -88,24 +103,15 @@ fn solve(input: &mut Input, test: &mut OneTest) {
             //     scorer.num_ok_clients,
             //     best_scorer.num_ok_clients
             // );
-            test.report.save();
-            for _ in 0..100 {
-                scorer.switch_ingredient(rnd.gen_in_range(0..ingredients.len()));
-            }
+            // test.report.save();
+            // for _ in 0..100 {
+            // scorer.switch_ingredient(rnd.gen_in_range(0..ingredients.len()));
+            // }
         }
-        not_changed += 1;
-        if not_changed >= 1000 {
-            if scorer.num_ok_clients() > best_scorer.num_ok_clients() {
-                best_scorer = scorer.clone();
+        if scorer.num_ok_clients() > best_scorer.num_ok_clients() {
+            best_scorer = scorer.clone();
 
-                save_result(test, &best_scorer);
-            }
-            for id in 0..ingredients.len() {
-                if rnd.gen_bool() {
-                    scorer.switch_ingredient(id);
-                }
-            }
-            not_changed = 0;
+            save_result(test, &best_scorer);
         }
         let cur_score = scorer.num_ok_clients();
 
@@ -125,12 +131,7 @@ fn solve(input: &mut Input, test: &mut OneTest) {
         for x in to_switch.iter() {
             scorer.switch_ingredient(*x);
         }
-        if scorer.num_ok_clients() >= cur_score {
-            if scorer.num_ok_clients() > cur_score {
-                not_changed = 0;
-            }
-            // OK
-        } else {
+        if !sa.should_go(cur_score, scorer.num_ok_clients()) {
             for x in to_switch.iter() {
                 scorer.switch_ingredient(*x);
             }
@@ -149,7 +150,7 @@ pub(crate) fn run(mut _input: Input) -> bool {
         &"hash-code-test",
         &"inputs",
         &"outputs",
-        b'a'..=b'f',
+        b'd'..=b'd',
         &mut solve,
     );
     true
