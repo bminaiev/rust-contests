@@ -89,7 +89,7 @@ fn solve(input: &mut Input, test: &mut OneTest) {
         &"temperature",
     ));
 
-    let mut sa = SimulatedAnnealing::new(3.0, SearchFor::MaximumScore, 20.0, 0.01);
+    let mut sa = SimulatedAnnealing::new(2.0, SearchFor::MaximumScore, 20.0, 0.01);
     while sa.should_continue() {
         score_plot.add_point(test, sa.elapsed_ms(), scorer.num_ok_clients());
         temp_plot.add_point(test, sa.elapsed_ms(), sa.current_temperature());
@@ -137,7 +137,7 @@ pub(crate) fn run(mut _input: Input) -> bool {
         &"hash-code-test",
         &"inputs",
         &"outputs",
-        b'e'..=b'e',
+        b'a'..=b'e',
         &mut solve,
     );
     true

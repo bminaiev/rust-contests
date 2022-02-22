@@ -3,7 +3,7 @@ use algo_lib::{
     misc::{ord_f64::OrdF64, rand::Random},
 };
 
-use crate::plotlib_wrappers::save_plot;
+use crate::plotters_wrappers::save_plot;
 
 type Point = PointT<OrdF64>;
 
@@ -56,7 +56,7 @@ impl DynamicPlot {
     ///
     pub fn save_image(&self, base_dir: &str, file_prefix: &str) -> String {
         save_plot(
-            self.points.iter().map(|x| *x),
+            &self.points,
             base_dir,
             file_prefix,
             &self.x_name,

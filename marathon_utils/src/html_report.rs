@@ -164,10 +164,11 @@ impl HtmlReport {
                     .a()
                     .attr(&format!("href='{}'", image.path))
                     .attr("target=_blank");
-                a.img()
-                    .attr(&format!("src='{}'", image.path))
-                    .attr("width=1000")
-                    .attr("style=\"image-rendering:pixelated;\"");
+                let img = a.img().attr(&format!("src='{}'", image.path));
+                if image.path.ends_with(".svg") {
+                    img.attr("width=1000")
+                        .attr("style=\"image-rendering:pixelated;\"");
+                }
                 Ok(())
             };
             match element {

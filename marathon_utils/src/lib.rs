@@ -4,3 +4,4 @@ pub mod hashcode_solver;
 pub mod html_merger;
 pub mod html_report;
 pub mod plotlib_wrappers;
+pub mod plotters_wrappers;
