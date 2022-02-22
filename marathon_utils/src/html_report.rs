@@ -185,7 +185,7 @@ impl HtmlReport {
                     body.hr();
                 }
                 Element::DynamicPlot(img_name, plot) => {
-                    let file_name = plot.gen_image(&self.base_dir, img_name);
+                    let file_name = plot.save_image(&self.base_dir, img_name);
 
                     let image = Image::new(plot.description.to_owned(), file_name);
 
