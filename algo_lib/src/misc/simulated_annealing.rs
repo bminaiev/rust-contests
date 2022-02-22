@@ -25,6 +25,11 @@ pub struct SimulatedAnnealing {
 }
 
 impl SimulatedAnnealing {
+    ///
+    /// Read:
+    /// - https://apps.topcoder.com/forums/?module=Thread&threadID=696596&start=0
+    /// - https://codeforces.com/blog/entry/94437
+    ///
     pub fn new(
         max_time_sec: f64,
         search_for: SearchFor,

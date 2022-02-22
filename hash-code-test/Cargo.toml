@@ -9,6 +9,7 @@ marathon_utils = { path = "../marathon_utils" }
 
 image = "0.24.0"
 plotlib = "0.5.1"
+plotters = "0.3.1"
 
 [build-dependencies]
 rust_competitive_helper_util = {path = "../../rust-competitive-helper/rust-competitive-helper-util"}

@@ -70,9 +70,9 @@ impl HtmlReport {
         }
     }
 
-    pub fn gen_uniq_name(&mut self, suffix: &str) -> String {
+    pub fn gen_uniq_name(&mut self) -> String {
         self.uniq_id += 1;
-        format!("{}{}.{}", self.prefix, self.uniq_id, suffix)
+        format!("{}{}", self.prefix, self.uniq_id)
     }
 
     pub fn add_text(&mut self, text: &str) {
@@ -101,10 +101,10 @@ impl HtmlReport {
         view: &ContinuousView,
     ) -> Image {
         Page::single(view)
-            .save(&format!("{}/{}", self.base_dir, img_name))
+            .save(&format!("{}/{}.svg", self.base_dir, img_name))
             .expect("saving svg");
 
-        Image::new(description.to_owned(), img_name.to_owned())
+        Image::new(description.to_owned(), format!("{}.svg", img_name))
     }
 
     pub fn add_distribution_stat<T: Ord + Clone>(&mut self, stat: &DistributionStat<T>)
@@ -115,13 +115,13 @@ impl HtmlReport {
         let h = Histogram::from_slice(&data, HistogramBins::Count(20))
             .style(&BoxStyle::new().fill("burlywood"));
         let v = ContinuousView::new().add(h);
-        let img_name = self.gen_uniq_name("svg");
+        let img_name = self.gen_uniq_name();
         let elem = self.image_by_continius_view(&img_name, &stat.name, &v);
         self.elements.push(Element::Image(elem));
     }
 
     pub fn add_dynamic_plot(&mut self, plot: DynamicPlot) -> DynamicPlotId {
-        let img_name = self.gen_uniq_name("svg");
+        let img_name = self.gen_uniq_name();
         self.elements.push(Element::DynamicPlot(img_name, plot));
         DynamicPlotId(self.elements.len() - 1)
     }
@@ -185,11 +185,10 @@ impl HtmlReport {
                     body.hr();
                 }
                 Element::DynamicPlot(img_name, plot) => {
-                    let image = self.image_by_continius_view(
-                        img_name,
-                        &plot.description,
-                        &plot.gen_image(),
-                    );
+                    let file_name = plot.gen_image(&self.base_dir, img_name);
+
+                    let image = Image::new(plot.description.to_owned(), file_name);
+
                     handle_image(&mut div, &image)?;
                 }
             }

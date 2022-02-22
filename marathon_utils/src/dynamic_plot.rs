@@ -1,8 +1,8 @@
 use algo_lib::{
-    geometry::point::PointT,
-    misc::{ord_f64::OrdF64, rand::Random},
+    geometry::{bounding_box::BoundingBox, point::PointT},
+    misc::{num_traits::HasConstants, ord_f64::OrdF64, rand::Random},
 };
-use plotlib::{repr::Plot, style::PointStyle, view::ContinuousView};
+use plotlib::{page::Page, repr::Plot, style::PointStyle, view::ContinuousView};
 
 type Point = PointT<OrdF64>;
 
@@ -50,18 +50,33 @@ impl DynamicPlot {
         }
     }
 
-    pub fn gen_image(&self) -> ContinuousView {
+    pub fn gen_image(&self, base_dir: &str, file_prefix: &str) -> String {
         let mut data: Vec<(f64, f64)> = self.points.iter().map(|p| (p.x.0, p.y.0)).collect();
-        if data.len() <= 1 {
+        let should_add_fake_points = if data.len() <= 1 {
+            true
+        } else {
+            let mut bbox = BoundingBox::new(&self.points[0], &self.points[0]);
+            for p in self.points.iter() {
+                bbox.add(p);
+            }
+            bbox.dx() == OrdF64::ZERO || bbox.dy() == OrdF64::ZERO
+        };
+        if should_add_fake_points {
             data.push((0.0, 0.0));
             data.push((1.0, 1.0));
         }
 
         let plot: Plot = Plot::new(data).point_style(PointStyle::new().size(1.0));
 
-        ContinuousView::new()
+        let view = ContinuousView::new()
             .add(plot)
             .x_label(&self.x_name)
-            .y_label(&self.y_name)
+            .y_label(&self.y_name);
+
+        Page::single(&view)
+            .save(&format!("{}/{}.svg", base_dir, file_prefix))
+            .expect("saving svg");
+
+        format!("{}.svg", file_prefix)
     }
 }
