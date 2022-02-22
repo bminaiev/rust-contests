@@ -19,6 +19,10 @@ impl<T: Ord + Clone> DistributionStat<T> {
         self.vals.push(value);
     }
 
+    pub fn data(&self) -> &[T] {
+        &self.vals
+    }
+
     pub fn f64_data(&self) -> Vec<f64>
     where
         f64: From<T>,

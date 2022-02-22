@@ -1,15 +1,10 @@
 use algo_lib::misc::ord_f64::OrdF64;
 use image::{ImageBuffer, Rgb};
-use plotlib::{
-    page::Page,
-    repr::{Histogram, HistogramBins},
-    style::BoxStyle,
-    view::ContinuousView,
-};
 use std::{fmt::Display, fs};
 
 use crate::{
     distribution_stat::DistributionStat, dynamic_plot::DynamicPlot, hashcode_solver::OneTest,
+    plotters_wrappers::save_distribution_stat,
 };
 
 pub type ImageData = ImageBuffer<Rgb<u8>, Vec<u8>>;
@@ -94,30 +89,13 @@ impl HtmlReport {
             .push(Element::Image(Image::new(name.to_owned(), full_name)));
     }
 
-    fn image_by_continius_view(
-        &self,
-        img_name: &str,
-        description: &str,
-        view: &ContinuousView,
-    ) -> Image {
-        Page::single(view)
-            .save(&format!("{}/{}.svg", self.base_dir, img_name))
-            .expect("saving svg");
+    pub fn add_distribution_stat(&mut self, stat: &DistributionStat<i32>) {
+        let file_prefix = self.gen_uniq_name();
+        let img_name =
+            save_distribution_stat(stat, &self.base_dir, &file_prefix, &stat.name, "count");
 
-        Image::new(description.to_owned(), format!("{}.svg", img_name))
-    }
-
-    pub fn add_distribution_stat<T: Ord + Clone>(&mut self, stat: &DistributionStat<T>)
-    where
-        f64: From<T>,
-    {
-        let data = stat.f64_data();
-        let h = Histogram::from_slice(&data, HistogramBins::Count(20))
-            .style(&BoxStyle::new().fill("burlywood"));
-        let v = ContinuousView::new().add(h);
-        let img_name = self.gen_uniq_name();
-        let elem = self.image_by_continius_view(&img_name, &stat.name, &v);
-        self.elements.push(Element::Image(elem));
+        self.elements
+            .push(Element::Image(Image::new(stat.name.to_owned(), img_name)));
     }
 
     pub fn add_dynamic_plot(&mut self, plot: DynamicPlot) -> DynamicPlotId {

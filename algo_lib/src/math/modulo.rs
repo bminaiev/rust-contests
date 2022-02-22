@@ -40,7 +40,8 @@ where
     }
 
     #[allow(dead_code)]
-    pub fn new(mut x: i32) -> Self {
+    pub fn new<T: Number>(x: T) -> Self {
+        let mut x = x.to_i32();
         if x < 0 {
             x += M::val();
             if x < 0 {

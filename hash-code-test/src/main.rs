@@ -9,6 +9,7 @@ use algo_lib::misc::rand::Random;
 use algo_lib::misc::simulated_annealing::{SearchFor, SimulatedAnnealing};
 use algo_lib::strings::utils::vec2str;
 use algo_lib::{dbg, out, out_line};
+use marathon_utils::distribution_stat::DistributionStat;
 use marathon_utils::dynamic_plot::DynamicPlot;
 use marathon_utils::hashcode_solver::{hashcode_solver, OneTest};
 
@@ -71,6 +72,8 @@ fn solve(input: &mut Input, test: &mut OneTest) {
         });
     };
 
+    let mut delta_dist = DistributionStat::<i32>::new("Delta of scores, checked by SA");
+
     let score_plot = test.report.add_dynamic_plot(DynamicPlot::new(
         &"Score on each iteration of SA:",
         &"time (ms)",
@@ -94,6 +97,7 @@ fn solve(input: &mut Input, test: &mut OneTest) {
         score_plot.add_point(test, sa.elapsed_ms(), scorer.num_ok_clients());
         temp_plot.add_point(test, sa.elapsed_ms(), sa.current_temperature());
         delta_plot.add_point(test, sa.elapsed_ms(), sa.last_delta());
+        delta_dist.add(sa.last_delta() as i32);
 
         if scorer.num_ok_clients() > best_scorer.num_ok_clients() {
             best_scorer = scorer.clone();
@@ -125,6 +129,8 @@ fn solve(input: &mut Input, test: &mut OneTest) {
             assert_eq!(scorer.num_ok_clients(), cur_score);
         }
     }
+
+    test.report.add_distribution_stat(&delta_dist);
 
     test.report
         .add_value("score", &best_scorer.num_ok_clients());

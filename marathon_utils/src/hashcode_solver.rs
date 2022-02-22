@@ -29,10 +29,7 @@ impl<'a> Report<'a> {
         self.html.add_image(name, image);
     }
 
-    pub fn add_distribution_stat<T: Ord + Clone>(&mut self, stat: &DistributionStat<T>)
-    where
-        f64: From<T>,
-    {
+    pub fn add_distribution_stat(&mut self, stat: &DistributionStat<i32>) {
         self.html.add_distribution_stat(stat);
     }
 
