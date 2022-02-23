@@ -122,6 +122,7 @@ impl HtmlReport {
         self.elements.push(Element::Hr());
     }
 
+    // TODO: should save in [drop]?
     // TODO: do not save too often
     pub fn save(&self) -> std::fmt::Result {
         use html_builder::*;
