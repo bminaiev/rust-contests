@@ -83,6 +83,7 @@ impl<'a> OneTest<'a> {
         };
         report.short_html.add_hr();
         report.add_value(&"Test", &name);
+        dbg!(&output_path);
         Self {
             name,
             output_path: PathBuf::from(&output_path).canonicalize().unwrap(),

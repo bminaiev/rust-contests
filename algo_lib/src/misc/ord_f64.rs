@@ -197,6 +197,12 @@ impl From<i32> for OrdF64 {
     }
 }
 
+impl From<i64> for OrdF64 {
+    fn from(x: i64) -> Self {
+        f!(x as f64)
+    }
+}
+
 impl From<f64> for OrdF64 {
     fn from(x: f64) -> Self {
         f!(x)
