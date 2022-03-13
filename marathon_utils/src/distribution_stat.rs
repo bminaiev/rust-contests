@@ -1,6 +1,8 @@
 use std::cmp::min;
 use std::fmt::{Debug, Display, Formatter};
 
+use algo_lib::collections::sorted::SortedTrait;
+
 #[derive(Clone)]
 pub struct DistributionStat<T: Ord + Clone> {
     pub name: String,
@@ -31,6 +33,29 @@ impl<T: Ord + Clone> DistributionStat<T> {
             .iter()
             .map(|x| x.clone().try_into().unwrap())
             .collect()
+    }
+
+    pub fn to_text_format(&self) -> String
+    where
+        T: Display,
+    {
+        let data = self.vals.sorted();
+        if data.is_empty() {
+            return "[]".to_owned();
+        }
+        let get_percentile = |percent: usize| -> T {
+            let pos = percent * data.len() / 100;
+            let pos = min(pos, data.len() - 1);
+            data[pos].clone()
+        };
+        format!(
+            "[min = {}; 25% = {}; 50% = {}, 75% = {}, max = {}]",
+            get_percentile(0),
+            get_percentile(25),
+            get_percentile(50),
+            get_percentile(75),
+            get_percentile(100)
+        )
     }
 }
 

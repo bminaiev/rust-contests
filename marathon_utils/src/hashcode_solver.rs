@@ -9,6 +9,7 @@ use algo_lib::io::output::{set_global_output_to_file, set_global_output_to_none}
 use std::fmt::Display;
 use std::fs;
 use std::fs::create_dir_all;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
 // TODO: better directory structure
@@ -30,6 +31,8 @@ impl<'a> Report<'a> {
     }
 
     pub fn add_distribution_stat(&mut self, stat: &DistributionStat<i32>) {
+        self.short_html
+            .add_value(&stat.name, &stat.to_text_format());
         self.html.add_distribution_stat(stat);
     }
 
@@ -84,6 +87,14 @@ impl<'a> OneTest<'a> {
         report.short_html.add_hr();
         report.add_value(&"Test", &name);
         dbg!(&output_path);
+        if !Path::new(&output_path).exists() {
+            match File::create(&output_path) {
+                Ok(_) => {}
+                Err(err) => {
+                    dbg!(err)
+                }
+            }
+        }
         Self {
             name,
             output_path: PathBuf::from(&output_path).canonicalize().unwrap(),
@@ -96,7 +107,8 @@ impl<'a> OneTest<'a> {
         set_global_output_to_file(&self.output_path.to_str().unwrap());
         f();
         let symlink_path = &format!("/home/borys/{}.out", self.name);
-        if Path::new(symlink_path).exists() {
+        let should_remove = Path::new(symlink_path).exists() || fs::read_link(symlink_path).is_ok();
+        if should_remove {
             fs::remove_file(symlink_path).expect(&format!("Can't delete file: {}", symlink_path));
         }
         std::os::unix::fs::symlink(&self.output_path, symlink_path)
@@ -158,7 +170,11 @@ pub fn hashcode_solver(
 
     println!();
 
-    create_dir_all(output_dir).expect(&format!("Can't create outputs dir: {}", &output_dir));
+    {
+        let full_output_dir = format!("{}/{}", base_dir, output_dir);
+        create_dir_all(&full_output_dir)
+            .expect(&format!("Can't create outputs dir: {}", &full_output_dir));
+    }
     set_global_output_to_none();
 
     let html_merger = HtmlMerger::new(format!("{}/{}", &base_dir, &output_dir));

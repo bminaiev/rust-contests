@@ -36,6 +36,8 @@ impl SimulatedAnnealing {
         start_temp: f64,
         finish_temp: f64,
     ) -> Self {
+        assert_ne!(start_temp, 0.0);
+        assert_ne!(finish_temp, 0.0);
         let last_score = match search_for {
             SearchFor::MinimumScore => OrdF64::MAX,
             SearchFor::MaximumScore => OrdF64::ZERO,
