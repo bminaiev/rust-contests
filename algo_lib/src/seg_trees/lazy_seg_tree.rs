@@ -10,6 +10,9 @@ pub trait LazySegTreeNodeSpec: Clone + Default {
     type Context;
 }
 
+///
+/// Segment Tree
+///
 #[allow(unused)]
 #[derive(Clone)]
 pub struct LazySegTree<T: LazySegTreeNodeSpec> {

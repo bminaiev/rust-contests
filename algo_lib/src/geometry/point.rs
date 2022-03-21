@@ -2,7 +2,6 @@ use crate::io::input::{Input, Readable};
 use crate::iters::shifts::Shift;
 use crate::misc::num_traits::Number;
 use crate::misc::ord_f64::OrdF64;
-use std::convert::TryInto;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
@@ -20,6 +19,14 @@ impl<T: Number> PointT<T> {
         let dx = self.x - p2.x;
         let dy = self.y - p2.y;
         dx * dx + dy * dy
+    }
+
+    pub fn dist_manh(&self, p2: &PointT<T>) -> T {
+        let dx = self.x - p2.x;
+        let dy = self.y - p2.y;
+        let dx_abs = if dx < T::ZERO { T::ZERO - dx } else { dx };
+        let dy_abs = if dy < T::ZERO { T::ZERO - dy } else { dy };
+        dx_abs + dy_abs
     }
 
     pub fn angle_to(&self, other: &PointT<T>) -> OrdF64

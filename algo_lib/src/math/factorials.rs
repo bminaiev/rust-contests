@@ -1,5 +1,8 @@
 use crate::misc::num_traits::Number;
 
+///
+/// Generate factorials of all numbers up to `n`
+///
 pub fn gen_facts<T>(n: usize) -> Vec<T>
 where
     T: Number,
