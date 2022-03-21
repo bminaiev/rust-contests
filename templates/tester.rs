@@ -1,4 +1,5 @@
 use std::io::Cursor;
+use std::time::Instant;
 
 use algo_lib::io::input::Input;
 use algo_lib::io::output::{Output, OUTPUT, set_global_output_to_stdout};
@@ -217,4 +218,12 @@ pub fn run_locally() {
     let input = Input::new(Box::new(sin));
     set_global_output_to_stdout();
     crate::run(input);
+}
+
+#[allow(unused)]
+pub fn run_stress(stress: fn() -> ()) {
+    set_global_output_to_stdout();
+    let start = Instant::now();
+    stress();
+    eprintln!("Finished in {}ms", start.elapsed().as_millis());
 }

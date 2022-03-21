@@ -1,4 +1,4 @@
-use crate::math::factorials::facts;
+use crate::math::factorials::gen_facts;
 use crate::misc::num_traits::Number;
 
 pub trait Combinations<T> {
@@ -16,7 +16,7 @@ where
 {
     #[allow(unused)]
     pub fn new(n: usize) -> Self {
-        let fact = facts(n);
+        let fact = gen_facts(n);
         let mut fact_inv = fact.clone();
         assert_eq!(fact_inv.len(), n + 1);
         fact_inv[n] = T::ONE / fact_inv[n];

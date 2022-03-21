@@ -1,6 +1,6 @@
 use crate::misc::num_traits::Number;
 
-pub fn facts<T>(n: usize) -> Vec<T>
+pub fn gen_facts<T>(n: usize) -> Vec<T>
 where
     T: Number,
 {

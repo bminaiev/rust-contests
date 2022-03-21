@@ -17,6 +17,7 @@ pub struct LazySegTree<T: LazySegTreeNodeSpec> {
     tree: Vec<T>,
     updates_to_push: Vec<Option<T::Update>>,
     context: T::Context,
+    right_nodes: Vec<usize>,
 }
 
 #[allow(unused)]
@@ -30,6 +31,7 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
             tree,
             updates_to_push,
             context,
+            right_nodes: vec![],
         };
         res.build(0, 0, n, init_val);
         res
@@ -142,6 +144,7 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
             tree,
             updates_to_push,
             context,
+            right_nodes: vec![],
         };
         res.build_f(0, 0, n, f);
         res
@@ -159,6 +162,7 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
             tree,
             updates_to_push,
             context: T::Context::default(),
+            right_nodes: vec![],
         };
         res.build_f(0, 0, n, f);
         res
@@ -178,5 +182,33 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
 
     pub fn len(&self) -> usize {
         self.n
+    }
+
+    pub fn expert_get_node(&self, node: usize) -> &T {
+        &self.tree[node]
+    }
+
+    pub fn expert_get_left_node(&self, node: usize) -> usize {
+        node + 1
+    }
+
+    fn build_right_nodes(&mut self, v: usize, l: usize, r: usize) {
+        if l + 1 == r {
+            self.right_nodes.push(0);
+        } else {
+            let m = (l + r) >> 1;
+            let vr = v + ((m - l) << 1);
+            self.right_nodes.push(vr);
+            self.build_right_nodes(v + 1, l, m);
+            self.build_right_nodes(vr, m, r);
+        }
+    }
+
+    // TODO: shouldn't be mut
+    pub fn expert_get_right_node(&mut self, node: usize) -> usize {
+        if self.right_nodes.is_empty() {
+            self.build_right_nodes(0, 0, self.n);
+        }
+        self.right_nodes[node]
     }
 }
