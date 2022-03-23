@@ -24,7 +24,7 @@ impl ModRuntime {
     }
 
     #[allow(dead_code)]
-    fn inv(self) -> Self {
+    pub fn inv(self) -> Self {
         Self {
             value: Self::rev_rec(self.value, self.m),
             m: self.m,
@@ -32,6 +32,7 @@ impl ModRuntime {
     }
 
     #[allow(dead_code)]
+    #[inline]
     pub fn new(mut x: i32, m: i32) -> Self {
         if x < 0 {
             x += m;
@@ -51,11 +52,28 @@ impl ModRuntime {
 
     pub fn pown(self, pw: usize) -> Self {
         if pw == 0 {
-            Self::ONE
+            Self::new(1, self.m)
         } else if pw == 1 {
             self
         } else {
             let half = self.pown(pw / 2);
+            let res = half * half;
+            if pw % 2 == 0 {
+                res
+            } else {
+                res * self
+            }
+        }
+    }
+
+    // TODO: `pw` should be [T], which implements "integer"
+    pub fn pow_i128(self, pw: i128) -> Self {
+        if pw == 0 {
+            Self::new(1, self.m)
+        } else if pw == 1 {
+            self
+        } else {
+            let half = self.pow_i128(pw / 2);
             let res = half * half;
             if pw % 2 == 0 {
                 res
@@ -73,6 +91,10 @@ impl ModRuntime {
         }
         res
     }
+
+    pub fn value(&self) -> i32 {
+        self.value
+    }
 }
 
 impl std::fmt::Display for ModRuntime {
@@ -89,13 +111,14 @@ impl std::fmt::Debug for ModRuntime {
         } else if self.value >= self.m - MAX as i32 {
             write!(f, "-{}", self.m - self.value)
         } else {
-            for denum in 1..MAX {
-                for num in 1..MAX {
-                    if Self::new(num as i32, self.m) / Self::new(denum as i32, self.m) == *self {
-                        return write!(f, "{}/{}", num, denum);
-                    }
-                }
-            }
+            // TODO: not all ..MAX has inverse
+            // for denum in 1..MAX {
+            //     for num in 1..MAX {
+            //         if Self::new(num as i32, self.m) / Self::new(denum as i32, self.m) == *self {
+            //             return write!(f, "{}/{}", num, denum);
+            //         }
+            //     }
+            // }
             write!(f, "(?? {} ??)", self.value)
         }
     }

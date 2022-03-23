@@ -25,6 +25,9 @@ fn filter_same_dir(sorted_planes: &[Segment]) -> Vec<Segment> {
     res
 }
 
+///
+/// Planes are to the left of each segment (not sure?)
+///
 pub fn half_plane_intersection(
     mut planes: Vec<Segment>,
     add_inf_bound: Option<OrdF64>,

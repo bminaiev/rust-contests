@@ -1,3 +1,5 @@
+use crate::collections::array_2d::Array2D;
+use crate::f;
 use crate::io::input::{Input, Readable};
 use crate::iters::shifts::Shift;
 use crate::misc::num_traits::Number;
@@ -93,6 +95,23 @@ impl<T: Number> PointT<T> {
         }
     }
 
+    pub fn index_arr2d<'a, Elem>(&self, arr: &'a Array2D<Elem>) -> Option<&'a Elem>
+    where
+        Elem: Clone,
+    {
+        if self.x >= T::ZERO
+            && self.x < T::from_i32(arr.len() as i32)
+            && self.y >= T::ZERO
+            && self.y < T::from_i32(arr[T::to_i32(self.x) as usize].len() as i32)
+        {
+            let x = T::to_i32(self.x) as usize;
+            let y = T::to_i32(self.y) as usize;
+            Some(&arr[x][y])
+        } else {
+            None
+        }
+    }
+
     pub fn rotate_ccw(&self) -> Self {
         Self::new(T::ZERO - self.y, self.x)
     }
@@ -172,5 +191,15 @@ where
 
     pub fn id(&self) -> usize {
         self.id as usize
+    }
+}
+
+impl PointT<OrdF64> {
+    pub fn rotate_ccw_angle(&self, angle: OrdF64) -> Self {
+        let cos = f!(angle.0.cos());
+        let sin = f!(angle.0.sin());
+        let x = self.x * cos - self.y * sin;
+        let y = self.y * cos + self.x * sin;
+        Self { x, y }
     }
 }

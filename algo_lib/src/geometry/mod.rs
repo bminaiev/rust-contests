@@ -1,4 +1,5 @@
 pub mod bounding_box;
+pub mod convex_polygon_intersection;
 pub mod direction;
 pub mod half_plane_intersection;
 pub mod half_plane_intersection_test;
