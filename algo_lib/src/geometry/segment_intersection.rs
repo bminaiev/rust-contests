@@ -10,7 +10,7 @@ fn inside_one_dim(range: (OrdF64, OrdF64), val: OrdF64) -> bool {
     min(range.0, range.1) - OrdF64::EPS <= val && val <= max(range.0, range.1) + OrdF64::EPS
 }
 
-fn inside_bounding_box(seg: &Segment, p: &Point) -> bool {
+pub fn inside_bounding_box(seg: &Segment, p: &Point) -> bool {
     inside_one_dim((seg.from.x, seg.to.x), p.x) && inside_one_dim((seg.from.y, seg.to.y), p.y)
 }
 

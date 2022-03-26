@@ -1,7 +1,8 @@
 use crate::geometry::direction::DirectionT;
 use crate::geometry::line::Line;
 use crate::geometry::point::PointT;
-use crate::misc::num_traits::Number;
+use crate::geometry::segment_intersection::inside_bounding_box;
+use crate::misc::num_traits::{HasConstants, Number};
 use crate::misc::ord_f64::OrdF64;
 
 #[derive(Copy, Clone, Debug)]
@@ -44,5 +45,19 @@ where
 impl SegmentT<OrdF64> {
     pub fn to_line(&self) -> Line {
         Line::new(&self.from, &self.to)
+    }
+
+    pub fn contains(&self, p: &PointT<OrdF64>) -> bool {
+        // TODO: should use eps?
+        return inside_bounding_box(self, p)
+            && PointT::vect_mul(&self.from, &self.to, p) == OrdF64::ZERO;
+    }
+
+    pub fn len2(&self) -> OrdF64 {
+        self.from.dist2(&self.to)
+    }
+
+    pub fn len(&self) -> OrdF64 {
+        self.len2().sqrt()
     }
 }

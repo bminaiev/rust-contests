@@ -16,6 +16,7 @@ pub struct SuffixArray {
 }
 
 impl SuffixArray {
+    #[inline]
     pub fn get_pos_in_array(&self, pos_in_string: usize) -> usize {
         self.pos_in_sorted[pos_in_string]
     }
