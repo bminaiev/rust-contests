@@ -29,5 +29,6 @@ pub mod rec_function;
 pub mod simulated_annealing;
 pub mod step_down;
 pub mod ternary_search;
+pub mod two_min;
 pub mod vec_apply_delta;
 pub mod vec_binary_search;

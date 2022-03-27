@@ -66,4 +66,8 @@ impl<T: Number> Fenwick<T> {
             *x = T::ZERO;
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
 }

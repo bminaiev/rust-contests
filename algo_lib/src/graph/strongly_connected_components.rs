@@ -3,6 +3,7 @@ use crate::graph::dfs_builder::dfs_builder;
 use crate::graph::edges::edge_trait::EdgeTrait;
 use crate::graph::edges::simple_edge::SimpleEdge;
 use crate::graph::graph_trait::GraphTrait;
+use crate::misc::num_traits::Number;
 
 fn rev_graph<G>(graph: &G) -> impl GraphTrait<SimpleEdge>
 where
@@ -19,7 +20,34 @@ where
     CompressedGraph::with_edge_iter(graph.num_vertices(), iter())
 }
 
-pub fn find_strongly_connected_component<G>(graph: &G) -> Vec<u32>
+pub struct StronglyConnectedComponents<CompIdType> {
+    pub num_comps: usize,
+    pub comp_id: Vec<CompIdType>,
+}
+
+impl<CompIdType> StronglyConnectedComponents<CompIdType> {
+    pub fn generate_components(&self) -> Vec<Vec<usize>>
+    where
+        CompIdType: Number,
+    {
+        let mut res = vec![vec![]; self.num_comps];
+        for (v, comp_id) in self.comp_id.iter().enumerate() {
+            res[comp_id.to_i32() as usize].push(v);
+        }
+        res
+    }
+}
+
+///
+/// Return comp_id[v]
+///
+/// If edge [u] -> [v] exist
+/// <=>
+/// comp_id[u] <= comp_id[v]
+///
+pub fn find_strongly_connected_component<G, CompIdType: Number>(
+    graph: &G,
+) -> StronglyConnectedComponents<CompIdType>
 where
     G: GraphTrait<SimpleEdge>,
 {
@@ -36,7 +64,7 @@ where
         }
     }
 
-    let mut dfs2_state = (vec![0; n], 0);
+    let mut dfs2_state = (vec![CompIdType::ZERO; n], CompIdType::ZERO);
     {
         let rev_graph = rev_graph(graph);
 
@@ -48,8 +76,11 @@ where
             if !dfs2.seen(v) {
                 dfs2.run(SimpleEdge::new(v));
             }
-            dfs2.state.1 += 1;
+            dfs2.state.1 += CompIdType::ONE;
         }
     }
-    dfs2_state.0
+    StronglyConnectedComponents {
+        num_comps: dfs2_state.1.to_i32() as usize,
+        comp_id: dfs2_state.0,
+    }
 }
