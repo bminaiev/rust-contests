@@ -3,6 +3,7 @@ use std::ops::Range;
 use crate::misc::num_traits::Number;
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct Fenwick<T: Number> {
     values: Vec<T>,
 }

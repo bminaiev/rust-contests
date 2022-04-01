@@ -65,6 +65,7 @@ impl Random {
     {
         let from = T::to_i32(range.start);
         let to = T::to_i32(range.end);
+        assert!(from < to);
         let len = (to - from) as usize;
         T::from_i32(self.next_in_range(0, len) as i32 + from)
     }

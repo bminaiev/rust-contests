@@ -37,7 +37,7 @@ impl<T: Number> PointT<T> {
     {
         let dy = other.y - self.y;
         let dx = other.x - self.x;
-        OrdF64(f64::atan2(dy.try_into().unwrap(), dx.try_into().unwrap()))
+        OrdF64(f64::atan2(dy.into(), dx.into()))
     }
 
     pub fn swap_x_y(&self) -> Self {
