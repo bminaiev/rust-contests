@@ -142,7 +142,7 @@ impl Input {
     where
         T: Clone,
     {
-        Array2D::gen(rows, cols, |_, _| self.read())
+        Array2D::new_f(rows, cols, |_, _| self.read())
     }
 
     pub fn read_line(&mut self) -> String {

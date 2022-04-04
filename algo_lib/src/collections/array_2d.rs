@@ -30,7 +30,7 @@ where
         }
     }
 
-    pub fn gen(rows: usize, cols: usize, mut f: impl FnMut(usize, usize) -> T) -> Self {
+    pub fn new_f(rows: usize, cols: usize, mut f: impl FnMut(usize, usize) -> T) -> Self {
         let mut v = Vec::with_capacity(rows * cols);
         for r in 0..rows {
             for c in 0..cols {
@@ -63,7 +63,7 @@ where
     }
 
     pub fn transpose(&self) -> Self {
-        Self::gen(self.cols, self.rows, |r, c| self[c][r].clone())
+        Self::new_f(self.cols, self.rows, |r, c| self[c][r].clone())
     }
 
     pub fn iter(&self) -> Iter<T> {
@@ -72,6 +72,20 @@ where
             row: 0,
             col: 0,
         }
+    }
+
+    pub fn pref_sum(&self) -> Self
+    where
+        T: Number,
+    {
+        let mut res = Self::new(T::ZERO, self.rows + 1, self.cols + 1);
+        for i in 0..self.rows {
+            for j in 0..self.cols {
+                let value = self[i][j] + res[i][j + 1] + res[i + 1][j] - res[i][j];
+                res[i + 1][j + 1] = value;
+            }
+        }
+        res
     }
 }
 
@@ -132,7 +146,7 @@ where
         assert_eq!(self.rows, self.cols);
         let n = self.rows;
         if pw == 0 {
-            Self::gen(n, n, |r, c| if r == c { T::ONE } else { T::ZERO })
+            Self::new_f(n, n, |r, c| if r == c { T::ONE } else { T::ZERO })
         } else if pw == 1 {
             self.clone()
         } else {

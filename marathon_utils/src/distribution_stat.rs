@@ -29,10 +29,7 @@ impl<T: Ord + Clone> DistributionStat<T> {
     where
         f64: From<T>,
     {
-        self.vals
-            .iter()
-            .map(|x| x.clone().try_into().unwrap())
-            .collect()
+        self.vals.iter().map(|x| x.clone().into()).collect()
     }
 
     pub fn to_text_format(&self) -> String

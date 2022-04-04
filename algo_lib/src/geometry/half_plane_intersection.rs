@@ -34,7 +34,7 @@ pub fn half_plane_intersection(
 ) -> Option<Polygon> {
     if let Some(inf) = add_inf_bound {
         let pts: Vec<_> = [(-inf, -inf), (inf, -inf), (inf, inf), (-inf, inf)]
-            .into_iter()
+            .iter()
             .map(|(x, y)| Point::new(x.clone(), y.clone()))
             .collect();
         for i in 0..pts.len() {
