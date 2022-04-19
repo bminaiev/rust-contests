@@ -12,6 +12,7 @@ pub mod permutation;
 pub mod random_bag;
 pub mod rev_permutation;
 pub mod reversed;
+pub mod shuffled;
 pub mod sorted;
 pub mod sparse_table;
 pub mod sparse_table_gcd;

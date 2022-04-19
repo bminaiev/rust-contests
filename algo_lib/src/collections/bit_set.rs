@@ -1,4 +1,4 @@
-use std::ops::{BitOrAssign, Not};
+use std::ops::{BitAndAssign, BitOrAssign, Not};
 
 #[derive(Hash, Clone, Eq, PartialOrd, PartialEq, Debug)]
 pub struct BitSet {
@@ -69,6 +69,28 @@ impl BitSet {
             }
         }
     }
+
+    pub fn first_set(&self, mut pos: usize) -> Option<usize> {
+        if pos >= self.bit_len() {
+            return None;
+        }
+        while (pos & 63) != 0 {
+            if self.get(pos) {
+                return Some(pos);
+            }
+            pos += 1;
+        }
+        match self.values[pos >> 6..].iter().position(|x| *x != 0) {
+            None => None,
+            Some(idx) => {
+                pos += idx * 64;
+                while !self.get(pos) {
+                    pos += 1;
+                }
+                Some(pos)
+            }
+        }
+    }
 }
 
 impl BitOrAssign<&BitSet> for BitSet {
@@ -80,6 +102,19 @@ impl BitOrAssign<&BitSet> for BitSet {
             .zip(rhs.values[0..len].iter())
         {
             *x |= *y;
+        }
+    }
+}
+
+impl BitAndAssign<&BitSet> for BitSet {
+    fn bitand_assign(&mut self, rhs: &BitSet) {
+        self.ensure_length(rhs.bit_len());
+        let len = rhs.values.len();
+        for (x, y) in self.values[0..len]
+            .iter_mut()
+            .zip(rhs.values[0..len].iter())
+        {
+            *x &= *y;
         }
     }
 }

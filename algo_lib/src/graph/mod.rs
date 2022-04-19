@@ -1,4 +1,5 @@
 pub mod bfs;
+pub mod bfs_bitsets;
 pub mod compressed_graph;
 pub mod dfs_builder;
 pub mod dijkstra;

@@ -22,6 +22,7 @@ pub struct SimulatedAnnealing {
     last_printed_status_iter: usize,
     max_num_status_updates: usize,
     iterations_passed: usize,
+    silent: bool,
 }
 
 impl SimulatedAnnealing {
@@ -56,7 +57,12 @@ impl SimulatedAnnealing {
             last_printed_status_iter: 0,
             max_num_status_updates: max(max_time_sec as usize, 10),
             iterations_passed: 0,
+            silent: false,
         }
+    }
+
+    pub fn set_silent(&mut self, silent: bool) {
+        self.silent = silent;
     }
 
     pub fn elapsed_ms(&self) -> f64 {
@@ -86,7 +92,7 @@ impl SimulatedAnnealing {
             self.start_temp * (self.finish_temp / self.start_temp).powf(part_time_elapsed);
 
         let status_iter = (part_time_elapsed * (self.max_num_status_updates as f64)) as usize;
-        if status_iter != self.last_printed_status_iter {
+        if status_iter != self.last_printed_status_iter && !self.silent {
             self.last_printed_status_iter = status_iter;
             self.print_status();
         }

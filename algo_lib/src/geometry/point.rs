@@ -1,6 +1,7 @@
 use crate::collections::array_2d::Array2D;
 use crate::f;
 use crate::io::input::{Input, Readable};
+use crate::io::output::{Output, Writable};
 use crate::iters::shifts::Shift;
 use crate::misc::num_traits::Number;
 use crate::misc::ord_f64::OrdF64;
@@ -172,6 +173,17 @@ where
         let x = input.read();
         let y = input.read();
         Self { x, y }
+    }
+}
+
+impl<T> Writable for PointT<T>
+where
+    T: Number + Writable,
+{
+    fn write(&self, output: &mut Output) {
+        self.x.write(output);
+        output.put(b' ');
+        self.y.write(output);
     }
 }
 
