@@ -2,7 +2,22 @@
 // article: https://cp-algorithms.com/algebra/fft.html#:~:text=and%20their%20powers.-,Number%20theoretic%20transform,-Now%20we%20switch
 
 use crate::math::modulo::ModuloTrait;
-
+///
+///
+///
+/// ```
+/// type Mod = algo_lib::math::modulo::Mod_998_244_353;
+///
+/// let a = vec![Mod::new(1), Mod::new(2)];
+/// let b = vec![Mod::new(1), Mod::new(2), Mod::new(3)];
+///
+/// let mult = algo_lib::math::ntt::NTT::new().multiply(a, b);
+/// let expected = vec![Mod::new(1), Mod::new(4), Mod::new(7), Mod::new(6)];
+/// assert_eq!(mult, expected);
+///
+/// ```
+///
+///
 pub struct NTT<M>
 where
     M: ModuloTrait,

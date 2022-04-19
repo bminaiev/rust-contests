@@ -25,6 +25,10 @@ where
         }
         Self { fact, fact_inv }
     }
+
+    pub fn fact(&self, n: usize) -> T {
+        self.fact[n]
+    }
 }
 
 impl<T> Combinations<T> for CombinationsFact<T>

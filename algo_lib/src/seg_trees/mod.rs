@@ -1,4 +1,6 @@
 pub mod fenwick;
+pub mod fenwick_max;
+pub mod fenwick_min;
 pub mod fenwick_tests;
 pub mod lazy_seg_tree;
 pub mod lazy_seg_tree_max;
