@@ -2,6 +2,7 @@ use crate::distribution_stat::DistributionStat;
 use crate::dynamic_plot::DynamicPlot;
 use crate::html_merger::HtmlMerger;
 use crate::html_report::{DynamicPlotId, HtmlReport, ImageData};
+use crate::sa_report::SaReport;
 #[allow(unused)]
 use algo_lib::dbg;
 use algo_lib::io::input::Input;
@@ -43,6 +44,10 @@ impl<'a> Report<'a> {
 
     pub fn add_dynamic_plot(&mut self, plot: DynamicPlot) -> DynamicPlotId {
         self.html.add_dynamic_plot(plot)
+    }
+
+    pub fn add_sa(&mut self) -> SaReport {
+        SaReport::new(self)
     }
 
     pub fn get_dynamic_plot(&mut self, id: DynamicPlotId) -> &mut DynamicPlot {

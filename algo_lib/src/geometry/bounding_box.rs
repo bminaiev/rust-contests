@@ -1,8 +1,6 @@
 use std::cmp::{max, min};
 
-use crate::misc::{min_max::UpdateMinMax, num_traits::Number};
-
-use super::point::PointT;
+use crate::{misc::{min_max::UpdateMinMax, num_traits::Number}, geometry::point::PointT};
 
 #[derive(Clone, Copy)]
 pub struct BoundingBox<T: Number> {

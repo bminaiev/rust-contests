@@ -1,12 +1,80 @@
-use std::{cmp::max, time::Instant};
+use std::{cmp::max, collections::VecDeque, time::Instant};
 
 use crate::{f, misc::human_readable_usize::HumanReadableUsize};
 
 use super::{num_traits::HasConstants, ord_f64::OrdF64, rand::Random};
 
+#[derive(Clone, Copy, Debug)]
 pub enum SearchFor {
     MinimumScore,
     MaximumScore,
+}
+
+struct AcceptRate {
+    accepted_on: VecDeque<usize>,
+}
+
+impl AcceptRate {
+    pub fn new() -> Self {
+        Self {
+            accepted_on: VecDeque::default(),
+        }
+    }
+
+    pub fn add(&mut self, iter: usize) {
+        self.accepted_on.push_back(iter);
+        if self.accepted_on.len() > 100 {
+            self.accepted_on.pop_front();
+        }
+    }
+
+    pub fn get_accept_percent(&self, iter: usize) -> f64 {
+        if self.accepted_on.is_empty() {
+            return 0.0;
+        }
+        let first = *self.accepted_on.get(0).unwrap();
+        let cnt_iters = iter - first + 1;
+        let accepted = self.accepted_on.len();
+        (accepted as f64) / (cnt_iters as f64) * 100.0
+    }
+}
+
+struct SaveChecker {
+    saved_score: OrdF64,
+    saved_at_ms: f64,
+}
+
+impl SaveChecker {
+    pub fn new() -> Self {
+        Self {
+            saved_score: OrdF64::ZERO,
+            saved_at_ms: 0.0,
+        }
+    }
+
+    pub fn should_save(&mut self, score: OrdF64, search_for: SearchFor, time_ms: f64) -> bool {
+        if time_ms < self.saved_at_ms + 10000.0 {
+            return false;
+        }
+
+        match search_for {
+            SearchFor::MaximumScore => {
+                if score <= self.saved_score {
+                    return false;
+                }
+            }
+            SearchFor::MinimumScore => {
+                if score >= self.saved_score {
+                    return false;
+                }
+            }
+        }
+
+        eprintln!("Save score = {}", score);
+        self.saved_at_ms = time_ms;
+        self.saved_score = score;
+        true
+    }
 }
 
 pub struct SimulatedAnnealing {
@@ -23,6 +91,8 @@ pub struct SimulatedAnnealing {
     max_num_status_updates: usize,
     iterations_passed: usize,
     silent: bool,
+    accept_rate: AcceptRate,
+    save_cheker: SaveChecker,
 }
 
 impl SimulatedAnnealing {
@@ -31,19 +101,23 @@ impl SimulatedAnnealing {
     /// - https://apps.topcoder.com/forums/?module=Thread&threadID=696596&start=0
     /// - https://codeforces.com/blog/entry/94437
     ///
-    pub fn new(
+    pub fn new<T>(
         max_time_sec: f64,
         search_for: SearchFor,
         start_temp: f64,
         finish_temp: f64,
-    ) -> Self {
+        start_score: T,
+    ) -> Self
+    where
+        OrdF64: From<T>,
+    {
         assert_ne!(start_temp, 0.0);
         assert_ne!(finish_temp, 0.0);
-        let last_score = match search_for {
-            SearchFor::MinimumScore => OrdF64::MAX,
-            SearchFor::MaximumScore => OrdF64::ZERO,
-        };
+        let last_score: OrdF64 = start_score.into();
         assert!(start_temp >= finish_temp);
+        let mut save_cheker = SaveChecker::new();
+
+        save_cheker.saved_score = last_score;
         Self {
             rnd: Random::new(787788),
             instant: Instant::now(),
@@ -58,6 +132,8 @@ impl SimulatedAnnealing {
             max_num_status_updates: max(max_time_sec as usize, 10),
             iterations_passed: 0,
             silent: false,
+            accept_rate: AcceptRate::new(),
+            save_cheker,
         }
     }
 
@@ -72,9 +148,10 @@ impl SimulatedAnnealing {
     fn print_status(&self) {
         let elapsed_ms = self.instant.elapsed().as_millis();
         eprintln!(
-            "After {}ms ({:?} iters) score is: {}",
+            "After {}ms ({:?} iters), % of accepted changes = {:.3}%, score is: {}",
             elapsed_ms,
             HumanReadableUsize(self.iterations_passed),
+            self.acceptance_percent(),
             self.last_score
         );
     }
@@ -97,15 +174,16 @@ impl SimulatedAnnealing {
             self.print_status();
         }
 
-        self.iterations_passed += 1;
         elapsed < self.max_time_millis
     }
 
-    pub fn should_go<T>(&mut self, prev_score: T, new_score: T) -> bool
+    pub fn should_go<T>(&mut self, new_score: T) -> bool
     where
         OrdF64: From<T>,
     {
-        let prev_score: OrdF64 = prev_score.into();
+        self.iterations_passed += 1;
+
+        let prev_score = self.last_score;
         let new_score: OrdF64 = new_score.into();
 
         let delta_if_positive_is_good = {
@@ -120,6 +198,9 @@ impl SimulatedAnnealing {
         self.last_delta = delta_if_positive_is_good;
         if delta_if_positive_is_good >= f!(0.0) {
             self.last_score = new_score;
+            if delta_if_positive_is_good != f!(0.0) {
+                self.accept_rate.add(self.iterations_passed);
+            }
             return true;
         }
 
@@ -130,10 +211,21 @@ impl SimulatedAnnealing {
 
         if self.rnd.gen_double() <= accept_probability {
             self.last_score = new_score;
+            self.accept_rate.add(self.iterations_passed);
             true
         } else {
             false
         }
+    }
+
+    pub fn should_save(&mut self, last_time: bool) -> bool {
+        let time = if last_time {
+            std::f64::MAX
+        } else {
+            self.elapsed_ms()
+        };
+        self.save_cheker
+            .should_save(self.last_score, self.search_for, time)
     }
 
     /// Get the simulated annealing's current temperature.
@@ -144,5 +236,13 @@ impl SimulatedAnnealing {
     /// Get the simulated annealing's last delta.
     pub fn last_delta(&self) -> f64 {
         self.last_delta.0
+    }
+
+    pub fn last_score(&self) -> f64 {
+        self.last_score.0
+    }
+
+    pub fn acceptance_percent(&self) -> f64 {
+        self.accept_rate.get_accept_percent(self.iterations_passed)
     }
 }
