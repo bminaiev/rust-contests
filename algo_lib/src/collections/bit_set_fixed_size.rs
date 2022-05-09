@@ -1,20 +1,20 @@
 use std::ops::{BitAndAssign, BitOrAssign, Not};
 
-#[derive(Hash, Clone, Eq, PartialOrd, PartialEq, Debug)]
-pub struct BitSet {
-    values: Vec<u64>,
+#[derive(Hash, Clone, Eq, PartialOrd, PartialEq, Debug, Default)]
+pub struct BitSetFixedSize {
+    values: [u64; (1600 + 63) / 64],
 }
 
-impl BitSet {
+impl BitSetFixedSize {
     pub fn calc_len(n: usize) -> usize {
         (n + 127) / 128 * 2
     }
 
     #[allow(unused)]
     pub fn new(n: usize) -> Self {
-        Self {
-            values: vec![0u64; BitSet::calc_len(n)],
-        }
+        let res = Self::default();
+        assert!(res.bit_len() >= n);
+        res
     }
 
     #[allow(unused)]
@@ -35,13 +35,6 @@ impl BitSet {
     pub fn clear(&mut self) {
         for x in self.values.iter_mut() {
             *x = 0;
-        }
-    }
-
-    fn ensure_length(&mut self, bit_len: usize) {
-        let i64_len = Self::calc_len(bit_len);
-        if i64_len > self.values.len() {
-            self.values.resize(i64_len, 0);
         }
     }
 
@@ -102,39 +95,24 @@ impl BitSet {
             *x |= *y;
         }
     }
-
-    #[target_feature(enable = "ssse3")]
-    unsafe fn bitor_assign_ssse3(&mut self, rhs: &Self) {
-        for (x, y) in self.values.iter_mut().zip(rhs.values.iter()) {
-            *x |= *y;
-        }
-    }
 }
 
-impl BitOrAssign<&BitSet> for BitSet {
+impl BitOrAssign<&BitSetFixedSize> for BitSetFixedSize {
     fn bitor_assign(&mut self, rhs: &Self) {
-        self.ensure_length(rhs.bit_len());
         if is_x86_feature_detected!("avx2") {
             unsafe {
                 self.bitor_assign_avx2(rhs);
             }
         } else {
-            if is_x86_feature_detected!("ssse3") {
-                unsafe {
-                    self.bitor_assign_ssse3(rhs);
-                }
-            } else {
-                for (x, y) in self.values.iter_mut().zip(rhs.values.iter()) {
-                    *x |= *y;
-                }
+            for (x, y) in self.values.iter_mut().zip(rhs.values.iter()) {
+                *x |= *y;
             }
         }
     }
 }
 
-impl BitAndAssign<&BitSet> for BitSet {
-    fn bitand_assign(&mut self, rhs: &BitSet) {
-        self.ensure_length(rhs.bit_len());
+impl BitAndAssign<&BitSetFixedSize> for BitSetFixedSize {
+    fn bitand_assign(&mut self, rhs: &BitSetFixedSize) {
         let len = rhs.values.len();
         for (x, y) in self.values[0..len]
             .iter_mut()

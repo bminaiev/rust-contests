@@ -25,6 +25,13 @@ where
         }
     }
 
+    pub fn clear(&mut self) {
+        for g in self.adj.iter_mut() {
+            g.clear();
+        }
+        self.num_edges = 0;
+    }
+
     pub fn with_adj(adj: Vec<Vec<E>>) -> Self {
         let num_edges = adj.iter().map(|v| v.len()).sum();
         Self { adj, num_edges }

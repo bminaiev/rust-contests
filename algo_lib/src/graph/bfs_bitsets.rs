@@ -20,10 +20,10 @@ pub fn bfs_bitsets(root: usize, graph: &[BitSet]) -> Vec<u32> {
             } else {
                 break;
             }
-            assert!(cur_level.get(v));
-            assert_eq!(res[v], std::u32::MAX);
+            debug_assert!(cur_level.get(v));
+            debug_assert_eq!(res[v], std::u32::MAX);
             res[v] = dist;
-            assert!(not_seen.get(v));
+            debug_assert!(not_seen.get(v));
             not_seen.set(v, false);
             next_level |= &graph[v];
             v += 1;
@@ -35,4 +35,29 @@ pub fn bfs_bitsets(root: usize, graph: &[BitSet]) -> Vec<u32> {
         }
     }
     res
+}
+
+pub fn bfs_bitsets_vis(root: usize, graph: &[BitSet]) -> BitSet {
+    let n = graph.len();
+    let mut not_seen = BitSet::new(n);
+    for v in 0..n {
+        not_seen.set(v, true);
+    }
+    let mut check_next = BitSet::new(n);
+    check_next.set(root, true);
+    while let Some(mut v) = check_next.first_set(0) {
+        while v < graph.len() {
+            not_seen.set(v, false);
+            check_next |= &graph[v];
+            check_next &= &not_seen;
+            v = check_next.first_set(v + 1).unwrap_or(graph.len());
+        }
+    }
+    let mut seen = BitSet::new(n);
+    for v in 0..n {
+        if !not_seen.get(v) {
+            seen.set(v, true);
+        }
+    }
+    seen
 }
