@@ -13,10 +13,10 @@ pub mod tests {
     fn simple() {
         for test in 0..1000 {
             let mut rnd = Random::new(787788 + test);
-            let n = rnd.gen_in_range(1..10);
+            let n = rnd.gen(1..10);
             let mut segs = vec![];
             const MAX_C: i32 = 20000;
-            let mut gen_coord = || -> OrdF64 { OrdF64(rnd.gen_in_range(-MAX_C..MAX_C) as f64) };
+            let mut gen_coord = || -> OrdF64 { OrdF64(rnd.gen(-MAX_C..MAX_C) as f64) };
             let mut gen_point = || -> Point { Point::new(gen_coord(), gen_coord()) };
             for _ in 0..n {
                 let p1 = gen_point();
@@ -35,10 +35,10 @@ pub mod tests {
     fn small_coord() {
         for test in 0..10000 {
             let mut rnd = Random::new(1787788 + test);
-            let n = rnd.gen_in_range(1..6);
+            let n = rnd.gen(1..6);
             let mut segs = vec![];
             const MAX_C: i32 = 5;
-            let mut gen_coord = || -> OrdF64 { OrdF64(rnd.gen_in_range(-MAX_C..MAX_C) as f64) };
+            let mut gen_coord = || -> OrdF64 { OrdF64(rnd.gen(-MAX_C..MAX_C) as f64) };
             let mut gen_point = || -> Point { Point::new(gen_coord(), gen_coord()) };
             for _ in 0..n {
                 let p1 = gen_point();

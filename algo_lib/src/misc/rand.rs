@@ -25,12 +25,12 @@ impl Random {
     }
 
     pub fn gen_index<T>(&mut self, a: &[T]) -> usize {
-        self.gen_in_range(0..a.len())
+        self.gen(0..a.len())
     }
 
     #[allow(dead_code)]
     pub fn gen_double(&mut self) -> f64 {
-        (self.gen_u64() as f64) / (usize::MAX as f64)
+        (self.gen_u64() as f64) / (std::usize::MAX as f64)
     }
 
     #[allow(dead_code)]
@@ -59,7 +59,7 @@ impl Random {
         result
     }
 
-    pub fn gen_in_range<T>(&mut self, range: Range<T>) -> T
+    pub fn gen<T>(&mut self, range: Range<T>) -> T
     where
         T: Number,
     {
@@ -74,12 +74,12 @@ impl Random {
     where
         T: Number,
     {
-        gen_vec(n, |_| self.gen_in_range(range.clone()))
+        gen_vec(n, |_| self.gen(range.clone()))
     }
 
     pub fn gen_nonempty_range(&mut self, n: usize) -> Range<usize> {
-        let x = self.gen_in_range(0..n);
-        let y = self.gen_in_range(0..n);
+        let x = self.gen(0..n);
+        let y = self.gen(0..n);
         if x <= y {
             x..y + 1
         } else {
@@ -88,6 +88,6 @@ impl Random {
     }
 
     pub fn gen_bool(&mut self) -> bool {
-        self.gen_in_range(0..2) == 0
+        self.gen(0..2) == 0
     }
 }

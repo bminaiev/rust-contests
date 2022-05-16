@@ -15,7 +15,7 @@ pub struct MinCostMaxFlow {
     pub n: usize,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct CostAndFlow {
     pub cost: i64,
     pub flow: i64,

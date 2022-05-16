@@ -44,7 +44,7 @@ pub mod tests {
                 let full_range = rnd.gen_nonempty_range(n);
                 if rnd.gen_bool() {
                     // add to elements
-                    let add = rnd.gen_in_range(0..MAX_VAL);
+                    let add = rnd.gen(0..MAX_VAL);
                     sqrt.iter_mut(full_range, |p: Part<SumNode>| match p {
                         Part::Full(node) => {
                             node.add_to_each += add;
@@ -108,7 +108,7 @@ pub mod tests {
                 let full_range = rnd.gen_nonempty_range(n);
                 if rnd.gen_bool() {
                     // add to elements
-                    let add = rnd.gen_in_range(0..MAX_VAL);
+                    let add = rnd.gen(0..MAX_VAL);
                     sqrt.iter_mut(
                         full_range.start..full_range.start + 1,
                         |p: Part<SortedNode>| match p {
@@ -120,7 +120,7 @@ pub mod tests {
                     );
                 } else {
                     let mut res = 0;
-                    let le = rnd.gen_in_range(0..MAX_VAL);
+                    let le = rnd.gen(0..MAX_VAL);
                     sqrt.iter_mut(full_range, |p| match p {
                         Part::Full(node) => {
                             res += binary_search_first_true(0..node.sort_values.len(), |pos| {
