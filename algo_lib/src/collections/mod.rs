@@ -7,6 +7,7 @@ pub mod index_of;
 pub mod inversions_count;
 pub mod last_exn;
 pub mod min_priority_queue;
+pub mod multiset;
 pub mod partial_cmp;
 pub mod peek_random;
 pub mod permutation;
