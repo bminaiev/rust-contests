@@ -75,4 +75,14 @@ impl<IdType: Eq + Copy, ValueType: Ord + Copy> TwoMin<IdType, ValueType> {
         }
         None
     }
+
+    pub fn get_by_not_id(&self, not_id: IdType) -> Option<(IdType, ValueType)> {
+        if self.cnt >= 1 && self.values[0].0 != not_id {
+            return Some((self.values[0].0, self.values[0].1));
+        }
+        if self.cnt >= 2 && self.values[1].0 != not_id {
+            return Some((self.values[1].0, self.values[1].1));
+        }
+        None
+    }
 }

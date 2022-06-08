@@ -9,6 +9,5 @@ pub(crate) fn run(mut input: Input) -> bool {
         solve(&mut input, i + 1);
     }
     output().flush();
-    input.skip_whitespace();
-    input.peek().is_none()
+    true
 }

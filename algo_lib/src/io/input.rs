@@ -248,6 +248,12 @@ impl Readable for f64 {
     }
 }
 
+impl Readable for f32 {
+    fn read(input: &mut Input) -> Self {
+        input.read_string().parse().unwrap()
+    }
+}
+
 impl<T: Readable> Readable for Vec<T> {
     fn read(input: &mut Input) -> Self {
         let size = input.read();

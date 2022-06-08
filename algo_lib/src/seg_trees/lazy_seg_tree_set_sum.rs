@@ -37,10 +37,10 @@ where
     type Context = ();
 }
 
-pub type SegTreeSetSum = LazySegTree<Node<i64>>;
+pub type SegTreeSetSum<T> = LazySegTree<Node<T>>;
 
-impl SegTreeSetSum {
-    pub fn values(&mut self) -> Vec<i64> {
+impl<T: Number> SegTreeSetSum<T> {
+    pub fn values(&mut self) -> Vec<T> {
         gen_vec(self.len(), |pos| self.get(pos..pos + 1).sum)
     }
 }

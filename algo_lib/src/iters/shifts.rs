@@ -4,6 +4,15 @@ pub struct Shift {
     pub dy: i32,
 }
 
+impl Shift {
+    pub fn rev(&self) -> Self {
+        Self {
+            dx: -self.dx,
+            dy: -self.dy,
+        }
+    }
+}
+
 // x goes down
 // y goes right
 pub const SHIFT_DOWN: Shift = Shift { dx: 1, dy: 0 };

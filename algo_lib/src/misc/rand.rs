@@ -29,6 +29,7 @@ impl Random {
     }
 
     #[allow(dead_code)]
+    #[inline(always)]
     pub fn gen_double(&mut self) -> f64 {
         (self.gen_u64() as f64) / (std::usize::MAX as f64)
     }
