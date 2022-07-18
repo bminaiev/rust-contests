@@ -12,6 +12,7 @@ pub mod partial_cmp;
 pub mod peek_random;
 pub mod permutation;
 pub mod random_bag;
+pub mod resettable_array;
 pub mod rev_permutation;
 pub mod reversed;
 pub mod shuffled;
