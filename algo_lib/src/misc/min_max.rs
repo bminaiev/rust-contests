@@ -1,4 +1,5 @@
 pub trait UpdateMinMax: PartialOrd + Sized {
+    #[inline(always)]
     fn update_min(&mut self, other: Self) -> bool {
         if other < *self {
             *self = other;
@@ -8,6 +9,7 @@ pub trait UpdateMinMax: PartialOrd + Sized {
         }
     }
 
+    #[inline(always)]
     fn update_max(&mut self, other: Self) -> bool {
         if other > *self {
             *self = other;
