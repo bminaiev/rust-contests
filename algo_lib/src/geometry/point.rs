@@ -187,7 +187,7 @@ where
     }
 }
 
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub struct PointWithIdT<T: Number> {
     pub p: PointT<T>,
     id: u32,

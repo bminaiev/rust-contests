@@ -1,6 +1,9 @@
 use std::cmp::{max, min};
 
-use crate::{misc::{min_max::UpdateMinMax, num_traits::Number}, geometry::point::PointT};
+use crate::{
+    geometry::point::PointT,
+    misc::{min_max::UpdateMinMax, num_traits::Number},
+};
 
 #[derive(Clone, Copy)]
 pub struct BoundingBox<T: Number> {
@@ -35,5 +38,53 @@ impl<T: Number> BoundingBox<T> {
 
     pub fn contains(&self, p: &PointT<T>) -> bool {
         p.x >= self.min.x && p.x <= self.max.x && p.y >= self.min.y && p.y <= self.max.y
+    }
+
+    pub fn to_the_left_of(&self, p1: &PointT<T>, p2: &PointT<T>) -> bool {
+        if PointT::vect_mul(p1, p2, &PointT::new(self.min.x, self.min.y)) <= T::ZERO {
+            return false;
+        }
+        if PointT::vect_mul(p1, p2, &PointT::new(self.min.x, self.max.y)) <= T::ZERO {
+            return false;
+        }
+        if PointT::vect_mul(p1, p2, &PointT::new(self.max.x, self.min.y)) <= T::ZERO {
+            return false;
+        }
+        if PointT::vect_mul(p1, p2, &PointT::new(self.max.x, self.max.y)) <= T::ZERO {
+            return false;
+        }
+        return true;
+    }
+
+    // TODO: this is wrong code!!!!???
+    pub fn intersect(&self, another: &Self) -> bool {
+        if self.to_the_left_of(
+            &PointT::new(another.min.x, another.max.y),
+            &PointT::new(another.max.x, another.max.y),
+        ) {
+            return false;
+        }
+
+        if self.to_the_left_of(
+            &PointT::new(another.max.x, another.max.y),
+            &PointT::new(another.max.x, another.min.y),
+        ) {
+            return false;
+        }
+
+        if self.to_the_left_of(
+            &PointT::new(another.max.x, another.min.y),
+            &PointT::new(another.min.x, another.min.y),
+        ) {
+            return false;
+        }
+        if self.to_the_left_of(
+            &PointT::new(another.min.x, another.min.y),
+            &PointT::new(another.min.x, another.max.y),
+        ) {
+            return false;
+        }
+
+        return true;
     }
 }

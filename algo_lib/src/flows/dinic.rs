@@ -131,4 +131,8 @@ impl FlowDinic {
     pub fn get_edge_flow(&self, edge_id: usize) -> i64 {
         self.edges[edge_id].flow
     }
+
+    pub fn inc_edge_cap(&mut self, edge_id: usize, delta: i64) {
+        self.edges[edge_id].cap += delta;
+    }
 }
