@@ -25,7 +25,7 @@ pub struct LazySegTree<T: LazySegTreeNodeSpec> {
 
 #[allow(unused)]
 impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
-    pub(crate) fn new(init_val: &T, n: usize, context: T::Context) -> Self {
+    pub fn new(init_val: &T, n: usize, context: T::Context) -> Self {
         assert!(n > 0);
         let tree = vec![T::default(); 2 * n - 1];
         let updates_to_push = vec![None; 2 * n - 1];
