@@ -11,4 +11,5 @@ pub mod iters;
 pub mod math;
 pub mod misc;
 pub mod seg_trees;
+pub mod simd;
 pub mod strings;
