@@ -1,7 +1,8 @@
+use crate::geometry::line::Line;
 use crate::geometry::point::PointT;
 use crate::geometry::segment::SegmentT;
 use crate::io::input::{Input, Readable};
-use crate::misc::num_traits::{HasConstants, Number};
+use crate::misc::num_traits::{HasConstants, Number, Signum};
 use crate::misc::ord_f64::OrdF64;
 use std::fmt::{Debug, Formatter};
 
@@ -28,6 +29,15 @@ where
         assert_ne!(points.len(), 0);
         points.push(points[0]);
         Self { points }
+    }
+
+    pub fn new_rect(start: PointT<T>, end: PointT<T>) -> Self {
+        Self::new(vec![
+            start,
+            PointT::new(end.x, start.y),
+            end,
+            PointT::new(start.x, end.y),
+        ])
     }
 
     pub fn points(&self) -> &[PointT<T>] {
@@ -67,6 +77,31 @@ where
         } else {
             res
         }
+    }
+
+    // To the left of [from] --> [to]
+    pub fn cut(&self, from: PointT<T>, to: PointT<T>) -> PolygonT<OrdF64>
+    where
+        f64: From<T>,
+    {
+        let l1 = Line::new(&from.conv_float(), &to.conv_float());
+
+        let mut pts = vec![];
+        for s in self.edges() {
+            let (cur, next) = (s.from, s.to);
+
+            let v_cur = PointT::vect_mul(&from, &to, &cur);
+            let v_next = PointT::vect_mul(&from, &to, &next);
+            if v_cur >= T::ZERO {
+                pts.push(cur.conv_float());
+            }
+            if v_cur != T::ZERO && v_next != T::ZERO && v_cur.signum() != v_next.signum() {
+                let l2 = Line::new(&cur.conv_float(), &next.conv_float());
+                let intersection = l1.intersect(&l2).unwrap();
+                pts.push(intersection);
+            }
+        }
+        PolygonT::new(pts)
     }
 }
 

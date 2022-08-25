@@ -14,6 +14,10 @@ pub trait ConvI32<T> {
     fn to_i32(self) -> i32;
 }
 
+pub trait Signum {
+    fn signum(&self) -> i32;
+}
+
 pub trait Number:
     Copy
     + Add<Output = Self>
@@ -107,4 +111,16 @@ impl HasConstants<Self> for f64 {
     const ZERO: Self = 0.0;
     const ONE: Self = 1.0;
     const TWO: Self = 2.0;
+}
+
+impl<T: Number> Signum for T {
+    fn signum(&self) -> i32 {
+        if self > &T::ZERO {
+            1
+        } else if self < &T::ZERO {
+            -1
+        } else {
+            0
+        }
+    }
 }

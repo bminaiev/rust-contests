@@ -24,6 +24,13 @@ impl<T: Number> PointT<T> {
         dx * dx + dy * dy
     }
 
+    pub fn side(&self) -> i32 {
+        if self.y > T::ZERO || (self.y == T::ZERO && self.x >= T::ZERO) {
+            return 0;
+        }
+        return 1;
+    }
+
     pub fn dist_manh(&self, p2: &PointT<T>) -> T {
         let dx = self.x - p2.x;
         let dy = self.y - p2.y;
@@ -121,6 +128,13 @@ impl<T: Number> PointT<T> {
         x: T::ZERO,
         y: T::ZERO,
     };
+
+    pub fn conv_float(&self) -> PointT<OrdF64>
+    where
+        f64: From<T>,
+    {
+        PointT::new(OrdF64(self.x.into()), OrdF64(self.y.into()))
+    }
 }
 
 impl<T> Add for PointT<T>
