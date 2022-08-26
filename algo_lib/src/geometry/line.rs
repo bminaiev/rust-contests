@@ -66,4 +66,9 @@ impl Line {
     pub fn abs_dist(&self, p: &Point) -> OrdF64 {
         self.signed_dist(p).abs()
     }
+
+    pub fn abs_dist2(&self, p: &Point) -> OrdF64 {
+        let z = self.a * p.x + self.b * p.y + self.c;
+        z * z / (self.a * self.a + self.b * self.b)
+    }
 }

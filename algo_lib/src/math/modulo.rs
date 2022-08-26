@@ -1,7 +1,7 @@
 use crate::collections::last_exn::LastExn;
 use crate::io::input::{Input, Readable};
 use crate::io::output::{Output, Writable};
-use crate::misc::num_traits::{ConvI32, HasConstants, Number};
+use crate::misc::num_traits::{ConvSimple, HasConstants, Number};
 use std::io::Write;
 use std::marker::PhantomData;
 
@@ -37,6 +37,10 @@ where
     #[allow(dead_code)]
     fn inv(self) -> Self {
         ModWithValue(Self::rev_rec(self.0, M::val()), PhantomData)
+    }
+
+    pub fn value(&self) -> i32 {
+        self.0
     }
 
     #[allow(dead_code)]
@@ -245,7 +249,7 @@ where
     const TWO: ModWithValue<M> = ModWithValue::TWO;
 }
 
-impl<M> ConvI32<ModWithValue<M>> for ModWithValue<M>
+impl<M> ConvSimple<ModWithValue<M>> for ModWithValue<M>
 where
     M: Value,
 {
@@ -255,6 +259,10 @@ where
 
     fn to_i32(self) -> i32 {
         self.0
+    }
+
+    fn to_f64(self) -> f64 {
+        self.0 as f64
     }
 }
 

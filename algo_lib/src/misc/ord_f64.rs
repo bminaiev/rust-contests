@@ -1,6 +1,6 @@
 use crate::io::input::{Input, Readable};
 use crate::io::output::{Output, Writable};
-use crate::misc::num_traits::{ConvI32, HasConstants};
+use crate::misc::num_traits::{ConvSimple, HasConstants};
 use std::cmp::{min, Ordering};
 use std::f64::consts::PI;
 use std::fmt::{Debug, Display, Formatter};
@@ -143,13 +143,17 @@ impl HasConstants<Self> for OrdF64 {
     const TWO: Self = Self(2.0);
 }
 
-impl ConvI32<Self> for OrdF64 {
+impl ConvSimple<Self> for OrdF64 {
     fn from_i32(val: i32) -> Self {
         Self(val as f64)
     }
 
     fn to_i32(self) -> i32 {
         self.0 as i32
+    }
+
+    fn to_f64(self) -> f64 {
+        self.0
     }
 }
 

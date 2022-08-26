@@ -8,6 +8,7 @@ pub mod bump_allocator;
 pub mod current_package;
 pub mod dbg_macro;
 pub mod digits;
+pub mod float_eq;
 pub mod float_min_max;
 pub mod func;
 pub mod gen_vector;

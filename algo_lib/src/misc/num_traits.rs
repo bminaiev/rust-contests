@@ -9,9 +9,10 @@ pub trait HasConstants<T> {
     const TWO: T;
 }
 
-pub trait ConvI32<T> {
+pub trait ConvSimple<T> {
     fn from_i32(val: i32) -> T;
     fn to_i32(self) -> i32;
+    fn to_f64(self) -> f64;
 }
 
 pub trait Signum {
@@ -36,7 +37,7 @@ pub trait Number:
     + Default
     + Debug
     + Sized
-    + ConvI32<Self>
+    + ConvSimple<Self>
 {
 }
 
@@ -58,7 +59,7 @@ impl<
             + Default
             + Debug
             + Sized
-            + ConvI32<Self>,
+            + ConvSimple<Self>,
     > Number for T
 {
 }
@@ -74,13 +75,17 @@ macro_rules! has_constants_impl {
             const TWO: $t = 2;
         }
 
-        impl ConvI32<$t> for $t {
+        impl ConvSimple<$t> for $t {
             fn from_i32(val: i32) -> $t {
                 val as $t
             }
 
             fn to_i32(self) -> i32 {
                 self as i32
+            }
+
+            fn to_f64(self) -> f64 {
+                self as f64
             }
         }
     };
@@ -95,13 +100,17 @@ has_constants_impl!(u128);
 has_constants_impl!(usize);
 has_constants_impl!(u8);
 
-impl ConvI32<Self> for f64 {
+impl ConvSimple<Self> for f64 {
     fn from_i32(val: i32) -> Self {
         val as f64
     }
 
     fn to_i32(self) -> i32 {
         self as i32
+    }
+
+    fn to_f64(self) -> f64 {
+        self
     }
 }
 

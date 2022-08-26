@@ -1,6 +1,6 @@
 use crate::collections::last_exn::LastExn;
 use crate::math::modulo::Mod9;
-use crate::misc::num_traits::{ConvI32, Number};
+use crate::misc::num_traits::{ConvSimple, Number};
 use std::ops::{Index, Range};
 
 pub struct HashContext<M>

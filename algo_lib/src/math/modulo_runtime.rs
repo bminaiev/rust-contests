@@ -1,6 +1,6 @@
 use crate::collections::last_exn::LastExn;
 use crate::io::output::{Output, Writable};
-use crate::misc::num_traits::{ConvI32, HasConstants};
+use crate::misc::num_traits::{ConvSimple, HasConstants};
 use std::io::Write;
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
@@ -230,13 +230,17 @@ impl HasConstants<ModRuntime> for ModRuntime {
     const TWO: ModRuntime = unreachable!();
 }
 
-impl ConvI32<ModRuntime> for ModRuntime {
+impl ConvSimple<ModRuntime> for ModRuntime {
     fn from_i32(_val: i32) -> ModRuntime {
         unreachable!()
     }
 
     fn to_i32(self) -> i32 {
         self.value
+    }
+
+    fn to_f64(self) -> f64 {
+        self.value as f64
     }
 }
 

@@ -3,7 +3,7 @@ pub mod tests {
     use crate::geometry::half_plane_intersection::half_plane_intersection;
     use crate::geometry::point::PointT;
     use crate::geometry::segment::SegmentT;
-    use crate::misc::num_traits::ConvI32;
+    use crate::misc::num_traits::ConvSimple;
     use crate::misc::ord_f64::OrdF64;
     use crate::misc::rand::Random;
 

@@ -129,11 +129,8 @@ impl<T: Number> PointT<T> {
         y: T::ZERO,
     };
 
-    pub fn conv_float(&self) -> PointT<OrdF64>
-    where
-        f64: From<T>,
-    {
-        PointT::new(OrdF64(self.x.into()), OrdF64(self.y.into()))
+    pub fn conv_float(&self) -> PointT<OrdF64> {
+        PointT::new(OrdF64(self.x.to_f64()), OrdF64(self.y.to_f64()))
     }
 }
 

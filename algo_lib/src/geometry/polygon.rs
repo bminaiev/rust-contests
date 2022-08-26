@@ -103,6 +103,32 @@ where
         }
         PolygonT::new(pts)
     }
+
+    fn center_of_triangle(
+        p1: PointT<OrdF64>,
+        p2: PointT<OrdF64>,
+        p3: PointT<OrdF64>,
+    ) -> PointT<OrdF64> {
+        let x = (p1.x + p2.x + p3.x) / OrdF64(3.0);
+        let y = (p1.y + p2.y + p3.y) / OrdF64(3.0);
+        PointT::new(x, y)
+    }
+
+    pub fn center_of_gravity(&self) -> PointT<OrdF64> {
+        let mut sum_sq = OrdF64(0.0);
+        let mut res = PointT::ZERO;
+        for seg in self.edges() {
+            let (cur, next) = (seg.from.conv_float(), seg.to.conv_float());
+            let vmul = cur.x * next.y - cur.y * next.x;
+            sum_sq += vmul;
+            let center = Self::center_of_triangle(PointT::ZERO, cur, next);
+            res += PointT::new(center.x * vmul, center.y * vmul);
+        }
+        assert!(sum_sq > OrdF64::ZERO);
+        res.x /= sum_sq;
+        res.y /= sum_sq;
+        res
+    }
 }
 
 impl<'a, T> Iterator for PolygonEdgeIter<'a, T>

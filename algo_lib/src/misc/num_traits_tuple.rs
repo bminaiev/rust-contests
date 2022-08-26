@@ -1,4 +1,4 @@
-use crate::misc::num_traits::{ConvI32, HasConstants, Number};
+use crate::misc::num_traits::{ConvSimple, HasConstants, Number};
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
@@ -149,13 +149,17 @@ impl<T1: Number, T2: Number> Debug for NumberPair<T1, T2> {
     }
 }
 
-impl<T1: Number, T2: Number> ConvI32<Self> for NumberPair<T1, T2> {
+impl<T1: Number, T2: Number> ConvSimple<Self> for NumberPair<T1, T2> {
     fn from_i32(val: i32) -> Self {
         Self::new(T1::from_i32(val), T2::from_i32(val))
     }
 
     fn to_i32(self) -> i32 {
         panic!("Can't convert pair to i32");
+    }
+
+    fn to_f64(self) -> f64 {
+        panic!("Can't convert tuple to f64");
     }
 }
 
