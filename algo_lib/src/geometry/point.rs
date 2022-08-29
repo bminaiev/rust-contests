@@ -5,7 +5,7 @@ use crate::io::output::{Output, Writable};
 use crate::iters::shifts::Shift;
 use crate::misc::num_traits::Number;
 use crate::misc::ord_f64::OrdF64;
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub struct PointT<T: Number> {
@@ -224,5 +224,16 @@ impl PointT<OrdF64> {
         let x = self.x * cos - self.y * sin;
         let y = self.y * cos + self.x * sin;
         Self { x, y }
+    }
+}
+
+impl Mul<OrdF64> for PointT<OrdF64> {
+    type Output = PointT<OrdF64>;
+
+    fn mul(self, rhs: OrdF64) -> Self::Output {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
     }
 }
