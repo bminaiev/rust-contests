@@ -1,8 +1,11 @@
+use std::collections::VecDeque;
+
 use crate::graph::edges::edge_trait::EdgeTrait;
+use crate::graph::edges::weighted_edge::WeightedEdge;
 use crate::graph::graph_trait::GraphTrait;
 
 pub struct BfsState {
-    pub queue: Vec<usize>,
+    queue: VecDeque<usize>,
     pub dist: Vec<u32>,
     pub prev: Vec<usize>,
 }
@@ -11,8 +14,10 @@ pub fn bfs<Edge>(root: usize, graph: &impl GraphTrait<Edge>) -> BfsState
 where
     Edge: EdgeTrait,
 {
+    let mut queue = VecDeque::new();
+    queue.push_back(root);
     let mut state = BfsState {
-        queue: vec![root],
+        queue,
         dist: vec![std::u32::MAX; graph.num_vertices()],
         prev: vec![std::usize::MAX; graph.num_vertices()],
     };
@@ -25,8 +30,37 @@ where
         for edge in graph.adj(v) {
             if state.dist[edge.to()] == std::u32::MAX {
                 state.dist[edge.to()] = state.dist[v] + 1;
-                state.queue.push(edge.to());
+                state.queue.push_back(edge.to());
                 state.prev[edge.to()] = v;
+            }
+        }
+    }
+    state
+}
+
+pub fn bfs01(root: usize, graph: &impl GraphTrait<WeightedEdge<u32>>) -> BfsState {
+    let mut queue = VecDeque::new();
+    queue.push_back(root);
+    let mut state = BfsState {
+        queue,
+        dist: vec![std::u32::MAX; graph.num_vertices()],
+        prev: vec![std::usize::MAX; graph.num_vertices()],
+    };
+    state.dist[root] = 0;
+    state.prev[root] = root;
+    while let Some(v) = state.queue.pop_front() {
+        for edge in graph.adj(v) {
+            let ndist = state.dist[v] + edge.cost;
+            if state.dist[edge.to()] > ndist {
+                state.dist[edge.to()] = ndist;
+                state.prev[edge.to()] = v;
+                if edge.cost == 0 {
+                    state.queue.push_front(edge.to());
+                } else if edge.cost == 1 {
+                    state.queue.push_back(edge.to());
+                } else {
+                    unreachable!("Only 0-1 weights are supported");
+                }
             }
         }
     }

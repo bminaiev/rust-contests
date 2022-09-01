@@ -66,4 +66,8 @@ impl Dsu {
     pub fn num_components(&self) -> usize {
         self.num_comps as usize
     }
+
+    pub fn len(&self) -> usize {
+        self.p.len()
+    }
 }

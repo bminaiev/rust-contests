@@ -6,6 +6,8 @@ pub mod dfs_builder;
 pub mod dijkstra;
 pub mod dijkstra_with_potentials;
 pub mod dsu;
+pub mod dsu_with_rollbacks;
+pub mod dynamic_connectivity_offline;
 pub mod edges;
 pub mod graph_builder;
 pub mod graph_readers;
