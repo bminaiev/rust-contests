@@ -28,6 +28,7 @@ pub mod pref_sum;
 pub mod rand;
 pub mod range_intersect;
 pub mod rec_function;
+pub mod run_parallel;
 pub mod simulated_annealing;
 pub mod sse_utils;
 pub mod step_down;

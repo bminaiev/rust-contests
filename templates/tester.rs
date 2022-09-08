@@ -1,8 +1,12 @@
 use std::io::Cursor;
+use std::path::Path;
 use std::time::Instant;
 
 use algo_lib::io::input::Input;
-use algo_lib::io::output::{Output, OUTPUT, set_global_output_to_stdout};
+use algo_lib::io::last_changed_file::find_last_changed_file;
+use algo_lib::io::output::{
+    set_global_output_to_file, set_global_output_to_stdout, Output, OUTPUT,
+};
 
 const EPS: f64 = 1e-9;
 
@@ -218,6 +222,32 @@ pub fn run_locally() {
     let input = Input::new(Box::new(sin));
     set_global_output_to_stdout();
     crate::run(input);
+}
+
+#[allow(unused)]
+pub fn run_with_specific_file<P: AsRef<Path>>(input_file: P) {
+    let input = Input::new_file(input_file);
+    set_global_output_to_file("output.txt");
+    crate::run(input);
+}
+
+#[allow(unused)]
+pub fn run_with_last_downloaded_file() {
+    let dir = "/home/borys/Downloads";
+    let input_file = match find_last_changed_file(&dir) {
+        Some(file) => {
+            eprintln!(
+                "Found last modified file: {}, will use it as input.",
+                file.as_path().display()
+            );
+            file
+        }
+        None => {
+            eprintln!("No files found in {} :(", dir);
+            unreachable!();
+        }
+    };
+    run_with_specific_file(input_file);
 }
 
 #[allow(unused)]

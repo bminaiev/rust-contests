@@ -16,7 +16,7 @@ fn solve(input: &mut Input) {
         }
     }
 
-    run_parallel::<Job>(input);
+    run_parallel::<Job>(input, Some(1));
 }
 
 pub(crate) fn run(mut input: Input) -> bool {
