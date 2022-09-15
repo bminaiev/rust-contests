@@ -1,6 +1,9 @@
 use std::{cmp::min, ops::Range};
 
-use algo_lib::{geometry::point::PointT, misc::ord_f64::OrdF64};
+use algo_lib::{
+    geometry::point::PointT,
+    misc::{ord_f64::OrdF64, rand::Random},
+};
 
 use plotters::prelude::*;
 
@@ -18,7 +21,7 @@ fn calc_range(coords: &[OrdF64]) -> Range<f64> {
 const SIZE: u32 = 750;
 
 pub fn save_plot(
-    data: &[PointT<OrdF64>],
+    datas: &[Vec<PointT<OrdF64>>],
     base_dir: &str,
     file_prefix: &str,
     x_label: &str,
@@ -28,8 +31,14 @@ pub fn save_plot(
     let root = BitMapBackend::new(&path, (SIZE, SIZE)).into_drawing_area();
     root.fill(&WHITE).unwrap();
 
-    let all_xs: Vec<_> = data.iter().map(|p| p.x).collect();
-    let all_ys: Vec<_> = data.iter().map(|p| p.y).collect();
+    let mut all_xs = vec![];
+    let mut all_ys = vec![];
+    for d in datas.iter() {
+        for p in d.iter() {
+            all_xs.push(p.x);
+            all_ys.push(p.y);
+        }
+    }
 
     let mut chart = ChartBuilder::on(&root)
         .margin(20u32)
@@ -45,12 +54,20 @@ pub fn save_plot(
         .draw()
         .unwrap();
 
-    chart
-        .draw_series(
-            data.iter()
-                .map(|p| Circle::new((p.x.0, p.y.0), 1, BLUE.filled())),
-        )
-        .unwrap();
+    let mut colors = vec![BLUE, GREEN, RED, BLACK, MAGENTA, CYAN, YELLOW];
+    let mut rnd = Random::new(787788);
+    while colors.len() < datas.len() {
+        colors.push(RGBColor(rnd.gen(0..255), rnd.gen(0..255), rnd.gen(0..255)));
+    }
+
+    for (id, data) in datas.iter().enumerate() {
+        chart
+            .draw_series(
+                data.iter()
+                    .map(|p| Circle::new((p.x.0, p.y.0), 1, colors[id].filled())),
+            )
+            .unwrap();
+    }
 
     format!("{}.png", file_prefix)
 }
