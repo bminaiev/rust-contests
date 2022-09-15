@@ -62,6 +62,8 @@ pub struct EmptySolver {
     tot_placement_groups: i32,
     vms_used_by_type: Vec<usize>,
     vm_types_by_ids: Vec<usize>,
+    network_affinity: [usize; 3],
+    rack_affinity: [usize; 3],
 }
 
 impl EmptySolver {
@@ -119,8 +121,9 @@ impl EmptySolver {
             cpu_used: 0,
             mem_used: 0,
             tot_placement_groups: 0,
-
             vm_types_by_ids: vec![],
+            network_affinity: Default::default(),
+            rack_affinity: Default::default(),
         }
     }
     pub fn new_placement_group(
@@ -132,6 +135,8 @@ impl EmptySolver {
         rack_affinity_type: usize,
     ) {
         self.tot_placement_groups += 1;
+        self.network_affinity[network_affinity_type] += 1;
+        self.rack_affinity[rack_affinity_type] += 1;
     }
 
     pub fn create_vms(
@@ -179,6 +184,8 @@ impl EmptySolver {
             self.vm_types.len() - 1,
         );
         dbg!(&self.vms_used_by_type);
+        dbg!(&self.network_affinity);
+        dbg!(&self.rack_affinity);
     }
 
     pub fn step(&mut self, total_queries: usize) {

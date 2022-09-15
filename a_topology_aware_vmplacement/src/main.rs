@@ -1,8 +1,6 @@
 //{"name":"A. Topology-Aware VM Placement","group":"Codeforces - ICPC 2022 Online Challenge powered by HUAWEI - Problem 2","url":"https://codeforces.com/contest/1724/problem/A","interactive":true,"timeLimit":15000,"tests":[{"input":"2 2 2 2\n8 16\n8 16\n3\n1 1 1\n1 4 2\n2 4 8\n1\n1 4 1\n1 0\n2\n3 1 1 1\n1 2 3\n2\n3 1 1 1\n4 5 6\n1\n2 0 0\n2 2\n2\n3 3 2 0\n7 8 9\n3\n3 3 5 6\n2\n2 3 1 4\n10 11\n2\n2 3 1 3\n12 13\n4\n","output":"1 1 1 1\n1 1 2 1\n1 2 1 1\n2 1 1 1\n2 1 2 1\n2 2 1 1\n1 2 1 1 2\n1 2 2 1 2\n1 2 2 1 2\n2 2 1 1 2\n2 2 2 1 2\n-1\n"}],"testType":"single","input":{"type":"stdin","fileName":null,"pattern":null},"output":{"type":"stdout","fileName":null,"pattern":null},"languages":{"java":{"taskClass":"ATopologyAwareVMPlacement"}}}
 
-use std::cmp::min;
-
-use algo_lib::io::output::output;
+use algo_lib::io::output::{output, set_global_output_to_file};
 use algo_lib::io::task_io_settings::TaskIoType;
 use algo_lib::io::task_runner::run_task;
 use algo_lib::io::{input::Input, task_io_settings::TaskIoSettings};
@@ -11,7 +9,6 @@ use algo_lib::misc::vec_apply_delta::ApplyDelta;
 #[allow(unused)]
 use algo_lib::{dbg, out, out_line};
 
-use crate::empty_solver::EmptySolver;
 use crate::solver::Solver;
 use crate::types::{Numa, VmSpec};
 
@@ -19,7 +16,7 @@ mod empty_solver;
 mod solver;
 mod types;
 
-fn solve(input: &mut Input, test_case: usize, print_result: bool) {
+fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
     let num_dc = input.usize();
     let num_racks = input.usize();
     let num_machines_per_rack = input.usize();
@@ -43,7 +40,7 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) {
         dbg!(spec);
     }
 
-    let mut solver = EmptySolver::new(
+    let mut solver = Solver::new(
         num_dc,
         num_racks,
         num_machines_per_rack,
@@ -99,6 +96,9 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) {
                         }
                     }
                 } else {
+                    dbg!("Can't create vms...", num_vms);
+                    dbg!(solver.placement_groups[placement_group_id]);
+
                     if print_result {
                         out_line!(-1);
                     }
@@ -124,11 +124,16 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) {
                 unreachable!("Wrong op type: {}", query_type)
             }
         };
-        solver.step(total_queries);
+        // solver.step(total_queries);
     }
     dbg!(total_vms_created, total_queries);
 
-    solver.finish(test_case);
+    // solver.finish(test_case);
+
+    Result {
+        vms_created: total_vms_created,
+        vms_without_soft: 0,
+    }
 }
 
 #[derive(Debug)]
@@ -149,16 +154,26 @@ fn read_baseline(test_id: usize) -> Result {
 }
 
 fn stress() {
+    let mut stats = vec![];
+
     for test_id in 1..12 {
         dbg!(test_id);
         let mut input = Input::new_file(format!(
             "./a_topology_aware_vmplacement/local_test_kit/sample/{:02}",
             test_id
         ));
-        solve(&mut input, test_id, false);
+        let r = solve(&mut input, test_id, false);
+        stats.push(r.vms_created);
         let baseline = read_baseline(test_id);
+        // stats.push(baseline.vms_created);
         dbg!(baseline);
     }
+
+    set_global_output_to_file("a_topology_aware_vmplacement/stats/current.txt");
+    for &x in stats.iter() {
+        out_line!(x);
+    }
+    output().flush();
 }
 
 pub(crate) fn run(mut input: Input) -> bool {

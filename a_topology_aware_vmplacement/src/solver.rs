@@ -1,6 +1,6 @@
-use std::cmp::max;
+use std::cmp::{max, min};
 
-use algo_lib::misc::rand::Random;
+use algo_lib::misc::{min_max::FindMinMaxPos, rand::Random};
 
 use crate::types::{CreatedVm, MachineId, Numa, PlacementGroup, VmSpec};
 
@@ -20,6 +20,10 @@ impl NumaUsedStats {
         self.free_cpu >= vm.cpu && self.free_memory >= vm.memory
     }
 
+    pub fn max_vms_to_place(&self, vm: &VmSpec) -> u32 {
+        min(self.free_cpu / vm.cpu, self.free_memory / vm.memory)
+    }
+
     pub fn register_vm(&mut self, vm: &VmSpec) {
         assert!(self.can_place(vm));
         self.free_cpu -= vm.cpu;
@@ -37,13 +41,24 @@ struct MachineUsedStats {
     numa: Vec<NumaUsedStats>,
 }
 
+impl MachineUsedStats {
+    pub fn max_vms_to_place(&self, vm: &VmSpec) -> u32 {
+        let mut res = 0;
+        // TODO: if vm_spec requries two numa nodes?
+        for numa in self.numa.iter() {
+            res += numa.max_vms_to_place(vm);
+        }
+        res
+    }
+}
+
 pub struct Solver {
     num_dc: usize,
     num_racks: usize,
     num_machines_per_rack: usize,
     numa: Vec<Numa>,
     vm_types: Vec<VmSpec>,
-    placement_groups: Vec<PlacementGroup>,
+    pub placement_groups: Vec<PlacementGroup>,
     placement_group_mappings: Vec<PlacementGroupMapping>,
     machines: Vec<MachineId>,
     machines_stats: Vec<MachineUsedStats>,
@@ -96,7 +111,7 @@ impl Solver {
             created_vms: vec![],
             created_vm_specs: vec![],
             machines_stats,
-            rnd: Random::new(787788),
+            rnd: Random::new(7877883),
         }
     }
     pub fn new_placement_group(
@@ -119,41 +134,67 @@ impl Solver {
             assert!(rack_affinity_type == 0);
         }
         let mut possible_machines = vec![vec![]; num_groups];
+
+        #[derive(Clone)]
+        struct AvailableRack {
+            dc: usize,
+            rack: usize,
+            max_possible_vms: u32,
+        }
+
+        let get_available_rack = |dc: usize, rack: usize| -> AvailableRack {
+            let mut max_possible_vms = 0;
+            // TODO: this is wrong.
+            let spec = VmSpec {
+                numa_cnt: 1,
+                cpu: 1,
+                memory: 1,
+            };
+            for inside_rack in 0..self.num_machines_per_rack {
+                max_possible_vms += self.machines_stats[self.get_machine_id(dc, rack, inside_rack)]
+                    .max_vms_to_place(&spec);
+            }
+            AvailableRack {
+                dc,
+                rack,
+                max_possible_vms,
+            }
+        };
+
+        let mut available_racks = vec![];
+        for dc in 0..self.num_dc {
+            for rack in 0..self.num_racks {
+                available_racks.push(get_available_rack(dc, rack));
+            }
+        }
+        available_racks.sort_by_key(|ar| ar.max_possible_vms);
+        available_racks.reverse();
+
         if rack_affinity_type == 2 {
             // all should go to one rack
             assert!(possible_machines.len() == 1);
-            let dc_id = self.rnd.gen(0..self.num_dc);
-            let rack_id = self.rnd.gen(0..self.num_racks);
-            for m in self.machines.iter() {
-                if m.dc == dc_id && m.rack == rack_id {
-                    possible_machines[0].push(m.clone());
-                }
-            }
+            available_racks.truncate(1);
         } else {
-            #[derive(Clone)]
-            struct AvailableRack {
-                dc: usize,
-                rack: usize,
-            }
-            let mut racks = vec![];
             if network_affinity_type == 2 {
-                let dc = self.rnd.gen(0..self.num_dc);
-                for rack_id in 0..self.num_racks {
-                    racks.push(AvailableRack { dc, rack: rack_id });
+                // all should go to one dc
+                let mut by_dc = vec![0; self.num_dc];
+                for ar in available_racks.iter() {
+                    by_dc[ar.dc] += ar.max_possible_vms;
                 }
-            } else {
-                for dc in 0..self.num_dc {
-                    for rack_id in 0..self.num_racks {
-                        racks.push(AvailableRack { dc, rack: rack_id });
-                    }
-                }
+                let best_dc = by_dc.index_of_max();
+                available_racks = available_racks
+                    .iter()
+                    .filter(|ar| ar.dc == best_dc)
+                    .cloned()
+                    .collect();
             }
+        }
+        {
             let mut group_id = 0;
-            for idx in self.rnd.gen_permutation(racks.len()) {
-                let rack = &racks[idx];
+            for ar in available_racks.iter() {
                 for inside_rack in 0..self.num_machines_per_rack {
                     possible_machines[group_id]
-                        .push(self.machines[self.get_machine_id(rack.dc, rack.rack, inside_rack)]);
+                        .push(self.machines[self.get_machine_id(ar.dc, ar.rack, inside_rack)]);
                 }
                 group_id = (group_id + 1) % possible_machines.len();
             }
