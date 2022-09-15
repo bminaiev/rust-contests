@@ -1,4 +1,6 @@
 pub mod bounding_box;
+pub mod convex_hull;
+pub mod convex_hull_tests;
 pub mod convex_polygon_intersection;
 pub mod direction;
 pub mod half_plane_intersection;
