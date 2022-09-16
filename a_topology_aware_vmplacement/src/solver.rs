@@ -377,6 +377,27 @@ impl Solver {
         return true;
     }
 
+    fn find_best_placement(
+        &self,
+        placement_group_id: usize,
+        group_id: usize,
+        spec: &VmSpec,
+    ) -> Option<CreatedVm> {
+        let machines =
+            &self.placement_group_mappings[placement_group_id].possible_machines[group_id];
+        for &need_soft in [true, false].iter() {
+            for m in machines.iter() {
+                if let Some(placement) = self.can_place_vm(self.get_machine_id2(m), &spec) {
+                    if need_soft && !self.is_safe(m.clone(), placement_group_id) {
+                        continue;
+                    }
+                    return Some(placement);
+                }
+            }
+        }
+        None
+    }
+
     pub fn create_vms(
         &mut self,
         vm_type: usize,
@@ -393,118 +414,36 @@ impl Solver {
 
         let spec = self.params.vm_specs[vm_type];
 
-        if partition_group == -1 {
-            assert_eq!(
-                indexes.len(),
-                self.placement_group_mappings[placement_group_id]
-                    .possible_machines
-                    .len()
-            );
-            for i in 0..indexes.len() {
-                // TODO: remove clone
-                loop {
-                    // TODO: soft constraint on vms / machine
-                    let machines: Vec<MachineId> =
-                        self.placement_group_mappings[placement_group_id].possible_machines[i]
-                            .clone();
-                    for &need_soft in [true, false].iter() {
-                        for m in machines.iter() {
-                            if let Some(placement) =
-                                self.can_place_vm(self.get_machine_id2(m), &spec)
-                            {
-                                if need_soft && !self.is_safe(m.clone(), placement_group_id) {
-                                    continue;
-                                }
-                                self.register_vm(&placement, &spec, placement_group_id);
-                                res.push(placement);
-                                break;
-                            }
-                        }
-                        if res.len() == i + 1 {
-                            break;
-                        }
-                    }
-                    if res.len() != i + 1 {
-                        if !self.increase_group(placement_group_id, i, &spec, 1) {
-                            return None;
-                        } else {
-                            // try again
-                        }
-                    } else {
-                        break;
-                    }
-                }
-            }
-        } else {
-            let group_id = if partition_group == 0 {
-                assert!(
-                    self.placement_group_mappings[placement_group_id]
-                        .possible_machines
-                        .len()
-                        == 1
-                );
-                0
+        let fixed_group_id = match partition_group {
+            -1 => None,
+            0 => Some(0),
+            x => Some(x as usize - 1),
+        };
+
+        for i in 0..indexes.len() {
+            let group_id = fixed_group_id.unwrap_or(i);
+            let need_vms = if fixed_group_id.is_some() {
+                indexes.len() - i
             } else {
-                partition_group as usize - 1
+                1
             };
-            for i in 0..indexes.len() {
-                loop {
-                    for &need_soft in [true, false].iter() {
-                        let machines = &self.placement_group_mappings[placement_group_id]
-                            .possible_machines[group_id];
-                        for m in machines.iter() {
-                            if let Some(placement) =
-                                self.can_place_vm(self.get_machine_id2(m), &spec)
-                            {
-                                if need_soft && !self.is_safe(m.clone(), placement_group_id) {
-                                    continue;
-                                }
-                                self.register_vm(&placement, &spec, placement_group_id);
-                                res.push(placement);
-                                break;
-                            }
-                        }
-                        if res.len() == i + 1 {
-                            break;
-                        }
-                    }
-                    if res.len() != i + 1 {
-                        if !self.increase_group(
-                            placement_group_id,
-                            group_id,
-                            &spec,
-                            indexes.len() - i,
-                        ) {
-                            dbg!(
-                                "Can't increase the group...",
-                                i,
-                                indexes.len(),
-                                &self.placement_group_mappings[placement_group_id].fixed_rack,
-                                &self.placement_group_mappings[placement_group_id].fixed_dc
-                            );
-                            // let machines = &self.placement_group_mappings[placement_group_id]
-                            //     .possible_machines[group_id];
-                            // for m in machines.iter() {
-                            //     dbg!(&self.machines_stats[self.get_machine_id2(m)]);
-                            // }
-
-                            return None;
-                        } else {
-                            // try again..
-                        }
-                    } else {
-                        break;
+            loop {
+                // TODO: soft constraint on vms / machine
+                if let Some(placement) =
+                    self.find_best_placement(placement_group_id, group_id, &spec)
+                {
+                    self.register_vm(&placement, &spec, placement_group_id);
+                    res.push(placement);
+                    break;
+                } else {
+                    if !self.increase_group(placement_group_id, group_id, &spec, need_vms) {
+                        return None;
                     }
                 }
             }
         }
 
-        if res.len() != indexes.len() {
-            return None;
-        }
-        // for vm in res.iter() {
-        //     self.register_vm(vm, &spec);
-        // }
+        assert_eq!(res.len(), indexes.len());
         self.created_vm_specs.extend(vec![spec; res.len()]);
         self.created_vms.extend(res.clone());
 
