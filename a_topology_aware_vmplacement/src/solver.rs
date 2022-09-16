@@ -1,12 +1,18 @@
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    collections::HashMap,
+};
 
 use algo_lib::misc::{min_max::FindMinMaxPos, rand::Random};
 
-use crate::types::{CreatedVm, MachineId, Numa, PlacementGroup, VmSpec};
+use crate::types::{CreatedVm, MachineId, Numa, PlacementGroup, RackId, VmSpec};
 
 #[derive(Clone)]
 struct PlacementGroupMapping {
     possible_machines: Vec<Vec<MachineId>>,
+    racks_used: Vec<bool>,
+    fixed_dc: Option<usize>,
+    fixed_rack: Option<RackId>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -64,7 +70,40 @@ pub struct Solver {
     machines_stats: Vec<MachineUsedStats>,
     created_vms: Vec<CreatedVm>,
     created_vm_specs: Vec<VmSpec>,
+    created_vm_pg: Vec<usize>,
     rnd: Random,
+    soft_machine_affinity: SoftMachineAffinity,
+}
+
+#[derive(Clone, Debug)]
+struct AvailableRack {
+    dc: usize,
+    rack: usize,
+    max_possible_vms: u32,
+    fixed_ok: bool,
+}
+
+#[derive(Clone)]
+struct SoftMachineAffinity {
+    cnt: HashMap<(MachineId, usize), usize>,
+}
+
+impl SoftMachineAffinity {
+    pub fn new() -> Self {
+        Self {
+            cnt: Default::default(),
+        }
+    }
+
+    pub fn register_vm(&mut self, machine: MachineId, placement_group_id: usize) {
+        let key = (machine, placement_group_id);
+        *self.cnt.entry(key).or_default() += 1;
+    }
+
+    pub fn unregister_vm(&mut self, machine: MachineId, placement_group_id: usize) {
+        let key = (machine, placement_group_id);
+        *self.cnt.entry(key).or_default() -= 1;
+    }
 }
 
 impl Solver {
@@ -112,6 +151,8 @@ impl Solver {
             created_vm_specs: vec![],
             machines_stats,
             rnd: Random::new(7877883),
+            soft_machine_affinity: SoftMachineAffinity::new(),
+            created_vm_pg: vec![],
         }
     }
     pub fn new_placement_group(
@@ -133,74 +174,13 @@ impl Solver {
         if hard_rack_anti_affinity_partitions != 0 {
             assert!(rack_affinity_type == 0);
         }
-        let mut possible_machines = vec![vec![]; num_groups];
 
-        #[derive(Clone)]
-        struct AvailableRack {
-            dc: usize,
-            rack: usize,
-            max_possible_vms: u32,
-        }
-
-        let get_available_rack = |dc: usize, rack: usize| -> AvailableRack {
-            let mut max_possible_vms = 0;
-            // TODO: this is wrong.
-            let spec = VmSpec {
-                numa_cnt: 1,
-                cpu: 1,
-                memory: 1,
-            };
-            for inside_rack in 0..self.num_machines_per_rack {
-                max_possible_vms += self.machines_stats[self.get_machine_id(dc, rack, inside_rack)]
-                    .max_vms_to_place(&spec);
-            }
-            AvailableRack {
-                dc,
-                rack,
-                max_possible_vms,
-            }
-        };
-
-        let mut available_racks = vec![];
-        for dc in 0..self.num_dc {
-            for rack in 0..self.num_racks {
-                available_racks.push(get_available_rack(dc, rack));
-            }
-        }
-        available_racks.sort_by_key(|ar| ar.max_possible_vms);
-        available_racks.reverse();
-
-        if rack_affinity_type == 2 {
-            // all should go to one rack
-            assert!(possible_machines.len() == 1);
-            available_racks.truncate(1);
-        } else {
-            if network_affinity_type == 2 {
-                // all should go to one dc
-                let mut by_dc = vec![0; self.num_dc];
-                for ar in available_racks.iter() {
-                    by_dc[ar.dc] += ar.max_possible_vms;
-                }
-                let best_dc = by_dc.index_of_max();
-                available_racks = available_racks
-                    .iter()
-                    .filter(|ar| ar.dc == best_dc)
-                    .cloned()
-                    .collect();
-            }
-        }
-        {
-            let mut group_id = 0;
-            for ar in available_racks.iter() {
-                for inside_rack in 0..self.num_machines_per_rack {
-                    possible_machines[group_id]
-                        .push(self.machines[self.get_machine_id(ar.dc, ar.rack, inside_rack)]);
-                }
-                group_id = (group_id + 1) % possible_machines.len();
-            }
-        }
-        self.placement_group_mappings
-            .push(PlacementGroupMapping { possible_machines });
+        self.placement_group_mappings.push(PlacementGroupMapping {
+            possible_machines: vec![vec![]; num_groups],
+            racks_used: vec![false; self.num_dc * self.num_racks],
+            fixed_dc: None,
+            fixed_rack: None,
+        });
     }
 
     fn get_machine_id(&self, dc: usize, rack: usize, inside_rack: usize) -> usize {
@@ -213,10 +193,38 @@ impl Solver {
         self.get_machine_id(machine.dc, machine.rack, machine.inside_rack)
     }
 
+    fn get_rack_id(&self, dc: usize, rack: usize) -> usize {
+        self.num_racks * dc + rack
+    }
+
+    fn get_available_rack(
+        &self,
+        dc: usize,
+        rack: usize,
+        fixed_ok: bool,
+        spec: &VmSpec,
+    ) -> AvailableRack {
+        let mut max_possible_vms = 0;
+        for inside_rack in 0..self.num_machines_per_rack {
+            max_possible_vms += self.machines_stats[self.get_machine_id(dc, rack, inside_rack)]
+                .max_vms_to_place(&spec);
+        }
+        AvailableRack {
+            dc,
+            rack,
+            max_possible_vms,
+            fixed_ok,
+        }
+    }
+
     pub fn delete_vms(&mut self, idxs: &[usize]) {
         for id in idxs.iter() {
             let vm = self.created_vms[*id].clone();
-            self.unregister_vm(&vm, &self.created_vm_specs[*id].clone());
+            self.unregister_vm(
+                &vm,
+                &self.created_vm_specs[*id].clone(),
+                self.created_vm_pg[*id],
+            );
         }
     }
 
@@ -248,18 +256,94 @@ impl Solver {
         None
     }
 
-    fn register_vm(&mut self, vm: &CreatedVm, spec: &VmSpec) {
+    fn is_safe(&self, machine_id: MachineId, placement_group_id: usize) -> bool {
+        if self.placement_groups[placement_group_id].soft_max_vms_per_machine == 0 {
+            return true;
+        }
+        self.soft_machine_affinity
+            .cnt
+            .get(&(machine_id, placement_group_id))
+            .unwrap_or(&0)
+            + 1
+            <= self.placement_groups[placement_group_id].soft_max_vms_per_machine
+    }
+
+    fn register_vm(&mut self, vm: &CreatedVm, spec: &VmSpec, placement_group_id: usize) {
         let m_id = self.get_machine_id2(&vm.machine);
         for &numa_id in vm.numa_ids.iter() {
             self.machines_stats[m_id].numa[numa_id].register_vm(spec);
         }
+        self.soft_machine_affinity
+            .register_vm(vm.machine, placement_group_id);
+        self.created_vm_pg.push(placement_group_id);
     }
 
-    fn unregister_vm(&mut self, vm: &CreatedVm, spec: &VmSpec) {
+    fn unregister_vm(&mut self, vm: &CreatedVm, spec: &VmSpec, placement_group_id: usize) {
         let m_id = self.get_machine_id2(&vm.machine);
         for &numa_id in vm.numa_ids.iter() {
             self.machines_stats[m_id].numa[numa_id].unregister_vm(spec);
         }
+        self.soft_machine_affinity
+            .unregister_vm(vm.machine, placement_group_id);
+    }
+
+    fn increase_group(
+        &mut self,
+        placement_group_id: usize,
+        group_id: usize,
+        spec: &VmSpec,
+    ) -> bool {
+        let pg = self.placement_groups[placement_group_id];
+        let fixed_dc = self.placement_group_mappings[placement_group_id].fixed_dc;
+        let fixed_rack = self.placement_group_mappings[placement_group_id].fixed_rack;
+        if fixed_rack.is_some() && pg.rack_affinity_type == 2 {
+            return false;
+        }
+
+        let mut available_racks = vec![];
+        for dc in 0..self.num_dc {
+            for rack in 0..self.num_racks {
+                if self.placement_group_mappings[placement_group_id].racks_used
+                    [self.get_rack_id(dc, rack)]
+                {
+                    continue;
+                }
+                let mut fixed_ok = true;
+                if let Some(fixed_dc) = fixed_dc {
+                    if fixed_dc != dc && pg.network_affinity_type == 2 {
+                        continue;
+                    }
+                    if fixed_dc != dc && pg.network_affinity_type == 1 {
+                        fixed_ok = false;
+                    }
+                }
+                let ar = self.get_available_rack(dc, rack, fixed_ok, spec);
+                if ar.max_possible_vms != 0 {
+                    available_racks.push(ar);
+                }
+            }
+        }
+        available_racks.sort_by_key(|ar| (ar.fixed_ok, ar.max_possible_vms));
+        available_racks.reverse();
+        if available_racks.is_empty() {
+            return false;
+        }
+        let ar = available_racks[0].clone();
+        {
+            let rack_id = self.get_rack_id(ar.dc, ar.rack);
+            self.placement_group_mappings[placement_group_id].racks_used[rack_id] = true;
+        }
+        for inside_rack in 0..self.num_machines_per_rack {
+            let m_id = self.get_machine_id(ar.dc, ar.rack, inside_rack);
+            self.placement_group_mappings[placement_group_id].possible_machines[group_id]
+                .push(self.machines[m_id].clone());
+        }
+        self.placement_group_mappings[placement_group_id].fixed_dc = Some(ar.dc);
+        self.placement_group_mappings[placement_group_id].fixed_rack = Some(RackId {
+            dc: ar.dc,
+            rack: ar.rack,
+        });
+        return true;
     }
 
     pub fn create_vms(
@@ -273,44 +357,102 @@ impl Solver {
         assert!(indexes[0] == self.created_vms.len());
 
         // TODO: make it faster...
-        let mapping = self.placement_group_mappings[placement_group_id].clone();
+        // let mapping = self.placement_group_mappings[placement_group_id].clone();
         let mut res = vec![];
 
         let spec = self.vm_types[vm_type];
 
         if partition_group == -1 {
-            assert_eq!(indexes.len(), mapping.possible_machines.len());
+            assert_eq!(
+                indexes.len(),
+                self.placement_group_mappings[placement_group_id]
+                    .possible_machines
+                    .len()
+            );
             for i in 0..indexes.len() {
                 // TODO: remove clone
-                let machines: Vec<MachineId> = mapping.possible_machines[i].clone();
-                for m in machines.iter() {
-                    if let Some(placement) = self.can_place_vm(self.get_machine_id2(m), &spec) {
-                        self.register_vm(&placement, &spec);
-                        res.push(placement);
+                loop {
+                    // TODO: soft constraint on vms / machine
+                    let machines: Vec<MachineId> =
+                        self.placement_group_mappings[placement_group_id].possible_machines[i]
+                            .clone();
+                    for &need_soft in [true, false].iter() {
+                        for m in machines.iter() {
+                            if let Some(placement) =
+                                self.can_place_vm(self.get_machine_id2(m), &spec)
+                            {
+                                if need_soft && !self.is_safe(m.clone(), placement_group_id) {
+                                    continue;
+                                }
+                                self.register_vm(&placement, &spec, placement_group_id);
+                                res.push(placement);
+                                break;
+                            }
+                        }
+                        if res.len() == i + 1 {
+                            break;
+                        }
+                    }
+                    if res.len() != i + 1 {
+                        if !self.increase_group(placement_group_id, i, &spec) {
+                            return None;
+                        } else {
+                            // try again
+                        }
+                    } else {
                         break;
                     }
-                }
-                if res.len() != i + 1 {
-                    return None;
                 }
             }
         } else {
             let group_id = if partition_group == 0 {
+                assert!(
+                    self.placement_group_mappings[placement_group_id]
+                        .possible_machines
+                        .len()
+                        == 1
+                );
                 0
             } else {
                 partition_group as usize - 1
             };
             for i in 0..indexes.len() {
-                let machines = &mapping.possible_machines[group_id];
-                for m in machines.iter() {
-                    if let Some(placement) = self.can_place_vm(self.get_machine_id2(m), &spec) {
-                        self.register_vm(&placement, &spec);
-                        res.push(placement);
+                loop {
+                    for &need_soft in [true, false].iter() {
+                        let machines = &self.placement_group_mappings[placement_group_id]
+                            .possible_machines[group_id];
+                        for m in machines.iter() {
+                            if let Some(placement) =
+                                self.can_place_vm(self.get_machine_id2(m), &spec)
+                            {
+                                if need_soft && !self.is_safe(m.clone(), placement_group_id) {
+                                    continue;
+                                }
+                                self.register_vm(&placement, &spec, placement_group_id);
+                                res.push(placement);
+                                break;
+                            }
+                        }
+                        if res.len() == i + 1 {
+                            break;
+                        }
+                    }
+                    if res.len() != i + 1 {
+                        if !self.increase_group(placement_group_id, group_id, &spec) {
+                            // dbg!("Can't increase the group...", i, indexes.len());
+                            // let machines = &self.placement_group_mappings[placement_group_id]
+                            //     .possible_machines[group_id];
+                            // for m in machines.iter() {
+                            //     dbg!(&self.machines_stats[self.get_machine_id2(m)]);
+                            // }
+
+                            return None;
+                        } else {
+                            // try again..
+                        }
+                    } else {
                         break;
                     }
-                }
-                if res.len() != i + 1 {
-                    return None;
                 }
             }
         }

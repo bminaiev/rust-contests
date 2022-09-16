@@ -26,6 +26,7 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
         memory: input.read(),
     });
 
+    dbg!(num_dc, num_racks, num_machines_per_rack);
     dbg!(numa);
 
     let num_vm_types = input.usize();
@@ -96,7 +97,12 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                         }
                     }
                 } else {
-                    dbg!("Can't create vms...", num_vms);
+                    dbg!(
+                        "Can't create vms...",
+                        num_vms,
+                        partition_group,
+                        vm_types[vm_type]
+                    );
                     dbg!(solver.placement_groups[placement_group_id]);
 
                     if print_result {

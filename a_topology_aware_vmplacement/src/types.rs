@@ -19,11 +19,17 @@ pub struct PlacementGroup {
     pub rack_affinity_type: usize,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct MachineId {
     pub dc: usize,
     pub rack: usize,
     pub inside_rack: usize,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct RackId {
+    pub dc: usize,
+    pub rack: usize,
 }
 
 #[derive(Clone, Debug)]
