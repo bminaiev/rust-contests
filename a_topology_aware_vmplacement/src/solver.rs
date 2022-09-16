@@ -3,7 +3,8 @@ use std::{
     collections::HashMap,
 };
 
-use algo_lib::misc::rand::Random;
+use algo_lib::dbg;
+use algo_lib::misc::{min_max::FindMinMaxPos, rand::Random};
 
 use crate::types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec};
 
@@ -213,33 +214,39 @@ impl Solver {
     }
 
     fn can_place_vm(&self, machine_id: usize, vm: &VmSpec) -> Option<CreatedVm> {
-        if vm.numa_cnt == 1 {
-            for numa_id in 0..self.params.numa.len() {
-                if self.machines_stats[machine_id].numa[numa_id].can_place(&vm) {
-                    return Some(CreatedVm {
-                        machine: self.machines[machine_id],
-                        numa_ids: vec![numa_id],
-                        spec: vm.clone(),
-                    });
-                }
-            }
-        } else {
-            assert_eq!(vm.numa_cnt, 2);
-            for numa_id1 in 0..self.params.numa.len() {
-                if self.machines_stats[machine_id].numa[numa_id1].can_place(&vm) {
-                    for numa_id2 in numa_id1 + 1..self.params.numa.len() {
-                        if self.machines_stats[machine_id].numa[numa_id2].can_place(&vm) {
-                            return Some(CreatedVm {
-                                machine: self.machines[machine_id],
-                                numa_ids: vec![numa_id1, numa_id2],
-                                spec: vm.clone(),
-                            });
-                        }
-                    }
-                }
+        #[derive(Clone)]
+        struct NumaWay {
+            id: usize,
+            cnt: u32,
+        }
+
+        let mut ways = vec![];
+        for numa_id in 0..self.params.numa.len() {
+            let cnt = self.machines_stats[machine_id].numa[numa_id].max_vms_to_place(&vm);
+            if cnt > 0 {
+                ways.push(NumaWay { id: numa_id, cnt });
             }
         }
-        None
+        ways.sort_by_key(|w| w.cnt);
+        ways.reverse();
+        if ways.len() < vm.numa_cnt {
+            return None;
+        }
+
+        if vm.numa_cnt == 1 {
+            return Some(CreatedVm {
+                machine: self.machines[machine_id],
+                numa_ids: vec![ways[0].id],
+                spec: vm.clone(),
+            });
+        } else {
+            assert_eq!(vm.numa_cnt, 2);
+            return Some(CreatedVm {
+                machine: self.machines[machine_id],
+                numa_ids: vec![ways[0].id, ways[1].id],
+                spec: vm.clone(),
+            });
+        }
     }
 
     fn is_safe(&self, machine_id: MachineId, placement_group_id: usize) -> bool {
@@ -278,6 +285,7 @@ impl Solver {
         placement_group_id: usize,
         group_id: usize,
         spec: &VmSpec,
+        need_vms: usize,
     ) -> bool {
         let pg = self.placement_groups[placement_group_id];
         let fixed_dc = self.placement_group_mappings[placement_group_id].fixed_dc;
@@ -287,6 +295,7 @@ impl Solver {
         }
 
         let mut available_racks = vec![];
+
         for dc in 0..self.params.num_dc {
             for rack in 0..self.params.num_racks {
                 if self.placement_group_mappings[placement_group_id].racks_used
@@ -309,8 +318,38 @@ impl Solver {
                 }
             }
         }
-        available_racks.sort_by_key(|ar| (ar.fixed_ok, ar.max_possible_vms));
-        available_racks.reverse();
+
+        let full: Vec<_> = available_racks
+            .iter()
+            .filter(|ar| ar.fixed_ok && ar.max_possible_vms as usize >= need_vms)
+            .cloned()
+            .collect();
+        if !full.is_empty() {
+            let mut available_per_dc = vec![0; self.params.num_dc];
+            for ar in full.iter() {
+                available_per_dc[ar.dc] += ar.max_possible_vms;
+            }
+            if pg.network_affinity_type == 2 || pg.network_affinity_type == 1 {
+                let use_dc = available_per_dc.index_of_max();
+                let full_this_dc: Vec<_> =
+                    full.iter().filter(|ar| ar.dc == use_dc).cloned().collect();
+                // TODO: why it is wrong?
+                assert!(!full_this_dc.is_empty());
+                // if full_this_dc.is_empty() {
+                //     available_racks = full;
+                // } else {
+                available_racks = full_this_dc;
+                // }
+            } else {
+                available_racks = full;
+            }
+            available_racks
+                .sort_by_key(|ar| (ar.max_possible_vms, u32::MAX - available_per_dc[ar.dc]));
+        } else {
+            available_racks.sort_by_key(|ar| (ar.fixed_ok, ar.max_possible_vms));
+            available_racks.reverse();
+        }
+
         if available_racks.is_empty() {
             return false;
         }
@@ -386,7 +425,7 @@ impl Solver {
                         }
                     }
                     if res.len() != i + 1 {
-                        if !self.increase_group(placement_group_id, i, &spec) {
+                        if !self.increase_group(placement_group_id, i, &spec, indexes.len() - i) {
                             return None;
                         } else {
                             // try again
@@ -430,7 +469,12 @@ impl Solver {
                         }
                     }
                     if res.len() != i + 1 {
-                        if !self.increase_group(placement_group_id, group_id, &spec) {
+                        if !self.increase_group(
+                            placement_group_id,
+                            group_id,
+                            &spec,
+                            indexes.len() - i,
+                        ) {
                             dbg!(
                                 "Can't increase the group...",
                                 i,
