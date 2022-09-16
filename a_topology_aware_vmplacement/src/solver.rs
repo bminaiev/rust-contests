@@ -425,7 +425,7 @@ impl Solver {
                         }
                     }
                     if res.len() != i + 1 {
-                        if !self.increase_group(placement_group_id, i, &spec, indexes.len() - i) {
+                        if !self.increase_group(placement_group_id, i, &spec, 1) {
                             return None;
                         } else {
                             // try again

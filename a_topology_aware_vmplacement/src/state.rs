@@ -1,7 +1,10 @@
 use std::cmp::max;
 
 use algo_lib::{collections::index_of::IndexOf, misc::rand::Random};
+
+//START MAIN
 use image::ImageBuffer;
+//END MAIN
 
 use crate::types::{CreatedVm, PlacementGroup, TestParams};
 
@@ -57,6 +60,7 @@ impl State {
     }
 
     pub fn save_png(&self, path: &str) {
+        //START MAIN
         const DC_HEIGHT_OFFSET: usize = 10;
         const MACHINE_HEIGHT_OFFSET: usize = 1;
         let one_machine_height = self.params.numa.len() * 2 + MACHINE_HEIGHT_OFFSET * 2;
@@ -124,5 +128,7 @@ impl State {
 
         // write it out to a file
         image.save(path).unwrap();
+
+        //END MAIN
     }
 }
