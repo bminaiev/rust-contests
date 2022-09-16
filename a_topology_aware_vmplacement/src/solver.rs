@@ -49,11 +49,20 @@ struct MachineUsedStats {
 
 impl MachineUsedStats {
     pub fn max_vms_to_place(&self, vm: &VmSpec) -> u32 {
+        if vm.numa_cnt == 2 {
+            let per_numa: Vec<_> = self.numa.iter().map(|n| n.max_vms_to_place(vm)).collect();
+            let sum: u32 = per_numa.iter().sum();
+            let max_elem = per_numa.iter().max().unwrap();
+            return min(sum / 2, sum - max_elem);
+        }
+        assert_eq!(vm.numa_cnt, 1);
+
         let mut res = 0;
         // TODO: if vm_spec requries two numa nodes?
         for numa in self.numa.iter() {
             res += numa.max_vms_to_place(vm);
         }
+
         res
     }
 }
@@ -142,24 +151,12 @@ impl Solver {
             created_vm_pg: vec![],
         }
     }
-    pub fn new_placement_group(
-        &mut self,
-        idx: usize,
-        hard_rack_anti_affinity_partitions: usize,
-        soft_max_vms_per_machine: usize,
-        network_affinity_type: usize,
-        rack_affinity_type: usize,
-    ) {
+    pub fn new_placement_group(&mut self, idx: usize, placement_group: PlacementGroup) {
         assert!(self.placement_groups.len() == idx);
-        self.placement_groups.push(PlacementGroup {
-            hard_rack_anti_affinity_partitions,
-            soft_max_vms_per_machine,
-            network_affinity_type,
-            rack_affinity_type,
-        });
-        let num_groups = max(1, hard_rack_anti_affinity_partitions);
-        if hard_rack_anti_affinity_partitions != 0 {
-            assert!(rack_affinity_type == 0);
+        self.placement_groups.push(placement_group);
+        let num_groups = max(1, placement_group.hard_rack_anti_affinity_partitions);
+        if placement_group.hard_rack_anti_affinity_partitions != 0 {
+            assert!(placement_group.rack_affinity_type == 0);
         }
 
         self.placement_group_mappings.push(PlacementGroupMapping {
@@ -222,6 +219,7 @@ impl Solver {
                     return Some(CreatedVm {
                         machine: self.machines[machine_id],
                         numa_ids: vec![numa_id],
+                        spec: vm.clone(),
                     });
                 }
             }
@@ -234,6 +232,7 @@ impl Solver {
                             return Some(CreatedVm {
                                 machine: self.machines[machine_id],
                                 numa_ids: vec![numa_id1, numa_id2],
+                                spec: vm.clone(),
                             });
                         }
                     }
@@ -316,6 +315,12 @@ impl Solver {
             return false;
         }
         let ar = available_racks[0].clone();
+
+        // if self.placement_groups[placement_group_id].rack_affinity_type == 2 {
+        //     dbg!("Trying to find best rack!", spec);
+        //     dbg!(&ar);
+        // }
+
         {
             let rack_id = self.get_rack_id(ar.dc, ar.rack);
             self.placement_group_mappings[placement_group_id].racks_used[rack_id] = true;
@@ -426,7 +431,13 @@ impl Solver {
                     }
                     if res.len() != i + 1 {
                         if !self.increase_group(placement_group_id, group_id, &spec) {
-                            // dbg!("Can't increase the group...", i, indexes.len());
+                            dbg!(
+                                "Can't increase the group...",
+                                i,
+                                indexes.len(),
+                                &self.placement_group_mappings[placement_group_id].fixed_rack,
+                                &self.placement_group_mappings[placement_group_id].fixed_dc
+                            );
                             // let machines = &self.placement_group_mappings[placement_group_id]
                             //     .possible_machines[group_id];
                             // for m in machines.iter() {

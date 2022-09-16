@@ -10,10 +10,12 @@ use algo_lib::misc::vec_apply_delta::ApplyDelta;
 use algo_lib::{dbg, out, out_line};
 
 use crate::solver::Solver;
-use crate::types::{Numa, TestParams, VmSpec};
+use crate::state::State;
+use crate::types::{Numa, PlacementGroup, TestParams, VmSpec};
 
 mod empty_solver;
 mod solver;
+mod state;
 mod types;
 
 fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
@@ -41,7 +43,11 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
         vm_specs: vm_types,
     };
 
+    dbg!(params);
+
     let mut solver = Solver::new(params.clone());
+    let mut state = State::new(params.clone());
+
     let mut total_vms_created = 0;
     let mut total_queries = 0;
 
@@ -58,13 +64,15 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                 let network_affinity_type = input.usize();
                 let rack_affinity_type = input.usize();
 
-                solver.new_placement_group(
-                    idx,
+                let placement_group = PlacementGroup {
                     hard_rack_anti_affinity_partitions,
                     soft_max_vms_per_machine,
                     network_affinity_type,
                     rack_affinity_type,
-                );
+                };
+
+                solver.new_placement_group(idx, placement_group);
+                state.new_placement_group(placement_group);
             }
             2 => {
                 // create vm
@@ -79,6 +87,7 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                 if let Some(res) =
                     solver.create_vms(vm_type, placement_group_id, partition_group, &indexes)
                 {
+                    state.register_new_vms(&res);
                     if print_result {
                         for vm in res.iter() {
                             let numa_ids = vm.numa_ids.clone().add_to_all(1);
@@ -115,6 +124,7 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                 let num_vms = input.usize();
                 let ids = input.vec::<usize>(num_vms).sub_from_all(1);
                 solver.delete_vms(&ids);
+                state.delete_vms(&ids);
             }
             4 => {
                 // termination
@@ -126,6 +136,10 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
         };
         // solver.step(total_queries);
     }
+    state.save_png(&format!(
+        "a_topology_aware_vmplacement/pics/{}-state.png",
+        test_case
+    ));
     dbg!(total_vms_created, total_queries);
 
     // solver.finish(test_case);
