@@ -37,3 +37,12 @@ pub struct CreatedVm {
     pub machine: MachineId,
     pub numa_ids: Vec<usize>,
 }
+
+#[derive(Clone, Debug)]
+pub struct TestParams {
+    pub num_dc: usize,
+    pub num_racks: usize,
+    pub num_machines_per_rack: usize,
+    pub numa: Vec<Numa>,
+    pub vm_specs: Vec<VmSpec>,
+}

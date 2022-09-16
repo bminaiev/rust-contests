@@ -3,9 +3,9 @@ use std::{
     collections::HashMap,
 };
 
-use algo_lib::misc::{min_max::FindMinMaxPos, rand::Random};
+use algo_lib::misc::rand::Random;
 
-use crate::types::{CreatedVm, MachineId, Numa, PlacementGroup, RackId, VmSpec};
+use crate::types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec};
 
 #[derive(Clone)]
 struct PlacementGroupMapping {
@@ -59,11 +59,7 @@ impl MachineUsedStats {
 }
 
 pub struct Solver {
-    num_dc: usize,
-    num_racks: usize,
-    num_machines_per_rack: usize,
-    numa: Vec<Numa>,
-    vm_types: Vec<VmSpec>,
+    params: TestParams,
     pub placement_groups: Vec<PlacementGroup>,
     placement_group_mappings: Vec<PlacementGroupMapping>,
     machines: Vec<MachineId>,
@@ -107,17 +103,11 @@ impl SoftMachineAffinity {
 }
 
 impl Solver {
-    pub fn new(
-        num_dc: usize,
-        num_racks: usize,
-        num_machines_per_rack: usize,
-        numa: Vec<Numa>,
-        vm_types: Vec<VmSpec>,
-    ) -> Self {
+    pub fn new(params: TestParams) -> Self {
         let mut machines = vec![];
-        for dc in 0..num_dc {
-            for rack in 0..num_racks {
-                for inside_rack in 0..num_machines_per_rack {
+        for dc in 0..params.num_dc {
+            for rack in 0..params.num_racks {
+                for inside_rack in 0..params.num_machines_per_rack {
                     machines.push(MachineId {
                         dc,
                         rack,
@@ -128,7 +118,8 @@ impl Solver {
         }
         let machines_stats = vec![
             MachineUsedStats {
-                numa: numa
+                numa: params
+                    .numa
                     .iter()
                     .map(|numa| NumaUsedStats {
                         free_cpu: numa.cpu,
@@ -139,11 +130,7 @@ impl Solver {
             machines.len()
         ];
         Self {
-            num_dc,
-            num_racks,
-            num_machines_per_rack,
-            numa,
-            vm_types,
+            params,
             placement_groups: vec![],
             placement_group_mappings: vec![],
             machines,
@@ -177,7 +164,7 @@ impl Solver {
 
         self.placement_group_mappings.push(PlacementGroupMapping {
             possible_machines: vec![vec![]; num_groups],
-            racks_used: vec![false; self.num_dc * self.num_racks],
+            racks_used: vec![false; self.params.num_dc * self.params.num_racks],
             fixed_dc: None,
             fixed_rack: None,
         });
@@ -185,8 +172,8 @@ impl Solver {
 
     fn get_machine_id(&self, dc: usize, rack: usize, inside_rack: usize) -> usize {
         inside_rack
-            + rack * self.num_machines_per_rack
-            + dc * self.num_machines_per_rack * self.num_racks
+            + rack * self.params.num_machines_per_rack
+            + dc * self.params.num_machines_per_rack * self.params.num_racks
     }
 
     fn get_machine_id2(&self, machine: &MachineId) -> usize {
@@ -194,7 +181,7 @@ impl Solver {
     }
 
     fn get_rack_id(&self, dc: usize, rack: usize) -> usize {
-        self.num_racks * dc + rack
+        self.params.num_racks * dc + rack
     }
 
     fn get_available_rack(
@@ -205,7 +192,7 @@ impl Solver {
         spec: &VmSpec,
     ) -> AvailableRack {
         let mut max_possible_vms = 0;
-        for inside_rack in 0..self.num_machines_per_rack {
+        for inside_rack in 0..self.params.num_machines_per_rack {
             max_possible_vms += self.machines_stats[self.get_machine_id(dc, rack, inside_rack)]
                 .max_vms_to_place(&spec);
         }
@@ -230,7 +217,7 @@ impl Solver {
 
     fn can_place_vm(&self, machine_id: usize, vm: &VmSpec) -> Option<CreatedVm> {
         if vm.numa_cnt == 1 {
-            for numa_id in 0..self.numa.len() {
+            for numa_id in 0..self.params.numa.len() {
                 if self.machines_stats[machine_id].numa[numa_id].can_place(&vm) {
                     return Some(CreatedVm {
                         machine: self.machines[machine_id],
@@ -240,9 +227,9 @@ impl Solver {
             }
         } else {
             assert_eq!(vm.numa_cnt, 2);
-            for numa_id1 in 0..self.numa.len() {
+            for numa_id1 in 0..self.params.numa.len() {
                 if self.machines_stats[machine_id].numa[numa_id1].can_place(&vm) {
-                    for numa_id2 in numa_id1 + 1..self.numa.len() {
+                    for numa_id2 in numa_id1 + 1..self.params.numa.len() {
                         if self.machines_stats[machine_id].numa[numa_id2].can_place(&vm) {
                             return Some(CreatedVm {
                                 machine: self.machines[machine_id],
@@ -301,8 +288,8 @@ impl Solver {
         }
 
         let mut available_racks = vec![];
-        for dc in 0..self.num_dc {
-            for rack in 0..self.num_racks {
+        for dc in 0..self.params.num_dc {
+            for rack in 0..self.params.num_racks {
                 if self.placement_group_mappings[placement_group_id].racks_used
                     [self.get_rack_id(dc, rack)]
                 {
@@ -333,7 +320,7 @@ impl Solver {
             let rack_id = self.get_rack_id(ar.dc, ar.rack);
             self.placement_group_mappings[placement_group_id].racks_used[rack_id] = true;
         }
-        for inside_rack in 0..self.num_machines_per_rack {
+        for inside_rack in 0..self.params.num_machines_per_rack {
             let m_id = self.get_machine_id(ar.dc, ar.rack, inside_rack);
             self.placement_group_mappings[placement_group_id].possible_machines[group_id]
                 .push(self.machines[m_id].clone());
@@ -353,14 +340,14 @@ impl Solver {
         partition_group: i32,
         indexes: &[usize],
     ) -> Option<Vec<CreatedVm>> {
-        assert!(vm_type < self.vm_types.len());
+        assert!(vm_type < self.params.vm_specs.len());
         assert!(indexes[0] == self.created_vms.len());
 
         // TODO: make it faster...
         // let mapping = self.placement_group_mappings[placement_group_id].clone();
         let mut res = vec![];
 
-        let spec = self.vm_types[vm_type];
+        let spec = self.params.vm_specs[vm_type];
 
         if partition_group == -1 {
             assert_eq!(

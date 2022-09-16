@@ -10,7 +10,7 @@ use algo_lib::misc::vec_apply_delta::ApplyDelta;
 use algo_lib::{dbg, out, out_line};
 
 use crate::solver::Solver;
-use crate::types::{Numa, VmSpec};
+use crate::types::{Numa, TestParams, VmSpec};
 
 mod empty_solver;
 mod solver;
@@ -26,9 +26,6 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
         memory: input.read(),
     });
 
-    dbg!(num_dc, num_racks, num_machines_per_rack);
-    dbg!(numa);
-
     let num_vm_types = input.usize();
     let vm_types = gen_vec(num_vm_types, |_| VmSpec {
         numa_cnt: input.read(),
@@ -36,18 +33,15 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
         memory: input.read(),
     });
 
-    dbg!(num_vm_types);
-    for spec in vm_types.iter() {
-        dbg!(spec);
-    }
-
-    let mut solver = Solver::new(
+    let params = TestParams {
         num_dc,
         num_racks,
         num_machines_per_rack,
         numa,
-        vm_types.clone(),
-    );
+        vm_specs: vm_types,
+    };
+
+    let mut solver = Solver::new(params.clone());
     let mut total_vms_created = 0;
     let mut total_queries = 0;
 
@@ -101,7 +95,7 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                         "Can't create vms...",
                         num_vms,
                         partition_group,
-                        vm_types[vm_type]
+                        params.vm_specs[vm_type]
                     );
                     dbg!(solver.placement_groups[placement_group_id]);
 
