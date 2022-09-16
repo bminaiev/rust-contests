@@ -1,10 +1,12 @@
+use crate::usage_stats::{MachineUsedStats, NumaUsedStats};
+
 #[derive(Clone, Copy, Debug)]
 pub struct Numa {
     pub cpu: u32,
     pub memory: u32,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VmSpec {
     pub numa_cnt: usize,
     pub cpu: u32,
@@ -59,9 +61,33 @@ impl TestParams {
             + machine.dc * (self.num_machines_per_rack * self.num_racks)
     }
 
+    pub fn get_machine_by_id(&self, id: usize) -> MachineId {
+        MachineId {
+            dc: id / self.num_machines_per_rack / self.num_racks,
+            rack: (id / self.num_machines_per_rack) % self.num_racks,
+            inside_rack: id % (self.num_machines_per_rack),
+        }
+    }
+
     pub(crate) fn get_machine_id2(&self, dc: usize, rack: usize, inside_rack: usize) -> usize {
         inside_rack
             + rack * self.num_machines_per_rack
             + dc * (self.num_machines_per_rack * self.num_racks)
+    }
+
+    pub fn gen_usage_stats(&self) -> Vec<MachineUsedStats> {
+        vec![
+            MachineUsedStats {
+                numa: self
+                    .numa
+                    .iter()
+                    .map(|numa| NumaUsedStats {
+                        free_cpu: numa.cpu,
+                        free_memory: numa.memory
+                    })
+                    .collect()
+            };
+            self.total_machines()
+        ]
     }
 }

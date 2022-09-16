@@ -17,6 +17,7 @@ mod empty_solver;
 mod solver;
 mod state;
 mod types;
+mod usage_stats;
 
 fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
     let num_dc = input.usize();
@@ -107,6 +108,10 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                         params.vm_specs[vm_type]
                     );
                     dbg!(solver.placement_groups[placement_group_id]);
+                    state.analyze_failure(&format!(
+                        "a_topology_aware_vmplacement/pics/{}-state-best.png",
+                        test_case
+                    ));
 
                     if print_result {
                         out_line!(-1);

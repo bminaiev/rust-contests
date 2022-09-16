@@ -6,7 +6,10 @@ use std::{
 use algo_lib::dbg;
 use algo_lib::misc::{min_max::FindMinMaxPos, rand::Random};
 
-use crate::types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec};
+use crate::{
+    types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec},
+    usage_stats::{MachineUsedStats, NumaUsedStats},
+};
 
 #[derive(Clone)]
 struct PlacementGroupMapping {
@@ -14,58 +17,6 @@ struct PlacementGroupMapping {
     racks_used: Vec<bool>,
     fixed_dc: Option<usize>,
     fixed_rack: Option<RackId>,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct NumaUsedStats {
-    free_cpu: u32,
-    free_memory: u32,
-}
-
-impl NumaUsedStats {
-    pub fn can_place(&self, vm: &VmSpec) -> bool {
-        self.free_cpu >= vm.cpu && self.free_memory >= vm.memory
-    }
-
-    pub fn max_vms_to_place(&self, vm: &VmSpec) -> u32 {
-        min(self.free_cpu / vm.cpu, self.free_memory / vm.memory)
-    }
-
-    pub fn register_vm(&mut self, vm: &VmSpec) {
-        assert!(self.can_place(vm));
-        self.free_cpu -= vm.cpu;
-        self.free_memory -= vm.memory;
-    }
-
-    pub fn unregister_vm(&mut self, vm: &VmSpec) {
-        self.free_cpu += vm.cpu;
-        self.free_memory += vm.memory;
-    }
-}
-
-#[derive(Clone, Debug)]
-struct MachineUsedStats {
-    numa: Vec<NumaUsedStats>,
-}
-
-impl MachineUsedStats {
-    pub fn max_vms_to_place(&self, vm: &VmSpec) -> u32 {
-        if vm.numa_cnt == 2 {
-            let per_numa: Vec<_> = self.numa.iter().map(|n| n.max_vms_to_place(vm)).collect();
-            let sum: u32 = per_numa.iter().sum();
-            let max_elem = per_numa.iter().max().unwrap();
-            return min(sum / 2, sum - max_elem);
-        }
-        assert_eq!(vm.numa_cnt, 1);
-
-        let mut res = 0;
-        // TODO: if vm_spec requries two numa nodes?
-        for numa in self.numa.iter() {
-            res += numa.max_vms_to_place(vm);
-        }
-
-        res
-    }
 }
 
 pub struct Solver {
@@ -126,19 +77,7 @@ impl Solver {
                 }
             }
         }
-        let machines_stats = vec![
-            MachineUsedStats {
-                numa: params
-                    .numa
-                    .iter()
-                    .map(|numa| NumaUsedStats {
-                        free_cpu: numa.cpu,
-                        free_memory: numa.memory
-                    })
-                    .collect()
-            };
-            machines.len()
-        ];
+        let machines_stats = params.gen_usage_stats();
         Self {
             params,
             placement_groups: vec![],
@@ -213,40 +152,19 @@ impl Solver {
         }
     }
 
+    // more - better
+    fn placement_score(&self, vm: &CreatedVm) -> u32 {
+        let mut sum = 0;
+        let m_id = self.get_machine_id2(&vm.machine);
+        for &node_id in vm.numa_ids.iter() {
+            sum += self.machines_stats[m_id].numa[node_id].free_cpu;
+            sum += self.machines_stats[m_id].numa[node_id].free_memory;
+        }
+        std::u32::MAX - sum
+    }
+
     fn can_place_vm(&self, machine_id: usize, vm: &VmSpec) -> Option<CreatedVm> {
-        #[derive(Clone)]
-        struct NumaWay {
-            id: usize,
-            cnt: u32,
-        }
-
-        let mut ways = vec![];
-        for numa_id in 0..self.params.numa.len() {
-            let cnt = self.machines_stats[machine_id].numa[numa_id].max_vms_to_place(&vm);
-            if cnt > 0 {
-                ways.push(NumaWay { id: numa_id, cnt });
-            }
-        }
-        ways.sort_by_key(|w| w.cnt);
-        ways.reverse();
-        if ways.len() < vm.numa_cnt {
-            return None;
-        }
-
-        if vm.numa_cnt == 1 {
-            return Some(CreatedVm {
-                machine: self.machines[machine_id],
-                numa_ids: vec![ways[0].id],
-                spec: vm.clone(),
-            });
-        } else {
-            assert_eq!(vm.numa_cnt, 2);
-            return Some(CreatedVm {
-                machine: self.machines[machine_id],
-                numa_ids: vec![ways[0].id, ways[1].id],
-                spec: vm.clone(),
-            });
-        }
+        self.machines_stats[machine_id].can_place_vm(vm, self.machines[machine_id])
     }
 
     fn is_safe(&self, machine_id: MachineId, placement_group_id: usize) -> bool {
@@ -263,9 +181,7 @@ impl Solver {
 
     fn register_vm(&mut self, vm: &CreatedVm, spec: &VmSpec, placement_group_id: usize) {
         let m_id = self.get_machine_id2(&vm.machine);
-        for &numa_id in vm.numa_ids.iter() {
-            self.machines_stats[m_id].numa[numa_id].register_vm(spec);
-        }
+        self.machines_stats[m_id].register_vm(vm);
         self.soft_machine_affinity
             .register_vm(vm.machine, placement_group_id);
         self.created_vm_pg.push(placement_group_id);
@@ -319,6 +235,9 @@ impl Solver {
             }
         }
 
+        let potential_positions: u32 = available_racks.iter().map(|ar| ar.max_possible_vms).sum();
+        dbg!(potential_positions, need_vms, spec);
+
         let full: Vec<_> = available_racks
             .iter()
             .filter(|ar| ar.fixed_ok && ar.max_possible_vms as usize >= need_vms)
@@ -333,11 +252,7 @@ impl Solver {
                 let use_dc = available_per_dc.index_of_max();
                 let full_this_dc: Vec<_> =
                     full.iter().filter(|ar| ar.dc == use_dc).cloned().collect();
-                // TODO: why it is wrong?
                 assert!(!full_this_dc.is_empty());
-                // if full_this_dc.is_empty() {
-                //     available_racks = full;
-                // } else {
                 available_racks = full_this_dc;
                 // }
             } else {
@@ -385,17 +300,29 @@ impl Solver {
     ) -> Option<CreatedVm> {
         let machines =
             &self.placement_group_mappings[placement_group_id].possible_machines[group_id];
-        for &need_soft in [true, false].iter() {
-            for m in machines.iter() {
-                if let Some(placement) = self.can_place_vm(self.get_machine_id2(m), &spec) {
-                    if need_soft && !self.is_safe(m.clone(), placement_group_id) {
-                        continue;
-                    }
-                    return Some(placement);
-                }
+
+        #[derive(Clone)]
+        struct Way {
+            placement: CreatedVm,
+            soft: bool,
+            score: u32,
+        }
+
+        let mut ways = vec![];
+
+        for m in machines.iter() {
+            if let Some(placement) = self.can_place_vm(self.get_machine_id2(m), &spec) {
+                let soft = self.is_safe(m.clone(), placement_group_id);
+                let score = self.placement_score(&placement);
+                ways.push(Way {
+                    placement,
+                    soft,
+                    score,
+                });
             }
         }
-        None
+        ways.sort_by_key(|w| (!w.soft, std::u32::MAX - w.score));
+        ways.get(0).map(|w| w.placement.clone())
     }
 
     pub fn create_vms(
@@ -407,6 +334,7 @@ impl Solver {
     ) -> Option<Vec<CreatedVm>> {
         assert!(vm_type < self.params.vm_specs.len());
         assert!(indexes[0] == self.created_vms.len());
+        dbg!("create vms!");
 
         // TODO: make it faster...
         // let mapping = self.placement_group_mappings[placement_group_id].clone();
