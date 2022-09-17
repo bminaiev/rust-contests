@@ -157,14 +157,24 @@ impl Solver {
         let mut sum = 0;
         let m_id = self.get_machine_id2(&vm.machine);
         for &node_id in vm.numa_ids.iter() {
-            sum += self.machines_stats[m_id].numa[node_id].free_cpu;
-            sum += self.machines_stats[m_id].numa[node_id].free_memory;
+            // TODO: change this
+            sum += (self.machines_stats[m_id].numa[node_id].free_cpu - vm.spec.cpu) % 96;
+            sum += (self.machines_stats[m_id].numa[node_id].free_memory - vm.spec.memory) % 64;
         }
         std::u32::MAX - sum
     }
 
-    fn can_place_vm(&self, machine_id: usize, vm: &VmSpec) -> Option<CreatedVm> {
-        self.machines_stats[machine_id].can_place_vm(vm, self.machines[machine_id])
+    fn can_place_vm(
+        &self,
+        machine_id: usize,
+        vm: &VmSpec,
+        placement_group_id: usize,
+    ) -> Option<CreatedVm> {
+        self.machines_stats[machine_id].can_place_vm(
+            vm,
+            self.machines[machine_id],
+            placement_group_id,
+        )
     }
 
     fn is_safe(&self, machine_id: MachineId, placement_group_id: usize) -> bool {
@@ -236,7 +246,7 @@ impl Solver {
         }
 
         let potential_positions: u32 = available_racks.iter().map(|ar| ar.max_possible_vms).sum();
-        dbg!(potential_positions, need_vms, spec);
+        // dbg!(potential_positions, need_vms, spec);
 
         let full: Vec<_> = available_racks
             .iter()
@@ -311,7 +321,9 @@ impl Solver {
         let mut ways = vec![];
 
         for m in machines.iter() {
-            if let Some(placement) = self.can_place_vm(self.get_machine_id2(m), &spec) {
+            if let Some(placement) =
+                self.can_place_vm(self.get_machine_id2(m), &spec, placement_group_id)
+            {
                 let soft = self.is_safe(m.clone(), placement_group_id);
                 let score = self.placement_score(&placement);
                 ways.push(Way {
@@ -334,7 +346,6 @@ impl Solver {
     ) -> Option<Vec<CreatedVm>> {
         assert!(vm_type < self.params.vm_specs.len());
         assert!(indexes[0] == self.created_vms.len());
-        dbg!("create vms!");
 
         // TODO: make it faster...
         // let mapping = self.placement_group_mappings[placement_group_id].clone();

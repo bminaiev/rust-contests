@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::{cmp::max, collections::BTreeMap};
 
 use algo_lib::{collections::index_of::IndexOf, misc::rand::Random};
 
@@ -6,7 +6,7 @@ use algo_lib::{collections::index_of::IndexOf, misc::rand::Random};
 use image::ImageBuffer;
 //END MAIN
 
-use crate::types::{CreatedVm, MachineId, PlacementGroup, TestParams};
+use crate::types::{CreatedVm, MachineId, PlacementGroup, TestParams, VmSpec};
 
 #[derive(Clone, Default)]
 struct MachineState {
@@ -23,8 +23,8 @@ impl MachineState {
 #[derive(Clone)]
 pub struct State {
     params: TestParams,
-    placement_groups: Vec<PlacementGroup>,
-    vms: Vec<CreatedVm>,
+    pub placement_groups: Vec<PlacementGroup>,
+    pub vms: Vec<CreatedVm>,
     machines: Vec<MachineState>,
 }
 
@@ -153,7 +153,7 @@ impl State {
                 let mut found = false;
                 for m_id in 0..machines_stats.len() {
                     let machine = self.params.get_machine_by_id(m_id);
-                    if let Some(placement) = machines_stats[m_id].can_place_vm(&spec, machine) {
+                    if let Some(placement) = machines_stats[m_id].can_place_vm(&spec, machine, 0) {
                         machines_stats[m_id].register_vm(&placement);
                         found = true;
                         best_state.register_new_vms(&[placement]);
@@ -164,5 +164,16 @@ impl State {
             }
         }
         best_state.save_png(path)
+    }
+
+    pub fn get_num_vms_by_type(&self) -> BTreeMap<VmSpec, usize> {
+        let mut res = BTreeMap::new();
+        for m in self.machines.iter() {
+            for &vm_id in m.alive_vm_ids.iter() {
+                let spec = self.vms[vm_id].spec;
+                *res.entry(spec).or_default() += 1;
+            }
+        }
+        res
     }
 }

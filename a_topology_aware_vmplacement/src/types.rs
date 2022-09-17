@@ -1,12 +1,12 @@
 use crate::usage_stats::{MachineUsedStats, NumaUsedStats};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Numa {
     pub cpu: u32,
     pub memory: u32,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VmSpec {
     pub numa_cnt: usize,
     pub cpu: u32,
@@ -39,6 +39,7 @@ pub struct CreatedVm {
     pub machine: MachineId,
     pub numa_ids: Vec<usize>,
     pub spec: VmSpec,
+    pub placement_group_id: usize,
 }
 
 #[derive(Clone, Debug)]
