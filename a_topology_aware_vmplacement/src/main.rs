@@ -16,11 +16,12 @@ use algo_lib::misc::vec_apply_delta::ApplyDelta;
 #[allow(unused)]
 use algo_lib::{dbg, out, out_line};
 
-use crate::solver::Solver;
+use crate::fake_solver::FakeSolver;
 use crate::state::State;
 use crate::types::{Numa, PlacementGroup, TestParams, VmSpec};
 
 mod empty_solver;
+mod fake_solver;
 mod solver;
 mod state;
 mod types;
@@ -123,7 +124,7 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
     // );
     dbg!(params);
 
-    let mut solver = Solver::new(params.clone());
+    let mut solver = FakeSolver::new(params.clone());
     let mut state = State::new(params.clone());
 
     let mut total_vms_created = 0;
