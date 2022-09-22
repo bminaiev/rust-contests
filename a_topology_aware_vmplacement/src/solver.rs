@@ -77,7 +77,7 @@ impl Solver {
                 }
             }
         }
-        let machines_stats = params.gen_usage_stats();
+        let machines_stats = params.gen_usage_stats(&params);
         Self {
             params,
             placement_groups: vec![],

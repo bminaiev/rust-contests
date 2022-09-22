@@ -76,19 +76,7 @@ impl TestParams {
             + dc * (self.num_machines_per_rack * self.num_racks)
     }
 
-    pub fn gen_usage_stats(&self) -> Vec<MachineUsedStats> {
-        vec![
-            MachineUsedStats {
-                numa: self
-                    .numa
-                    .iter()
-                    .map(|numa| NumaUsedStats {
-                        free_cpu: numa.cpu,
-                        free_memory: numa.memory
-                    })
-                    .collect()
-            };
-            self.total_machines()
-        ]
+    pub fn gen_usage_stats(&self, params: &TestParams) -> Vec<MachineUsedStats> {
+        vec![MachineUsedStats::new(params); self.total_machines()]
     }
 }

@@ -3,10 +3,22 @@ use std::{
     collections::HashMap,
 };
 
-use algo_lib::misc::{min_max::FindMinMaxPos, rand::Random};
+use algo_lib::io::output::output;
 use algo_lib::{collections::index_of::IndexOf, dbg};
+use algo_lib::{
+    collections::{array_2d::Array2D, last_exn::LastExn},
+    misc::{
+        func::id,
+        gen_vector::gen_vec,
+        min_max::FindMinMaxPos,
+        rand::Random,
+        rec_function::{Callable, RecursiveFunction},
+    },
+};
+use algo_lib::{out, out_line};
 
 use crate::{
+    machine_optimizer::find_shuffling,
     state::State,
     types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec},
     usage_stats::{MachineUsedStats, NumaUsedStats},
@@ -17,15 +29,54 @@ pub struct FakeSolver {
     pub placement_groups: Vec<PlacementGroup>,
     created_vms: Vec<CreatedVm>,
     is_vm_alive: Vec<bool>,
+    seeds_to_test: Vec<usize>,
+    all_good_perms: Vec<Vec<usize>>,
 }
 
 impl FakeSolver {
     pub fn new(params: TestParams) -> Self {
+        let mut all_good_perms = vec![];
+        let should_go_before =
+            Array2D::new_f(params.vm_specs.len(), params.vm_specs.len(), |i, j| {
+                let s1 = params.vm_specs[i];
+                let s2 = params.vm_specs[j];
+                s2.cpu % s1.cpu == 0
+                    && s2.memory % s1.memory == 0
+                    && s2.numa_cnt % s1.numa_cnt == 0
+                    && i != j
+            });
+        RecursiveFunction::new(|f, vm_types_perm: Vec<usize>| {
+            if vm_types_perm.len() == params.vm_specs.len() {
+                all_good_perms.push(vm_types_perm);
+            } else {
+                let candidates: Vec<_> = (0..params.vm_specs.len())
+                    .filter(|&x| !vm_types_perm.contains(&x))
+                    .filter(|&x| {
+                        for i in 0..params.vm_specs.len() {
+                            if should_go_before[i][x] && !vm_types_perm.contains(&i) {
+                                return false;
+                            }
+                        }
+                        true
+                    })
+                    .collect();
+                assert!(candidates.len() > 0);
+                for elem in candidates.into_iter() {
+                    let mut next = vm_types_perm.clone();
+                    next.push(elem);
+                    f.call(next);
+                }
+            }
+        })
+        .call(vec![]);
+        dbg!(all_good_perms.len());
         Self {
             params,
             placement_groups: vec![],
             created_vms: vec![],
             is_vm_alive: vec![],
+            seeds_to_test: vec![],
+            all_good_perms,
         }
     }
     pub fn new_placement_group(&mut self, idx: usize, placement_group: PlacementGroup) {
@@ -39,7 +90,7 @@ impl FakeSolver {
         }
     }
 
-    fn can_place_from_start(&self) -> bool {
+    fn calc_num_vms_by_type(&self) -> Vec<usize> {
         let mut vms_by_type = vec![0; self.params.vm_specs.len()];
         for i in 0..self.is_vm_alive.len() {
             if self.is_vm_alive[i] {
@@ -51,9 +102,29 @@ impl FakeSolver {
                 vms_by_type[type_id] += 1;
             }
         }
-        let mut machines_stats = self.params.gen_usage_stats();
+        vms_by_type
+    }
+
+    fn can_place_from_start2(&self) -> bool {
+        let vms_by_type = self.calc_num_vms_by_type();
+        find_shuffling(&self.params, &vms_by_type)
+    }
+
+    fn can_place_from_start(&self, seed: usize, save_png: bool) -> bool {
+        let mut vm_types_perm = gen_vec(self.params.vm_specs.len(), id);
+        vm_types_perm.sort_by_key(|&id| {
+            let spec = &self.params.vm_specs[id];
+            (spec.cpu + spec.memory, spec.numa_cnt)
+        });
+        if seed != 0 {
+            vm_types_perm = self.all_good_perms[seed - 1].clone();
+            // dbg!("Found good perm?");
+        }
+        let mut vms_by_type = self.calc_num_vms_by_type();
+
+        let mut machines_stats = self.params.gen_usage_stats(&self.params);
         let mut best_state = State::new(self.params.clone());
-        for id in (0..vms_by_type.len()).rev() {
+        for &id in vm_types_perm.iter().rev() {
             let spec = self.params.vm_specs[id];
             let mut more = vms_by_type[id];
             for m_id in 0..machines_stats.len() {
@@ -71,6 +142,10 @@ impl FakeSolver {
             if more > 0 {
                 return false;
             }
+        }
+
+        if save_png {
+            best_state.save_png("a_topology_aware_vmplacement/pics/last-state.png");
         }
 
         true
@@ -106,7 +181,45 @@ impl FakeSolver {
         self.created_vms.extend(res.clone());
         self.is_vm_alive.extend(vec![true; res.len()]);
 
-        if !self.can_place_from_start() {
+        self.can_place_from_start2();
+        if true {
+            out_line!("Created vms:", self.created_vms.len());
+            dbg!(self.created_vms.len());
+            return Some(res);
+        }
+
+        if !self.can_place_from_start(0, false) {
+            if self.can_place_from_start2() {
+                dbg!("Good!", self.created_vms.len());
+                return Some(res);
+            }
+            dbg!("FAiled 3");
+
+            for &seed in self.seeds_to_test.iter().rev() {
+                if self.can_place_from_start(seed, false) {
+                    return Some(res);
+                }
+            }
+            dbg!("Failed...");
+            for seed in self.seeds_to_test.last().unwrap_or(&0) + 1..self.all_good_perms.len() + 1 {
+                if seed % 10 == 0 {
+                    dbg!("Trying...", seed, self.created_vms.len());
+                }
+                if self.can_place_from_start(seed, false) {
+                    dbg!("Found!!!", seed);
+                    self.seeds_to_test.push(seed);
+                    return Some(res);
+                }
+            }
+
+            let vms_by_type = self.calc_num_vms_by_type();
+            dbg!(vms_by_type);
+
+            let old_len = self.created_vms.len() - res.len();
+            self.created_vms.truncate(old_len);
+            self.is_vm_alive.truncate(old_len);
+            assert!(self.can_place_from_start(*self.seeds_to_test.last_exn(), true));
+
             return None;
         }
         Some(res)

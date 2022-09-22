@@ -5,6 +5,7 @@ use std::fmt::format;
 use std::time::Instant;
 
 use algo_lib::collections::index_of::IndexOf;
+#[allow(unused)]
 use algo_lib::io::output::{output, set_global_output_to_file};
 use algo_lib::io::task_io_settings::TaskIoType;
 use algo_lib::io::task_runner::run_task;
@@ -13,15 +14,16 @@ use algo_lib::math::gcd::gcd;
 use algo_lib::misc::gen_vector::gen_vec;
 use algo_lib::misc::rand::Random;
 use algo_lib::misc::vec_apply_delta::ApplyDelta;
-#[allow(unused)]
 use algo_lib::{dbg, out, out_line};
 
 use crate::fake_solver::FakeSolver;
+use crate::machine_optimizer::{find_shuffling, find_shuffling_io};
 use crate::state::State;
 use crate::types::{Numa, PlacementGroup, TestParams, VmSpec};
 
 mod empty_solver;
 mod fake_solver;
+mod machine_optimizer;
 mod solver;
 mod state;
 mod types;
@@ -124,6 +126,16 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
     // );
     dbg!(params);
 
+    // if find_shuffling_io(test_case, &params) {
+    //     return Result {
+    //         vms_created: 0,
+    //         vms_without_soft: 0,
+    //     };
+    // } else {
+    //     assert!(false);
+    // }
+
+    set_global_output_to_file("test.txt");
     let mut solver = FakeSolver::new(params.clone());
     let mut state = State::new(params.clone());
 
@@ -374,7 +386,7 @@ fn read_baseline(test_id: usize) -> Result {
 fn stress() {
     let mut stats = vec![];
 
-    for test_id in 1..12 {
+    for test_id in 11..12 {
         dbg!(test_id);
         let mut input = Input::new_file(format!(
             "./a_topology_aware_vmplacement/local_test_kit/sample/{:02}",
