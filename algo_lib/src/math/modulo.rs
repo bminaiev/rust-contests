@@ -9,7 +9,7 @@ pub trait Value: Clone + Copy + Eq + Default + Ord {
     fn val() -> i32;
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
 pub struct ModWithValue<M>(i32, PhantomData<M>)
 where
     M: Value;
@@ -276,21 +276,21 @@ impl<V: ConstValue> Value for V {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
 pub struct Value7();
 impl ConstValue for Value7 {
     const VAL: i32 = 1_000_000_007;
 }
 pub type Mod7 = ModWithValue<Value7>;
 
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
 pub struct Value9();
 impl ConstValue for Value9 {
     const VAL: i32 = 1_000_000_009;
 }
 pub type Mod9 = ModWithValue<Value9>;
 
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
 #[allow(non_camel_case_types)]
 pub struct Value_998_244_353();
 impl ConstValue for Value_998_244_353 {

@@ -23,6 +23,7 @@ use crate::types::{Numa, PlacementGroup, TestParams, VmSpec};
 
 mod empty_solver;
 mod fake_solver;
+mod graph_solver;
 mod machine_optimizer;
 mod solver;
 mod state;
@@ -128,7 +129,7 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
 
     set_global_output_to_file("test.txt");
 
-    if find_shuffling_io(test_case, &params) {
+    if graph_solver::find_shuffling_io(test_case, &params) {
         return Result {
             vms_created: 0,
             vms_without_soft: 0,
