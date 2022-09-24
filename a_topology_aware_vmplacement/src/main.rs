@@ -126,16 +126,18 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
     // );
     dbg!(params);
 
-    // if find_shuffling_io(test_case, &params) {
-    //     return Result {
-    //         vms_created: 0,
-    //         vms_without_soft: 0,
-    //     };
-    // } else {
-    //     assert!(false);
-    // }
-
     set_global_output_to_file("test.txt");
+
+    if find_shuffling_io(test_case, &params) {
+        return Result {
+            vms_created: 0,
+            vms_without_soft: 0,
+        };
+    } else {
+        output().flush();
+        assert!(false);
+    }
+
     let mut solver = FakeSolver::new(params.clone());
     let mut state = State::new(params.clone());
 
