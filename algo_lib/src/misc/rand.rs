@@ -60,6 +60,12 @@ impl Random {
         result
     }
 
+    pub fn shuffle<T>(&mut self, a: &mut [T]) {
+        for i in 1..a.len() {
+            a.swap(i, self.gen(0..i + 1));
+        }
+    }
+
     pub fn gen<T>(&mut self, range: Range<T>) -> T
     where
         T: Number,
