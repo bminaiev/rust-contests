@@ -158,7 +158,7 @@ impl State {
 
     pub fn analyze_failure(&self, path: &str) {
         let vms_by_type = self.calc_vm_num_per_spec();
-        let mut machines_stats = self.params.gen_usage_stats(&self.params);
+        let mut machines_stats = self.params.gen_usage_stats();
         let mut best_state = Self::new(self.params.clone());
         for id in (0..vms_by_type.len()).rev() {
             let spec = self.params.vm_specs[id];

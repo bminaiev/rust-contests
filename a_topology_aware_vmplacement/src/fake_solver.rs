@@ -122,7 +122,7 @@ impl FakeSolver {
         }
         let mut vms_by_type = self.calc_num_vms_by_type();
 
-        let mut machines_stats = self.params.gen_usage_stats(&self.params);
+        let mut machines_stats = self.params.gen_usage_stats();
         let mut best_state = State::new(self.params.clone());
         for &id in vm_types_perm.iter().rev() {
             let spec = self.params.vm_specs[id];
