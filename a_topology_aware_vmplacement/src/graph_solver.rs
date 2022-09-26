@@ -10,8 +10,8 @@ use algo_lib::{dbg, out, out_line};
 
 use algo_lib::{io::input::Input, misc::gen_vector::gen_vec};
 
-use crate::state;
-use crate::types::{TestParams, VmSpec};
+use crate::state::{self, State};
+use crate::types::{CreatedVm, TestParams, VmSpec};
 
 fn load_cnt(test_case: usize, params: &TestParams) -> Vec<usize> {
     let mut input = Input::new_file(format!(
@@ -405,7 +405,7 @@ fn solve_graph(
         let mut eps = 1e-2;
         let mut prev_score = 0.0;
 
-        for iter in 1..1_001 {
+        for iter in 1..1001 {
             if eps < 1e-7 {
                 break;
             }
@@ -636,9 +636,11 @@ struct TwoNumaStrategy {
     // [numa2_idx][graph_node] -> prob
     state_probs: Vec<Vec<f64>>,
     root: usize,
+    // [numa2_idx][graph_node] -> could <graph_node> in the end become last_numa2[numa2_idx]?
+    possible_numa2: Vec<Vec<bool>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct TwoNumaState {
     numa2: usize,
     nodes: Vec<[Option<usize>; 2]>,
@@ -707,7 +709,13 @@ impl TwoNumaStrategy {
         let mut numa2_probs = gen_vec(self.last_numa2.len(), |i| {
             if let Some(v1) = state.nodes[i][0] {
                 if let Some(v2) = state.nodes[i][1] {
-                    self.state_probs[i][v1] * self.state_probs[i][v2]
+                    self.state_probs[i][v1]
+                        * self.state_probs[i][v2]
+                        * (if self.possible_numa2[i][state.numa2] {
+                            1.0
+                        } else {
+                            0.0
+                        })
                 } else {
                     0.0
                 }
@@ -771,6 +779,7 @@ impl TwoNumaStrategy {
         let mut state_probs = vec![];
         let num_vm_specs = params.vm_specs.len();
         let mut facts = vec![1.0];
+        let mut possible_numa2 = vec![];
         for i in 1..50 {
             let next = (i as f64) * facts.last_exn();
             facts.push(next);
@@ -816,9 +825,11 @@ impl TwoNumaStrategy {
             let last_numa2_idx = match last_numa2.index_of(&last_numa2_node) {
                 Some(x) => x,
                 None => {
+                    dbg!(last_numa2_node, used_vms_numa2);
                     last_numa2.push(last_numa2_node);
                     transitions.push(vec![vec![0.0; num_vm_specs]; minigraph.edges.len()]);
                     state_probs.push(vec![0.0; minigraph.edges.len()]);
+                    possible_numa2.push(vec![false; minigraph.edges.len()]);
                     last_numa2.len() - 1
                 }
             };
@@ -835,6 +846,10 @@ impl TwoNumaStrategy {
 
                 for mask in 0..1 << n {
                     let cur_node = dp_node[mask];
+                    if numa_cnt == 2 {
+                        possible_numa2[last_numa2_idx][cur_node] = true;
+                    }
+
                     let done = mask.count_ones() as usize;
                     // TODO: is it right?
                     let pr_here = facts[done] * facts[n - done] / facts[n];
@@ -866,13 +881,14 @@ impl TwoNumaStrategy {
                 normalize(&mut transitions[i][j]);
             }
         }
-        dbg!(last_numa2.len());
+        dbg!(last_numa2);
 
         Self {
             state_probs,
             last_numa2,
             transitions,
             root,
+            possible_numa2,
         }
     }
 }
@@ -961,7 +977,10 @@ fn check_solution(
         ]);
     }
 
+    let mut state = State::new(params.clone());
+
     dbg!(handlers.len());
+    dbg!(mini_graph.edges[14]);
     for i in 0..ids.len() {
         if i > 0 && (i - 1) % 100 == 0 {
             dbg!(i, ids.len());
@@ -975,6 +994,21 @@ fn check_solution(
                     .predict_transition(params, &handlers[h_id].state, vm_id)
             {
                 let numa_id = if pred.pr_of_using_first > 0.5 { 0 } else { 1 };
+
+                let mut numa_ids = vec![];
+                let add_numa = (h_id / params.total_machines()) * 2;
+                if params.vm_specs[vm_id].numa_cnt == 1 {
+                    numa_ids.push(numa_id + add_numa);
+                } else {
+                    numa_ids.push(add_numa);
+                    numa_ids.push(add_numa + 1);
+                }
+                let new_vm = CreatedVm {
+                    machine: params.get_machine_by_id(h_id % params.total_machines()),
+                    numa_ids,
+                    spec: params.vm_specs[vm_id],
+                    placement_group_id: 0,
+                };
                 handlers[h_id].strat.apply_transition(
                     params,
                     &mut handlers[h_id].state,
@@ -982,6 +1016,10 @@ fn check_solution(
                     numa_id,
                     mini_graph,
                 );
+                // dbg!(h_id, new_vm);
+                // dbg!(handlers[h_id].state);
+
+                state.register_new_vms(&[new_vm]);
                 found = true;
                 break;
             }

@@ -6,11 +6,15 @@ use algo_lib::{collections::index_of::IndexOf, misc::rand::Random};
 use image::ImageBuffer;
 //END MAIN
 
-use crate::types::{CreatedVm, MachineId, PlacementGroup, TestParams, VmSpec};
+use crate::{
+    types::{CreatedVm, MachineId, PlacementGroup, TestParams, VmSpec},
+    usage_stats::MachineUsedStats,
+};
 
 #[derive(Clone, Default)]
 struct MachineState {
     alive_vm_ids: Vec<usize>,
+    stats: MachineUsedStats,
 }
 
 impl MachineState {
@@ -31,7 +35,13 @@ pub struct State {
 impl State {
     pub fn new(params: TestParams) -> Self {
         Self {
-            machines: vec![MachineState::default(); params.total_machines()],
+            machines: vec![
+                MachineState {
+                    alive_vm_ids: vec![],
+                    stats: MachineUsedStats::new(&params)
+                };
+                params.total_machines()
+            ],
             params,
             placement_groups: vec![],
             vms: vec![],
@@ -46,9 +56,9 @@ impl State {
         let first = self.vms.len();
         self.vms.extend(res.to_vec());
         for pos in first..self.vms.len() {
-            self.machines[self.params.get_machine_id(&self.vms[pos].machine)]
-                .alive_vm_ids
-                .push(pos);
+            let machine = &mut self.machines[self.params.get_machine_id(&self.vms[pos].machine)];
+            machine.alive_vm_ids.push(pos);
+            machine.stats.register_vm(&self.vms[pos]);
         }
     }
 
@@ -56,6 +66,9 @@ impl State {
         for &vm_id in ids.iter() {
             let machine_id = self.params.get_machine_id(&self.vms[vm_id].machine);
             self.machines[machine_id].remove_vm(vm_id);
+            self.machines[machine_id]
+                .stats
+                .unregister_vm(&self.vms[vm_id]);
         }
     }
 
