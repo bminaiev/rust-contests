@@ -3,8 +3,8 @@ use std::{
     collections::HashMap,
 };
 
-use algo_lib::io::output::output;
 use algo_lib::{collections::index_of::IndexOf, dbg};
+use algo_lib::{collections::shuffled::ShuffledTrait, io::output::output};
 use algo_lib::{
     collections::{array_2d::Array2D, last_exn::LastExn},
     misc::{
@@ -18,7 +18,7 @@ use algo_lib::{
 use algo_lib::{out, out_line};
 
 use crate::{
-    machine_optimizer::find_shuffling,
+    graph_solver::find_shuffling,
     state::State,
     types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec},
     usage_stats::{MachineUsedStats, NumaUsedStats},
@@ -151,6 +151,43 @@ impl FakeSolver {
         true
     }
 
+    fn can_place_from_start3(&self, seed: usize, save_png: bool) -> bool {
+        let vms_by_type = self.calc_num_vms_by_type();
+        let mut all = vec![];
+        for i in 0..vms_by_type.len() {
+            all.extend(vec![i; vms_by_type[i]]);
+        }
+        let mut rnd = Random::new(seed as u64);
+        rnd.shuffle(&mut all);
+
+        let mut machines_stats = self.params.gen_usage_stats();
+        let mut best_state = State::new(self.params.clone());
+        let mut iters = vec![0; self.params.vm_specs.len()];
+        for &id in all.iter() {
+            let spec = self.params.vm_specs[id];
+            while iters[id] < machines_stats.len() {
+                let m_id = iters[id];
+                let machine = self.params.get_machine_by_id(m_id);
+                if let Some(placement) = machines_stats[m_id].can_place_vm(&spec, machine, 0) {
+                    machines_stats[m_id].register_vm(&placement);
+                    best_state.register_new_vms(&[placement]);
+                    break;
+                }
+                iters[id] += 1;
+            }
+            if iters[id] == machines_stats.len() {
+                return false;
+            }
+        }
+
+        if save_png {
+            best_state.save_png("a_topology_aware_vmplacement/pics/last-state.png");
+        }
+
+        dbg!(iters);
+        true
+    }
+
     pub fn create_vms(
         &mut self,
         vm_type: usize,
@@ -181,22 +218,22 @@ impl FakeSolver {
         self.created_vms.extend(res.clone());
         self.is_vm_alive.extend(vec![true; res.len()]);
 
-        self.can_place_from_start2();
-        if true {
-            out_line!("Created vms:", self.created_vms.len());
-            dbg!(self.created_vms.len());
-            return Some(res);
-        }
+        // self.can_place_from_start2();
+        // if true {
+        //     out_line!("Created vms:", self.created_vms.len());
+        //     dbg!(self.created_vms.len());
+        //     return Some(res);
+        // }
 
-        if !self.can_place_from_start(0, false) {
-            if self.can_place_from_start2() {
-                dbg!("Good!", self.created_vms.len());
-                return Some(res);
-            }
+        if !self.can_place_from_start3(0, false) {
+            // if self.can_place_from_start2() {
+            //     dbg!("Good!", self.created_vms.len());
+            //     return Some(res);
+            // }
             dbg!("FAiled 3");
 
             for &seed in self.seeds_to_test.iter().rev() {
-                if self.can_place_from_start(seed, false) {
+                if self.can_place_from_start3(seed, false) {
                     return Some(res);
                 }
             }
@@ -205,7 +242,7 @@ impl FakeSolver {
                 if seed % 10 == 0 {
                     dbg!("Trying...", seed, self.created_vms.len());
                 }
-                if self.can_place_from_start(seed, false) {
+                if self.can_place_from_start3(seed, false) {
                     dbg!("Found!!!", seed);
                     self.seeds_to_test.push(seed);
                     return Some(res);
@@ -215,10 +252,12 @@ impl FakeSolver {
             let vms_by_type = self.calc_num_vms_by_type();
             dbg!(vms_by_type);
 
+            find_shuffling(&self.params, &vms_by_type);
+
             let old_len = self.created_vms.len() - res.len();
             self.created_vms.truncate(old_len);
             self.is_vm_alive.truncate(old_len);
-            assert!(self.can_place_from_start(*self.seeds_to_test.last_exn(), true));
+            assert!(self.can_place_from_start3(*self.seeds_to_test.last_exn(), true));
 
             return None;
         }

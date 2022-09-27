@@ -1,7 +1,6 @@
 //{"name":"A. Topology-Aware VM Placement","group":"Codeforces - ICPC 2022 Online Challenge powered by HUAWEI - Problem 2","url":"https://codeforces.com/contest/1724/problem/A","interactive":true,"timeLimit":15000,"tests":[{"input":"2 2 2 2\n8 16\n8 16\n3\n1 1 1\n1 4 2\n2 4 8\n1\n1 4 1\n1 0\n2\n3 1 1 1\n1 2 3\n2\n3 1 1 1\n4 5 6\n1\n2 0 0\n2 2\n2\n3 3 2 0\n7 8 9\n3\n3 3 5 6\n2\n2 3 1 4\n10 11\n2\n2 3 1 3\n12 13\n4\n","output":"1 1 1 1\n1 1 2 1\n1 2 1 1\n2 1 1 1\n2 1 2 1\n2 2 1 1\n1 2 1 1 2\n1 2 2 1 2\n1 2 2 1 2\n2 2 1 1 2\n2 2 2 1 2\n-1\n"}],"testType":"single","input":{"type":"stdin","fileName":null,"pattern":null},"output":{"type":"stdout","fileName":null,"pattern":null},"languages":{"java":{"taskClass":"ATopologyAwareVMPlacement"}}}
 
 use std::collections::{BTreeMap, HashMap};
-use std::fmt::format;
 use std::time::Instant;
 
 use algo_lib::collections::index_of::IndexOf;
@@ -12,12 +11,10 @@ use algo_lib::io::task_runner::run_task;
 use algo_lib::io::{input::Input, task_io_settings::TaskIoSettings};
 use algo_lib::math::gcd::gcd;
 use algo_lib::misc::gen_vector::gen_vec;
-use algo_lib::misc::rand::Random;
 use algo_lib::misc::vec_apply_delta::ApplyDelta;
 use algo_lib::{dbg, out, out_line};
 
-use crate::fake_solver::FakeSolver;
-use crate::machine_optimizer::{find_shuffling, find_shuffling_io};
+use crate::random_solver::RandomSolver;
 use crate::state::State;
 use crate::types::{Numa, PlacementGroup, TestParams, VmSpec};
 
@@ -25,6 +22,7 @@ mod empty_solver;
 mod fake_solver;
 mod graph_solver;
 mod machine_optimizer;
+mod random_solver;
 mod solver;
 mod state;
 mod types;
@@ -80,29 +78,6 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
         cpu: input.read(),
         memory: input.read(),
     });
-    // assert!(numa[0] == numa[1]);
-    // if numa.len() == 4 {
-    //     assert!(numa[2] == numa[3]);
-    // }
-
-    let known_numa_nodes = vec![
-        Numa { cpu: 8, memory: 16 },
-        Numa {
-            cpu: 64,
-            memory: 128,
-        },
-        Numa {
-            cpu: 146,
-            memory: 112,
-        },
-        Numa {
-            cpu: 96,
-            memory: 74,
-        },
-    ];
-    // for n in numa.iter() {
-    //     assert!(known_numa_nodes.index_of(n).is_some());
-    // }
 
     let num_vm_types = input.usize();
     let vm_types = gen_vec(num_vm_types, |_| VmSpec {
@@ -110,9 +85,6 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
         cpu: input.read(),
         memory: input.read(),
     });
-
-    let same_cpu_memory_ratio = is_same_ratio(&vm_types);
-    dbg!(same_cpu_memory_ratio);
 
     let params = TestParams {
         num_dc,
@@ -122,24 +94,9 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
         vm_specs: vm_types,
     };
 
-    // assert!(
-    //     params.vm_specs.len() == 9 || params.vm_specs.len() == 3 || params.vm_specs.len() == 18
-    // );
     dbg!(params);
 
-    set_global_output_to_file("test.txt");
-
-    if graph_solver::find_shuffling_io(test_case, &params) {
-        return Result {
-            vms_created: 0,
-            vms_without_soft: 0,
-        };
-    } else {
-        output().flush();
-        assert!(false);
-    }
-
-    let mut solver = FakeSolver::new(params.clone());
+    let mut solver = RandomSolver::new(params.clone());
     let mut state = State::new(params.clone());
 
     let mut total_vms_created = 0;
@@ -192,13 +149,6 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                 // TODO: better type
                 let partition_group = input.i32();
 
-                // if let Some(opp) = expected_next_op {
-                //     dbg!(opp);
-                //     assert!(total_queries == opp.total_queries);
-                //     assert!(placement_group_id == opp.pg);
-                //     assert!(partition_group == opp.group_id);
-                // }
-
                 pg_stats.entry(placement_group_id).and_modify(|stats| {
                     stats.created[vm_type] += num_vms;
                     stats.change_times.push(total_queries)
@@ -216,6 +166,7 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                 if let Some(res) =
                     solver.create_vms(vm_type, placement_group_id, partition_group, &indexes)
                 {
+                    assert_eq!(res.len(), indexes.len());
                     state.register_new_vms(&res);
                     if print_result {
                         for vm in res.iter() {
@@ -233,9 +184,10 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                         "Can't create vms...",
                         num_vms,
                         partition_group,
-                        params.vm_specs[vm_type]
+                        params.vm_specs[vm_type],
+                        state.placement_groups[placement_group_id]
                     );
-                    dbg!(solver.placement_groups[placement_group_id]);
+                    // dbg!(solver.placement_groups[placement_group_id]);
                     // state.analyze_failure(&format!(
                     //     "a_topology_aware_vmplacement/pics/{}-state-best.png",
                     //     test_case
@@ -389,7 +341,7 @@ fn read_baseline(test_id: usize) -> Result {
 fn stress() {
     let mut stats = vec![];
 
-    for test_id in 11..12 {
+    for test_id in 1..12 {
         dbg!(test_id);
         let mut input = Input::new_file(format!(
             "./a_topology_aware_vmplacement/local_test_kit/sample/{:02}",
@@ -412,8 +364,7 @@ fn stress() {
 pub(crate) fn run(mut input: Input) -> bool {
     solve(&mut input, 1, true);
     output().flush();
-    input.skip_whitespace();
-    input.peek().is_none()
+    true
 }
 
 #[allow(unused)]

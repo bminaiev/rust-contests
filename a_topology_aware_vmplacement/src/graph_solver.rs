@@ -32,7 +32,7 @@ impl GraphNode {
     pub fn apply(&self, vm_spec: &VmSpec) -> Option<(GraphNode, bool)> {
         if vm_spec.numa_cnt != self.numa_cnt {
             // TODO: we actually can't apply it.
-            // return None;
+            return None;
         }
         if vm_spec.cpu > self.cpu || vm_spec.memory > self.memory {
             return None;
@@ -367,7 +367,7 @@ fn calc_node_res(
 fn calc_scores(res: &Array2D<f64>, need_cnt: &[usize], root: usize) -> Vec<f64> {
     let mut res_pr: Vec<f64> = vec![];
     for j in 0..need_cnt.len() {
-        let need = need_cnt[j] as f64 / 4000.0;
+        let need = need_cnt[j] as f64 / 4096.0;
         let my = res[root][j];
         let pr = my / need;
         res_pr.push(pr);
@@ -440,7 +440,7 @@ fn solve_graph(
     let mut eps = 1e-2;
     let mut prev_score = 0.0;
 
-    for iter in 1..1_001 {
+    for iter in 1..100_001 {
         if eps < 1e-7 {
             break;
         }

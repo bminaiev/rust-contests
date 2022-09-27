@@ -28,7 +28,16 @@ pub struct MachineId {
     pub inside_rack: usize,
 }
 
-#[derive(Clone, Copy, Debug)]
+impl MachineId {
+    pub fn get_rack(&self) -> RackId {
+        RackId {
+            dc: self.dc,
+            rack: self.rack,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct RackId {
     pub dc: usize,
     pub rack: usize,
