@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use algo_lib::misc::{gen_vector::gen_vec, rand::Random};
 
@@ -39,6 +39,7 @@ pub struct RandomSolver {
     created_vms: Vec<CreatedVm>,
     machines: Vec<MachineUsedStats>,
     fake_vms: Vec<CreatedVm>,
+    last_fake_vms_random: bool,
 }
 
 impl RandomSolver {
@@ -51,12 +52,38 @@ impl RandomSolver {
             placement_groups_vms: vec![],
             created_vms: vec![],
             fake_vms: vec![],
+            last_fake_vms_random: false,
         }
     }
 
-    fn recreate_fake_vms(&mut self) {
+    const AT_MOST_PER_MACHINE: usize = 5;
+
+    fn recreate_fake_vms(&mut self, only_specicfic_type: Option<usize>) {
         while let Some(vm) = self.fake_vms.pop() {
             self.machines[self.params.get_machine_id(&vm.machine)].unregister_vm(&vm);
+        }
+        if let Some(vm_type) = only_specicfic_type {
+            let vm_spec = self.params.vm_specs[vm_type];
+            for m_id in 0..self.machines.len() {
+                let mut at_most = Self::AT_MOST_PER_MACHINE;
+                while let Some(placement) = self.machines[m_id].can_place_vm(
+                    &vm_spec,
+                    self.params.get_machine_by_id(m_id),
+                    0,
+                ) {
+                    self.machines[m_id].register_vm(&placement);
+                    self.fake_vms.push(placement);
+                    at_most -= 1;
+                    if at_most == 0 {
+                        break;
+                    }
+                }
+            }
+            self.last_fake_vms_random = false;
+            return;
+        }
+        if self.last_fake_vms_random {
+            return;
         }
         let mut iter = vec![0; self.params.vm_specs.len()];
         let mut finished = 0;
@@ -83,6 +110,7 @@ impl RandomSolver {
                 finished += 1;
             }
         }
+        self.last_fake_vms_random = true;
     }
 
     pub fn new_placement_group(&mut self, idx: usize, placement_group: PlacementGroup) {
@@ -90,7 +118,7 @@ impl RandomSolver {
         self.placement_groups_vms.push(PlacementGroupVms::new());
     }
 
-    const TRIES: usize = 50;
+    // const TRIES: usize = 50;
 
     fn potential_by_rack(&self, vm_spec: VmSpec) -> BTreeMap<RackId, Vec<usize>> {
         let mut by_rack: BTreeMap<_, Vec<usize>> = BTreeMap::new();
@@ -104,38 +132,54 @@ impl RandomSolver {
         by_rack
     }
 
-    fn find_same_rack(&mut self, vm_spec: VmSpec, need_cnt: usize) -> Option<Vec<CreatedVm>> {
-        for _ in 0..Self::TRIES {
-            let by_rack = self.potential_by_rack(vm_spec);
-            let good_racks: Vec<_> = by_rack
-                .iter()
-                .filter(|(_k, v)| v.len() >= need_cnt)
-                .collect();
-            if good_racks.is_empty() {
-                self.recreate_fake_vms();
-            } else {
-                let mut ids = good_racks[self.rnd.gen(0..good_racks.len())].1.clone();
-                ids.truncate(need_cnt);
-                return Some(self.use_fake_ids(ids));
-            }
+    fn find_same_rack(&mut self, vm_spec: VmSpec, need_cnt: usize) -> Option<Vec<usize>> {
+        let by_rack = self.potential_by_rack(vm_spec);
+        let good_racks: Vec<_> = by_rack
+            .iter()
+            .filter(|(_k, v)| v.len() >= need_cnt)
+            .collect();
+        if good_racks.is_empty() {
+            return None;
+        } else {
+            // TODO: smarter logic here
+            let mut ids = good_racks[self.rnd.gen(0..good_racks.len())].1.clone();
+            ids.truncate(need_cnt);
+            return Some(ids);
         }
-        dbg!("Can't find good rack", vm_spec, self.rnd.gen_u64());
-        None
     }
 
     fn register_created_vms(
         &mut self,
-        mut created: Vec<CreatedVm>,
+        created_ids: Vec<usize>,
         part_ids: Vec<i32>,
         placement_group_id: usize,
     ) -> Option<Vec<CreatedVm>> {
-        assert_eq!(created.len(), part_ids.len());
+        assert_eq!(created_ids.len(), part_ids.len());
+
+        let mut created: Vec<_> = created_ids
+            .iter()
+            .map(|&i| self.fake_vms[i].clone())
+            .collect();
         for i in 0..created.len() {
             created[i].placement_group_id = placement_group_id;
             self.placement_groups_vms[created[i].placement_group_id]
                 .register_vm(self.created_vms.len() + i, part_ids[i]);
         }
         self.created_vms.extend(created.clone());
+        {
+            let mut used = vec![false; self.fake_vms.len()];
+            for &x in created_ids.iter() {
+                used[x] = true;
+            }
+            let mut new_sz = 0;
+            for i in 0..used.len() {
+                if !used[i] {
+                    self.fake_vms.swap(i, new_sz);
+                    new_sz += 1;
+                }
+            }
+            self.fake_vms.truncate(new_sz);
+        }
         Some(created)
     }
 
@@ -147,15 +191,6 @@ impl RandomSolver {
         {
             let rack = self.created_vms[vm_id].machine.get_rack();
             res.insert(rack, part_id);
-        }
-        res
-    }
-
-    fn use_fake_ids(&mut self, mut ids: Vec<usize>) -> Vec<CreatedVm> {
-        ids.sort();
-        let res = ids.iter().map(|&i| self.fake_vms[i].clone()).collect();
-        for &x in ids.iter().rev() {
-            self.fake_vms.remove(x);
         }
         res
     }
@@ -177,49 +212,43 @@ impl RandomSolver {
 
     fn find_hard_rack_anti_affinity_specific_part(
         &mut self,
-        vm_spec: VmSpec,
-        placement_group_id: usize,
         partition_group: i32,
         need_cnt: usize,
         used_racks: &mut BTreeMap<RackId, i32>,
-    ) -> Option<Vec<CreatedVm>> {
+        by_rack: &BTreeMap<RackId, Vec<usize>>,
+    ) -> Option<Vec<usize>> {
         assert!(partition_group != 0);
-        let mut res = vec![];
 
-        let fixed_dc = self.get_fixed_dc(placement_group_id);
-
-        for _ in 0..Self::TRIES {
-            let mut by_rack = self.potential_by_rack(vm_spec);
-
-            if let Some(dc) = fixed_dc {
-                by_rack = by_rack.into_iter().filter(|(k, _v)| k.dc == dc).collect();
-            }
-
-            let mut use_ids: Vec<usize> = vec![];
-            for (&rack, &part_id) in used_racks.iter() {
-                if part_id == partition_group {
-                    use_ids.extend(by_rack.get(&rack).unwrap_or(&vec![]));
+        let mut use_ids: Vec<usize> = vec![];
+        for (&rack, &part_id) in used_racks.iter() {
+            if part_id == partition_group {
+                use_ids.extend(by_rack.get(&rack).unwrap_or(&vec![]));
+                if use_ids.len() >= need_cnt {
+                    break;
                 }
             }
+        }
 
+        if use_ids.len() < need_cnt {
             for (k, v) in by_rack.iter() {
                 if used_racks.contains_key(k) {
                     continue;
                 }
                 use_ids.extend(v.clone());
-            }
-            assert!(res.len() <= need_cnt);
-            use_ids.truncate(need_cnt - res.len());
-            res.extend(self.use_fake_ids(use_ids));
-            if res.len() == need_cnt {
-                for vm in res.iter() {
-                    used_racks.insert(vm.machine.get_rack(), partition_group);
+                if use_ids.len() >= need_cnt {
+                    break;
                 }
-                return Some(res);
             }
-            self.recreate_fake_vms();
         }
-        None
+        use_ids.truncate(need_cnt);
+        if use_ids.len() != need_cnt {
+            return None;
+        }
+        for &id in use_ids.iter() {
+            let vm = &self.fake_vms[id];
+            used_racks.insert(vm.machine.get_rack(), partition_group);
+        }
+        return Some(use_ids);
     }
 
     // TODO this could be optimized a lot!
@@ -229,31 +258,39 @@ impl RandomSolver {
         placement_group_id: usize,
         partition_group: i32,
         need_cnt: usize,
-    ) -> Option<Vec<CreatedVm>> {
+    ) -> Option<Vec<usize>> {
         assert!(partition_group != 0);
         let mut used_racks = self.calculate_used_racks(placement_group_id);
+        let mut by_rack = self.potential_by_rack(vm_spec);
+        if let Some(dc) = self.get_fixed_dc(placement_group_id) {
+            by_rack = by_rack.into_iter().filter(|(k, _v)| k.dc == dc).collect();
+        }
+
         if partition_group == -1 {
             let mut created = vec![];
             for i in 0..need_cnt {
                 let one = self.find_hard_rack_anti_affinity_specific_part(
-                    vm_spec,
-                    placement_group_id,
                     (i + 1) as i32,
                     1,
                     &mut used_racks,
-                )?[0]
-                    .clone();
+                    &mut by_rack,
+                )?[0];
                 created.push(one);
+            }
+
+            if cfg!(debug_assertions) {
+                // TODO: assert different ids
+                let different: BTreeSet<_> = created.iter().collect();
+                assert!(different.len() == created.len());
             }
             assert_eq!(created.len(), need_cnt);
             Some(created)
         } else {
             self.find_hard_rack_anti_affinity_specific_part(
-                vm_spec,
-                placement_group_id,
                 partition_group,
                 need_cnt,
                 &mut used_racks,
+                &mut by_rack,
             )
         }
     }
@@ -263,35 +300,26 @@ impl RandomSolver {
         placement_group_id: usize,
         vm_spec: VmSpec,
         need_cnt: usize,
-    ) -> Option<Vec<CreatedVm>> {
+    ) -> Option<Vec<usize>> {
         // TODO: this is absolutely terrible
         let fixed_dc = self.get_fixed_dc(placement_group_id);
 
-        let mut created = vec![];
-        for _it in 0..Self::TRIES {
-            let mut to_remove = vec![];
-            for i in 0..self.fake_vms.len() {
-                if self.fake_vms[i].spec == vm_spec {
-                    if let Some(dc) = fixed_dc {
-                        if self.fake_vms[i].machine.dc != dc {
-                            continue;
-                        }
-                    }
-                    to_remove.push(i);
-                    if created.len() + to_remove.len() == need_cnt {
-                        break;
+        let mut use_ids = vec![];
+        for i in 0..self.fake_vms.len() {
+            if self.fake_vms[i].spec == vm_spec {
+                if let Some(dc) = fixed_dc {
+                    if self.fake_vms[i].machine.dc != dc {
+                        continue;
                     }
                 }
-            }
-            created.extend(self.use_fake_ids(to_remove));
-            if created.len() == need_cnt {
-                break;
-            } else {
-                self.recreate_fake_vms();
+                use_ids.push(i);
+                if use_ids.len() == need_cnt {
+                    break;
+                }
             }
         }
-        if created.len() == need_cnt {
-            return Some(created);
+        if use_ids.len() == need_cnt {
+            return Some(use_ids);
         }
         None
     }
@@ -311,20 +339,26 @@ impl RandomSolver {
         let pg = self.placement_groups[placement_group_id].clone();
         let vm_spec = self.params.vm_specs[vm_type];
 
-        let created = if pg.rack_affinity_type == 2 {
-            self.find_same_rack(vm_spec, indexes.len())
-        } else if pg.hard_rack_anti_affinity_partitions != 0 {
-            self.find_hard_rack_anti_affinity(
-                vm_spec,
-                placement_group_id,
-                partition_group,
-                indexes.len(),
-            )
-        } else {
-            self.find_almost_no_restrictions(placement_group_id, vm_spec, indexes.len())
-        }?;
+        for only_this_type in [false, true].into_iter() {
+            self.recreate_fake_vms(only_this_type.then_some(vm_type));
+            let created = if pg.rack_affinity_type == 2 {
+                self.find_same_rack(vm_spec, indexes.len())
+            } else if pg.hard_rack_anti_affinity_partitions != 0 {
+                self.find_hard_rack_anti_affinity(
+                    vm_spec,
+                    placement_group_id,
+                    partition_group,
+                    indexes.len(),
+                )
+            } else {
+                self.find_almost_no_restrictions(placement_group_id, vm_spec, indexes.len())
+            };
 
-        self.register_created_vms(created, part_ids, placement_group_id)
+            if let Some(created) = created {
+                return self.register_created_vms(created, part_ids, placement_group_id);
+            }
+        }
+        None
     }
 
     pub fn delete_vms(&mut self, ids: &[usize]) {
