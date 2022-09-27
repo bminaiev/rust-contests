@@ -21,6 +21,14 @@ pub struct PlacementGroup {
     pub rack_affinity_type: usize,
 }
 
+impl PlacementGroup {
+    pub fn has_soft_constraints(&self) -> bool {
+        self.network_affinity_type == 1
+            || self.rack_affinity_type == 1
+            || self.soft_max_vms_per_machine > 0
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct MachineId {
     pub dc: usize,
