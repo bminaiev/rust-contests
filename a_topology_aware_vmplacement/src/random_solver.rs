@@ -7,6 +7,8 @@ use crate::{
     usage_stats::MachineUsedStats,
 };
 
+use algo_lib::dbg;
+
 struct PlacementGroupVms {
     id_to_part: BTreeMap<usize, i32>,
 }
@@ -59,6 +61,9 @@ impl RandomSolver {
     const AT_MOST_PER_MACHINE: usize = 5;
 
     fn recreate_fake_vms(&mut self, only_specicfic_type: Option<usize>) {
+        if self.last_fake_vms_random && only_specicfic_type.is_none() {
+            return;
+        }
         while let Some(vm) = self.fake_vms.pop() {
             self.machines[self.params.get_machine_id(&vm.machine)].unregister_vm(&vm);
         }
@@ -79,10 +84,8 @@ impl RandomSolver {
                     }
                 }
             }
+            self.rnd.shuffle(&mut self.fake_vms);
             self.last_fake_vms_random = false;
-            return;
-        }
-        if self.last_fake_vms_random {
             return;
         }
         let mut iter = vec![0; self.params.vm_specs.len()];
@@ -111,6 +114,7 @@ impl RandomSolver {
             }
         }
         self.last_fake_vms_random = true;
+        self.rnd.shuffle(&mut self.fake_vms);
     }
 
     pub fn new_placement_group(&mut self, idx: usize, placement_group: PlacementGroup) {
@@ -220,21 +224,30 @@ impl RandomSolver {
         assert!(partition_group != 0);
 
         let mut use_ids: Vec<usize> = vec![];
+
+        let mut my_racks = vec![];
         for (&rack, &part_id) in used_racks.iter() {
             if part_id == partition_group {
-                use_ids.extend(by_rack.get(&rack).unwrap_or(&vec![]));
-                if use_ids.len() >= need_cnt {
-                    break;
-                }
+                my_racks.push(rack);
+            }
+        }
+        self.rnd.shuffle(&mut my_racks);
+        for rack in my_racks.iter() {
+            use_ids.extend(by_rack.get(&rack).unwrap_or(&vec![]));
+            if use_ids.len() >= need_cnt {
+                break;
             }
         }
 
         if use_ids.len() < need_cnt {
-            for (k, v) in by_rack.iter() {
-                if used_racks.contains_key(k) {
+            let mut all_racks: Vec<_> = by_rack.keys().collect();
+            self.rnd.shuffle(&mut all_racks);
+
+            for &rack in all_racks.iter() {
+                if used_racks.contains_key(rack) {
                     continue;
                 }
-                use_ids.extend(v.clone());
+                use_ids.extend(by_rack[rack].clone());
                 if use_ids.len() >= need_cnt {
                     break;
                 }
@@ -367,5 +380,6 @@ impl RandomSolver {
             self.machines[self.params.get_machine_id(&vm.machine)].unregister_vm(&vm);
             self.placement_groups_vms[vm.placement_group_id].unregister_vm(id);
         }
+        self.last_fake_vms_random = false;
     }
 }
