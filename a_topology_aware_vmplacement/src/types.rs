@@ -1,3 +1,5 @@
+use algo_lib::misc::gen_vector::gen_vec;
+
 use crate::usage_stats::{MachineUsedStats, NumaUsedStats};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -54,7 +56,7 @@ pub struct RackId {
 #[derive(Clone, Debug)]
 pub struct CreatedVm {
     pub machine: MachineId,
-    pub numa_ids: Vec<usize>,
+    pub numa_ids_mask: u32,
     pub spec: VmSpec,
     pub placement_group_id: usize,
 }
@@ -66,9 +68,39 @@ pub struct TestParams {
     pub num_machines_per_rack: usize,
     pub numa: Vec<Numa>,
     pub vm_specs: Vec<VmSpec>,
+    pub machine_ids: Vec<MachineId>,
 }
 
 impl TestParams {
+    pub fn new(
+        num_dc: usize,
+        num_racks: usize,
+        num_machines_per_rack: usize,
+        numa: Vec<Numa>,
+        vm_specs: Vec<VmSpec>,
+    ) -> Self {
+        let mut machine_ids = vec![];
+        for dc in 0..num_dc {
+            for rack in 0..num_racks {
+                for inside_rack in 0..num_machines_per_rack {
+                    machine_ids.push(MachineId {
+                        dc,
+                        rack,
+                        inside_rack,
+                    });
+                }
+            }
+        }
+        Self {
+            num_dc,
+            num_racks,
+            num_machines_per_rack,
+            numa,
+            vm_specs,
+            machine_ids,
+        }
+    }
+
     pub fn total_machines(&self) -> usize {
         self.num_dc * self.num_racks * self.num_machines_per_rack
     }
@@ -80,11 +112,12 @@ impl TestParams {
     }
 
     pub fn get_machine_by_id(&self, id: usize) -> MachineId {
-        MachineId {
-            dc: id / self.num_machines_per_rack / self.num_racks,
-            rack: (id / self.num_machines_per_rack) % self.num_racks,
-            inside_rack: id % (self.num_machines_per_rack),
-        }
+        self.machine_ids[id]
+        // MachineId {
+        //     dc: id / self.num_machines_per_rack / self.num_racks,
+        //     rack: (id / self.num_machines_per_rack) % self.num_racks,
+        //     inside_rack: id % (self.num_machines_per_rack),
+        // }
     }
 
     pub(crate) fn get_machine_id2(&self, dc: usize, rack: usize, inside_rack: usize) -> usize {

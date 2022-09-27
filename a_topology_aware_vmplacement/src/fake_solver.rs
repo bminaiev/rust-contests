@@ -208,7 +208,7 @@ impl FakeSolver {
                     rack: 0,
                     inside_rack: 0,
                 },
-                numa_ids: vec![],
+                numa_ids_mask: 0,
                 spec,
                 placement_group_id: 0,
             })

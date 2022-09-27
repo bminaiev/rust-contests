@@ -86,15 +86,9 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
         memory: input.read(),
     });
 
-    let params = TestParams {
-        num_dc,
-        num_racks,
-        num_machines_per_rack,
-        numa,
-        vm_specs: vm_types,
-    };
+    let params = TestParams::new(num_dc, num_racks, num_machines_per_rack, numa, vm_types);
 
-    dbg!(params);
+    // dbg!(params);
 
     let mut solver = RandomSolver::new(params.clone());
     let mut state = State::new(params.clone());
@@ -170,7 +164,12 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                     state.register_new_vms(&res);
                     if print_result {
                         for vm in res.iter() {
-                            let numa_ids = vm.numa_ids.clone().add_to_all(1);
+                            let mut numa_ids = vec![];
+                            for i in 0..4 {
+                                if ((1 << i) & vm.numa_ids_mask) != 0 {
+                                    numa_ids.push(i + 1);
+                                }
+                            }
                             out_line!(
                                 vm.machine.dc + 1,
                                 vm.machine.rack + 1,

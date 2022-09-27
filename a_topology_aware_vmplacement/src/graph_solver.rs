@@ -1043,9 +1043,13 @@ fn check_solution(
                 numa_ids.push(numa_offset);
                 numa_ids.push(numa_offset + 1);
             }
+            let mut numa_ids_mask = 0;
+            for x in numa_ids.iter() {
+                numa_ids_mask |= 1 << x;
+            }
             let new_vm = CreatedVm {
                 machine: params.get_machine_by_id(h_id % params.total_machines()),
-                numa_ids,
+                numa_ids_mask,
                 spec: params.vm_specs[vm_id],
                 placement_group_id: 0,
             };

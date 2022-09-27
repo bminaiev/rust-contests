@@ -156,10 +156,11 @@ impl Solver {
     fn placement_score(&self, vm: &CreatedVm) -> u32 {
         let mut sum = 0;
         let m_id = self.get_machine_id2(&vm.machine);
-        for &node_id in vm.numa_ids.iter() {
-            // TODO: change this
-            sum += (self.machines_stats[m_id].numa[node_id].free_cpu - vm.spec.cpu) % 96;
-            sum += (self.machines_stats[m_id].numa[node_id].free_memory - vm.spec.memory) % 64;
+        for node_id in 0..4 {
+            if ((1 << node_id) & vm.numa_ids_mask) != 0 {
+                sum += (self.machines_stats[m_id].numa[node_id].free_cpu - vm.spec.cpu) % 96;
+                sum += (self.machines_stats[m_id].numa[node_id].free_memory - vm.spec.memory) % 64;
+            }
         }
         std::u32::MAX - sum
     }
@@ -199,8 +200,10 @@ impl Solver {
 
     fn unregister_vm(&mut self, vm: &CreatedVm, spec: &VmSpec, placement_group_id: usize) {
         let m_id = self.get_machine_id2(&vm.machine);
-        for &numa_id in vm.numa_ids.iter() {
-            self.machines_stats[m_id].numa[numa_id].unregister_vm(spec);
+        for numa_id in 0..4 {
+            if ((1 << numa_id) & vm.numa_ids_mask) != 0 {
+                self.machines_stats[m_id].numa[numa_id].unregister_vm(spec);
+            }
         }
         self.soft_machine_affinity
             .unregister_vm(vm.machine, placement_group_id);

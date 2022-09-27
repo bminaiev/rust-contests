@@ -141,9 +141,11 @@ impl State {
                     for &vm_id in self.machines[m_id].alive_vm_ids.iter() {
                         let color = gen_color();
                         let vm = &self.vms[vm_id];
-                        for &numa_id in vm.numa_ids.iter() {
-                            add(numa_id * 2, vm.spec.cpu as usize, color);
-                            add(numa_id * 2 + 1, vm.spec.memory as usize, color);
+                        for numa_id in 0..4 {
+                            if ((1 << numa_id) & vm.numa_ids_mask) != 0 {
+                                add(numa_id * 2, vm.spec.cpu as usize, color);
+                                add(numa_id * 2 + 1, vm.spec.memory as usize, color);
+                            }
                         }
                     }
                 }
