@@ -341,7 +341,7 @@ fn read_baseline(test_id: usize) -> Result {
 fn stress() {
     let mut stats = vec![];
 
-    for test_id in 11..12 {
+    for test_id in 8..9 {
         dbg!(test_id);
         let mut input = Input::new_file(format!(
             "./a_topology_aware_vmplacement/local_test_kit/sample/{:02}",

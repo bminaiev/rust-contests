@@ -1,6 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use algo_lib::misc::{gen_vector::gen_vec, rand::Random};
+use algo_lib::{
+    collections::{array_2d::Array2D, index_of::IndexOf},
+    misc::{func::id, gen_vector::gen_vec, rand::Random},
+};
 
 use crate::{
     types::{CreatedVm, PlacementGroup, RackId, TestParams, VmSpec},
@@ -42,6 +45,7 @@ pub struct RandomSolver {
     machines: Vec<MachineUsedStats>,
     fake_vms: Vec<CreatedVm>,
     last_fake_vms_random: bool,
+    fake_cnt_by_rack: Vec<Array2D<usize>>,
 }
 
 impl RandomSolver {
@@ -55,22 +59,93 @@ impl RandomSolver {
             created_vms: vec![],
             fake_vms: vec![],
             last_fake_vms_random: false,
+            fake_cnt_by_rack: vec![],
         }
     }
 
     // TODO: try different const
     const AT_MOST_PER_MACHINE: usize = 5;
 
+    fn gen_top_big(&self, cnt: usize) -> Vec<usize> {
+        let mut top_big = gen_vec(self.params.vm_specs.len(), id);
+        top_big.sort_by_key(|&id| {
+            let s = &self.params.vm_specs[id];
+            (s.cpu + s.memory) * (s.numa_cnt as u32)
+        });
+        top_big.reverse();
+        // TODO: maybe different?
+        top_big.truncate(cnt);
+        top_big
+    }
+
+    fn randomly_add_fake_vms(&mut self, without: &[usize]) -> Vec<usize> {
+        let mut iter = vec![0; self.params.vm_specs.len()];
+        let mut finished = without.len();
+        for &w in without.iter() {
+            iter[w] = self.machines.len();
+        }
+        let mut added = vec![0; self.params.vm_specs.len()];
+
+        let top_big = self.gen_top_big(3);
+
+        while finished != iter.len() {
+            let mut vm_id = self.rnd.gen(0..iter.len());
+            if self.rnd.gen_double() < 0.5 {
+                vm_id = top_big[self.rnd.gen(0..top_big.len())];
+            }
+            if iter[vm_id] == self.machines.len() {
+                continue;
+            }
+            let vm_spec = self.params.vm_specs[vm_id];
+            while iter[vm_id] < self.machines.len() {
+                let m_id = iter[vm_id];
+                if let Some(placement) = self.machines[m_id].can_place_vm(
+                    &vm_spec,
+                    self.params.get_machine_by_id(m_id),
+                    0,
+                ) {
+                    self.machines[m_id].register_vm(&placement);
+                    self.fake_vms.push(placement);
+                    added[vm_id] += 1;
+                    break;
+                }
+                iter[vm_id] += 1;
+            }
+            if iter[vm_id] == self.machines.len() {
+                finished += 1;
+            }
+        }
+        added
+    }
+
+    fn remove_all_fake_vms(&mut self) {
+        while let Some(vm) = self.fake_vms.pop() {
+            self.machines[self.params.get_machine_id(&vm.machine)].unregister_vm(&vm);
+        }
+    }
+
+    fn update_fake_stats(&mut self) {
+        let mut cnt_by_rack = vec![
+            Array2D::new(0, self.params.num_dc, self.params.num_racks);
+            self.params.vm_specs.len()
+        ];
+        for vm in self.fake_vms.iter() {
+            let type_id = self.params.vm_specs.index_of(&vm.spec).unwrap();
+            cnt_by_rack[type_id][vm.machine.dc][vm.machine.rack] += 1;
+        }
+        // dbg!(cnt_by_rack[3][7]);
+        self.fake_cnt_by_rack = cnt_by_rack;
+    }
+
     fn recreate_fake_vms(&mut self, only_specicfic_type: Option<usize>) {
         if self.last_fake_vms_random && only_specicfic_type.is_none() {
             return;
         }
-        while let Some(vm) = self.fake_vms.pop() {
-            self.machines[self.params.get_machine_id(&vm.machine)].unregister_vm(&vm);
-        }
+        self.remove_all_fake_vms();
+        let perm = self.rnd.gen_permutation(self.machines.len());
         if let Some(vm_type) = only_specicfic_type {
             let vm_spec = self.params.vm_specs[vm_type];
-            for m_id in 0..self.machines.len() {
+            for &m_id in perm.iter() {
                 let mut at_most = Self::AT_MOST_PER_MACHINE;
                 while let Some(placement) = self.machines[m_id].can_place_vm(
                     &vm_spec,
@@ -87,35 +162,55 @@ impl RandomSolver {
             }
             self.rnd.shuffle(&mut self.fake_vms);
             self.last_fake_vms_random = false;
+            self.update_fake_stats();
             return;
         }
-        let mut iter = vec![0; self.params.vm_specs.len()];
-        let mut finished = 0;
-        while finished != iter.len() {
-            let vm_id = self.rnd.gen(0..iter.len());
-            if iter[vm_id] == self.machines.len() {
-                continue;
-            }
-            let vm_spec = self.params.vm_specs[vm_id];
-            while iter[vm_id] < self.machines.len() {
-                let m_id = iter[vm_id];
-                if let Some(placement) = self.machines[m_id].can_place_vm(
-                    &vm_spec,
-                    self.params.get_machine_by_id(m_id),
-                    0,
-                ) {
-                    self.machines[m_id].register_vm(&placement);
-                    self.fake_vms.push(placement);
-                    break;
+        let added = self.randomly_add_fake_vms(&[]);
+        self.remove_all_fake_vms();
+        {
+            // TODO: maybe different for different tests?
+            let top = self.gen_top_big(1);
+            for &first_vm in top.iter() {
+                // let first_vm = self.params.vm_specs.len() - 1;
+                let first_spec = self.params.vm_specs[first_vm];
+                let mut by_rack: BTreeMap<RackId, u32> = BTreeMap::new();
+                for m_id in 0..self.machines.len() {
+                    let cnt = self.machines[m_id].max_vms_to_place(&first_spec);
+                    if cnt != 0 {
+                        let rack = self.params.get_machine_by_id(m_id).get_rack();
+                        *by_rack.entry(rack).or_default() += cnt;
+                    }
                 }
-                iter[vm_id] += 1;
+                let mut ways: Vec<_> = by_rack.iter().collect();
+                ways.sort_by_key(|w| (w.1, w.0.rack));
+                ways.reverse();
+                let mut more = added[first_vm];
+                for w in ways.iter() {
+                    for inside_rack in 0..self.params.num_machines_per_rack {
+                        let m_id = self.params.get_machine_id2(w.0.dc, w.0.rack, inside_rack);
+                        if more > 0 {
+                            if let Some(placement) = self.machines[m_id].can_place_vm(
+                                &first_spec,
+                                self.params.get_machine_by_id(m_id),
+                                0,
+                            ) {
+                                // dbg!(&placement);
+                                more -= 1;
+                                self.machines[m_id].register_vm(&placement);
+                                self.fake_vms.push(placement);
+                            }
+                        }
+                    }
+                    if more == 0 {
+                        break;
+                    }
+                }
             }
-            if iter[vm_id] == self.machines.len() {
-                finished += 1;
-            }
+            self.randomly_add_fake_vms(&top);
         }
         self.last_fake_vms_random = true;
         self.rnd.shuffle(&mut self.fake_vms);
+        self.update_fake_stats();
     }
 
     pub fn new_placement_group(&mut self, idx: usize, placement_group: PlacementGroup) {
@@ -161,6 +256,10 @@ impl RandomSolver {
             }
         }
         if good_racks.is_empty() {
+            // dbg!("can't find good one", by_rack.len());
+            // for (k, v) in by_rack.iter() {
+            //     dbg!(k, v.len());
+            // }
             return None;
         } else {
             // TODO: smarter logic here
@@ -400,14 +499,21 @@ impl RandomSolver {
         let pg = self.placement_groups[placement_group_id].clone();
         let vm_spec = self.params.vm_specs[vm_type];
 
-        for only_this_type in [false, true].into_iter() {
-            for try_soft_constraints in [true, false].into_iter() {
-                if try_soft_constraints
-                    && (!pg.has_soft_constraints()
-                        || self.are_soft_constraints_already_violated(placement_group_id))
-                {
-                    continue;
-                }
+        // dbg!(self.placement_groups[placement_group_id], indexes.len());
+
+        // if self.are_soft_constraints_already_violated(placement_group_id) {
+        //     dbg!("already violated...", placement_group_id);
+        //     assert!(false);
+        // }
+
+        let should_try_soft_constraints = pg.has_soft_constraints()
+            && !self.are_soft_constraints_already_violated(placement_group_id);
+
+        for try_soft_constraints in [true, false].into_iter() {
+            if try_soft_constraints && !should_try_soft_constraints {
+                continue;
+            }
+            for only_this_type in [false, true].into_iter() {
                 self.recreate_fake_vms(only_this_type.then_some(vm_type));
                 let created = if pg.rack_affinity_type == 2
                     || (pg.rack_affinity_type == 1 && try_soft_constraints)
@@ -436,8 +542,23 @@ impl RandomSolver {
                 };
 
                 if let Some(created) = created {
-                    return self.register_created_vms(created, part_ids, placement_group_id);
+                    let res = self.register_created_vms(created, part_ids, placement_group_id);
+                    // dbg!(placement_group_id, res);
+                    if try_soft_constraints && cfg!(debug_assertions) {
+                        assert!(!self.are_soft_constraints_already_violated(placement_group_id));
+                    }
+                    return res;
                 }
+
+                // if should_try_soft_constraints {
+                //     dbg!(
+                //         only_this_type,
+                //         vm_spec,
+                //         indexes.len(),
+                //         self.placement_groups[placement_group_id],
+                //         placement_group_id
+                //     );
+                // }
             }
         }
         None
