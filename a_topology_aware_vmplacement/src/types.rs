@@ -53,6 +53,13 @@ pub struct RackId {
     pub rack: usize,
 }
 
+impl RackId {
+    pub const FAKE: Self = Self {
+        dc: std::usize::MAX,
+        rack: std::usize::MAX,
+    };
+}
+
 #[derive(Clone, Debug)]
 pub struct CreatedVm {
     pub machine: MachineId,

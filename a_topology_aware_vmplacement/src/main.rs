@@ -96,12 +96,10 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
     let mut total_vms_created = 0;
     let mut total_queries = 0;
 
-    let mut log = vec![];
+    // let mut log = vec![];
 
-    let mut last_pg_used = HashMap::new();
-    let mut pg_stats = BTreeMap::new();
-
-    let mut expected_next_op: Option<ExpectedNextOperation> = None;
+    // let mut last_pg_used = HashMap::new();
+    // let mut pg_stats = BTreeMap::new();
 
     loop {
         total_queries += 1;
@@ -122,14 +120,14 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                     network_affinity_type,
                     rack_affinity_type,
                 };
-                pg_stats.insert(
-                    idx,
-                    PG_stat::new(
-                        params.vm_specs.len(),
-                        hard_rack_anti_affinity_partitions,
-                        rack_affinity_type,
-                    ),
-                );
+                // pg_stats.insert(
+                //     idx,
+                //     PG_stat::new(
+                //         params.vm_specs.len(),
+                //         hard_rack_anti_affinity_partitions,
+                //         rack_affinity_type,
+                //     ),
+                // );
 
                 solver.new_placement_group(idx, placement_group);
                 state.new_placement_group(placement_group);
@@ -143,17 +141,17 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                 // TODO: better type
                 let partition_group = input.i32();
 
-                pg_stats.entry(placement_group_id).and_modify(|stats| {
-                    stats.created[vm_type] += num_vms;
-                    stats.change_times.push(total_queries)
-                });
+                // pg_stats.entry(placement_group_id).and_modify(|stats| {
+                //     stats.created[vm_type] += num_vms;
+                //     stats.change_times.push(total_queries)
+                // });
 
-                let prev = last_pg_used.get(&placement_group_id).unwrap_or(&0);
-                log.push(format!(
-                    "{total_queries}. CREATE VMS: {num_vms} x {:?}, group_id={partition_group}, pg={placement_group_id}, prev_time={prev}",
-                    params.vm_specs[vm_type]
-                ));
-                last_pg_used.insert(placement_group_id, total_queries);
+                // let prev = last_pg_used.get(&placement_group_id).unwrap_or(&0);
+                // log.push(format!(
+                //     "{total_queries}. CREATE VMS: {num_vms} x {:?}, group_id={partition_group}, pg={placement_group_id}, prev_time={prev}",
+                //     params.vm_specs[vm_type]
+                // ));
+                // last_pg_used.insert(placement_group_id, total_queries);
 
                 let indexes = input.vec::<usize>(num_vms).sub_from_all(1);
 
@@ -212,22 +210,22 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                 for &id in ids.iter() {
                     by_type[params.vm_specs.index_of(&state.vms[id].spec).unwrap()] += 1;
                 }
-                let mut msg = format!("{total_queries}. DEL VMs: {num_vms}.");
-                for type_id in 0..by_type.len() {
-                    if by_type[type_id] != 0 {
-                        msg += &format!(" {} x {:?}.", by_type[type_id], params.vm_specs[type_id]);
-                    }
-                }
-                for &id in ids.iter() {
-                    let created_vm = &state.vms[id];
-                    let type_id = params.vm_specs.index_of(&created_vm.spec).unwrap();
-                    pg_stats
-                        .entry(created_vm.placement_group_id)
-                        .and_modify(|stats| stats.deleted[type_id] += 1);
-                }
+                // let mut msg = format!("{total_queries}. DEL VMs: {num_vms}.");
+                // for type_id in 0..by_type.len() {
+                //     if by_type[type_id] != 0 {
+                //         msg += &format!(" {} x {:?}.", by_type[type_id], params.vm_specs[type_id]);
+                //     }
+                // }
+                // for &id in ids.iter() {
+                //     let created_vm = &state.vms[id];
+                //     let type_id = params.vm_specs.index_of(&created_vm.spec).unwrap();
+                //     pg_stats
+                //         .entry(created_vm.placement_group_id)
+                //         .and_modify(|stats| stats.deleted[type_id] += 1);
+                // }
                 // let cnt_types = by_type.iter().filter(|&x| *x != 0).count();
                 // assert!(cnt_types == 1);
-                log.push(msg);
+                // log.push(msg);
 
                 solver.delete_vms(&ids);
                 state.delete_vms(&ids);
@@ -242,10 +240,7 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
         };
         // solver.step(total_queries);
     }
-    state.save_png(&format!(
-        "a_topology_aware_vmplacement/pics/{}-state.png",
-        test_case
-    ));
+
     dbg!(total_vms_created, total_queries);
 
     // if are_all_pgs_are_one_type(&pg_stats) {
@@ -253,8 +248,12 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
     // }
 
     //START MAIN
-    save_log(test_case, log);
-    save_pg_stats(test_case, &pg_stats, &params);
+    state.save_png(&format!(
+        "a_topology_aware_vmplacement/pics/{}-state.png",
+        test_case
+    ));
+    // save_log(test_case, log);
+    // save_pg_stats(test_case, &pg_stats, &params);
     save_vm_types(test_case, &state.get_num_vms_by_type());
     //END MAIN
 
@@ -340,7 +339,7 @@ fn read_baseline(test_id: usize) -> Result {
 fn stress() {
     let mut stats = vec![];
 
-    for test_id in 8..9 {
+    for test_id in 11..12 {
         dbg!(test_id);
         let mut input = Input::new_file(format!(
             "./a_topology_aware_vmplacement/local_test_kit/sample/{:02}",

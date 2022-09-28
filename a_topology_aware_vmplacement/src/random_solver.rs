@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use algo_lib::{
-    collections::{array_2d::Array2D, index_of::IndexOf},
+    collections::{array_2d::Array2D, index_of::IndexOf, last_exn::LastExn},
     misc::{func::id, gen_vector::gen_vec, rand::Random},
 };
 
@@ -46,6 +46,53 @@ pub struct RandomSolver {
     fake_vms: Vec<CreatedVm>,
     last_fake_vms_random: bool,
     fake_cnt_by_rack: Vec<Array2D<usize>>,
+}
+
+struct PotentialByRack {
+    vm_ids: Vec<usize>,
+    rack_starts: Vec<(RackId, usize)>,
+    rack_id_idx: Array2D<usize>,
+}
+
+impl PotentialByRack {
+    pub fn get_by_pos(&self, pos: usize) -> &[usize] {
+        let start = self.rack_starts[pos].1;
+        let end = self.rack_starts[pos + 1].1;
+        &self.vm_ids[start..end]
+    }
+
+    pub fn new(mut vm_ids: Vec<usize>, solver: &RandomSolver) -> Self {
+        vm_ids.sort_by_key(|&id| solver.fake_vms[id].machine.get_rack());
+        let mut rack_starts: Vec<(RackId, usize)> = vec![];
+        for i in 0..vm_ids.len() {
+            if rack_starts.is_empty()
+                || rack_starts.last_exn().0 != solver.fake_vms[vm_ids[i]].machine.get_rack()
+            {
+                rack_starts.push((solver.fake_vms[vm_ids[i]].machine.get_rack(), i));
+            }
+        }
+        let mut rack_id_idx = Array2D::new(
+            std::usize::MAX,
+            solver.params.num_dc,
+            solver.params.num_racks,
+        );
+        for i in 0..rack_starts.len() {
+            rack_id_idx[rack_starts[i].0.dc][rack_starts[i].0.rack] = i;
+        }
+        rack_starts.push((RackId::FAKE, vm_ids.len()));
+        Self {
+            vm_ids,
+            rack_starts,
+            rack_id_idx,
+        }
+    }
+
+    pub fn get_by_rack_id(&self, rack_id: &RackId) -> &[usize] {
+        match self.rack_id_idx[rack_id.dc][rack_id.rack] {
+            std::usize::MAX => &[],
+            pos => self.get_by_pos(pos),
+        }
+    }
 }
 
 impl RandomSolver {
@@ -125,6 +172,9 @@ impl RandomSolver {
     }
 
     fn update_fake_stats(&mut self) {
+        if !cfg!(debug_assertions) {
+            return;
+        }
         let mut cnt_by_rack = vec![
             Array2D::new(0, self.params.num_dc, self.params.num_racks);
             self.params.vm_specs.len()
@@ -218,16 +268,30 @@ impl RandomSolver {
         self.placement_groups_vms.push(PlacementGroupVms::new());
     }
 
-    fn potential_by_rack(&self, vm_spec: VmSpec) -> BTreeMap<RackId, Vec<usize>> {
-        let mut by_rack: BTreeMap<_, Vec<usize>> = BTreeMap::new();
+    fn potential_by_rack(
+        &self,
+        vm_spec: VmSpec,
+        fixed_dc: Option<usize>,
+        fixed_rack: Option<RackId>,
+    ) -> PotentialByRack {
+        let mut vm_ids = vec![];
         for i in 0..self.fake_vms.len() {
             let vm = &self.fake_vms[i];
+            if let Some(fixed_rack) = fixed_rack {
+                if vm.machine.get_rack() != fixed_rack {
+                    continue;
+                }
+            }
+            if let Some(fixed_dc) = fixed_dc {
+                if vm.machine.dc != fixed_dc {
+                    continue;
+                }
+            }
             if vm.spec == vm_spec {
-                let machine = vm.machine;
-                by_rack.entry(machine.get_rack()).or_default().push(i);
+                vm_ids.push(i);
             }
         }
-        by_rack
+        PotentialByRack::new(vm_ids, &self)
     }
 
     fn find_same_rack(
@@ -237,35 +301,29 @@ impl RandomSolver {
         try_soft_constraints: bool,
         placement_group_id: usize,
     ) -> Option<Vec<usize>> {
-        let by_rack = self.potential_by_rack(vm_spec);
-        let mut good_racks: Vec<_> = by_rack
-            .iter()
-            .filter(|(_k, v)| v.len() >= need_cnt)
-            .collect();
-        if try_soft_constraints {
-            let map = self.calculate_used_racks(placement_group_id);
-            if map.len() > 1 {
-                return None;
+        let fixed_rack = if try_soft_constraints {
+            if let Some(any_vm) = self.placement_groups_vms[placement_group_id].any_vm_id() {
+                Some(self.created_vms[any_vm].machine.get_rack())
+            } else {
+                None
             }
-            if map.len() == 1 {
-                let use_rack = map.iter().next().unwrap().0.clone();
-                good_racks = good_racks
-                    .into_iter()
-                    .filter(|(&k, v)| k == use_rack)
-                    .collect();
+        } else {
+            None
+        };
+        let by_rack = self.potential_by_rack(vm_spec, None, fixed_rack);
+        let mut good_positions = vec![];
+        for i in 0..by_rack.rack_starts.len() - 1 {
+            if by_rack.get_by_pos(i).len() >= need_cnt {
+                good_positions.push(i);
             }
         }
-        if good_racks.is_empty() {
-            // dbg!("can't find good one", by_rack.len());
-            // for (k, v) in by_rack.iter() {
-            //     dbg!(k, v.len());
-            // }
+        if good_positions.is_empty() {
             return None;
         } else {
             // TODO: smarter logic here
-            let mut ids = good_racks[self.rnd.gen(0..good_racks.len())].1.clone();
-            ids.truncate(need_cnt);
-            return Some(ids);
+            let pos = good_positions[self.rnd.gen(0..good_positions.len())];
+            let vm_ids = by_rack.get_by_pos(pos)[..need_cnt].to_vec();
+            return Some(vm_ids);
         }
     }
 
@@ -340,7 +398,7 @@ impl RandomSolver {
         partition_group: i32,
         need_cnt: usize,
         used_racks: &mut BTreeMap<RackId, i32>,
-        by_rack: &BTreeMap<RackId, Vec<usize>>,
+        by_rack: &PotentialByRack,
     ) -> Option<Vec<usize>> {
         assert!(partition_group != 0);
 
@@ -354,21 +412,24 @@ impl RandomSolver {
         }
         self.rnd.shuffle(&mut my_racks);
         for rack in my_racks.iter() {
-            use_ids.extend(by_rack.get(&rack).unwrap_or(&vec![]));
+            use_ids.extend(by_rack.get_by_rack_id(&rack));
             if use_ids.len() >= need_cnt {
                 break;
             }
         }
 
         if use_ids.len() < need_cnt {
-            let mut all_racks: Vec<_> = by_rack.keys().collect();
+            let mut all_racks: Vec<_> = by_rack.rack_starts[..by_rack.rack_starts.len() - 1]
+                .iter()
+                .map(|(x, _y)| x)
+                .collect();
             self.rnd.shuffle(&mut all_racks);
 
             for &rack in all_racks.iter() {
                 if used_racks.contains_key(rack) {
                     continue;
                 }
-                use_ids.extend(by_rack[rack].clone());
+                use_ids.extend(by_rack.get_by_rack_id(rack).clone());
                 if use_ids.len() >= need_cnt {
                     break;
                 }
@@ -396,10 +457,8 @@ impl RandomSolver {
     ) -> Option<Vec<usize>> {
         assert!(partition_group != 0);
         let mut used_racks = self.calculate_used_racks(placement_group_id);
-        let mut by_rack = self.potential_by_rack(vm_spec);
-        if let Some(dc) = self.get_fixed_dc(placement_group_id, try_soft_constraints) {
-            by_rack = by_rack.into_iter().filter(|(k, _v)| k.dc == dc).collect();
-        }
+        let fixed_dc = self.get_fixed_dc(placement_group_id, try_soft_constraints);
+        let mut by_rack = self.potential_by_rack(vm_spec, fixed_dc, None);
 
         if partition_group == -1 {
             let mut created = vec![];
@@ -499,12 +558,7 @@ impl RandomSolver {
         let pg = self.placement_groups[placement_group_id].clone();
         let vm_spec = self.params.vm_specs[vm_type];
 
-        // dbg!(self.placement_groups[placement_group_id], indexes.len());
-
-        // if self.are_soft_constraints_already_violated(placement_group_id) {
-        //     dbg!("already violated...", placement_group_id);
-        //     assert!(false);
-        // }
+        let need_cnt = indexes.len();
 
         let should_try_soft_constraints = pg.has_soft_constraints()
             && !self.are_soft_constraints_already_violated(placement_group_id);
@@ -518,47 +572,31 @@ impl RandomSolver {
                 let created = if pg.rack_affinity_type == 2
                     || (pg.rack_affinity_type == 1 && try_soft_constraints)
                 {
-                    self.find_same_rack(
-                        vm_spec,
-                        indexes.len(),
-                        try_soft_constraints,
-                        placement_group_id,
-                    )
+                    self.find_same_rack(vm_spec, need_cnt, try_soft_constraints, placement_group_id)
                 } else if pg.hard_rack_anti_affinity_partitions != 0 {
                     self.find_hard_rack_anti_affinity(
                         vm_spec,
                         placement_group_id,
                         partition_group,
-                        indexes.len(),
+                        need_cnt,
                         try_soft_constraints,
                     )
                 } else {
                     self.find_almost_no_restrictions(
                         placement_group_id,
                         vm_spec,
-                        indexes.len(),
+                        need_cnt,
                         try_soft_constraints,
                     )
                 };
 
                 if let Some(created) = created {
                     let res = self.register_created_vms(created, part_ids, placement_group_id);
-                    // dbg!(placement_group_id, res);
                     if try_soft_constraints && cfg!(debug_assertions) {
                         assert!(!self.are_soft_constraints_already_violated(placement_group_id));
                     }
                     return res;
                 }
-
-                // if should_try_soft_constraints {
-                //     dbg!(
-                //         only_this_type,
-                //         vm_spec,
-                //         indexes.len(),
-                //         self.placement_groups[placement_group_id],
-                //         placement_group_id
-                //     );
-                // }
             }
         }
         None
