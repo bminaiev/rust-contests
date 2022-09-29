@@ -1,52 +1,16 @@
-use std::{
-    cmp::min,
-    collections::{BTreeMap, BTreeSet},
-    fs,
-};
+use std::collections::BTreeMap;
 
-use algo_lib::{
-    collections::{array_2d::Array2D, index_of::IndexOf, last_exn::LastExn},
-    misc::{func::id, gen_vector::gen_vec, rand::Random},
-};
+use algo_lib::misc::gen_vector::gen_vec;
 
 use crate::{
-    state::State,
-    types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec},
+    types::{
+        are_soft_constraints_already_violated, CreatedVm, PlacementGroup, PlacementGroupVms,
+        RackId, TestParams, VmSpec,
+    },
     usage_stats::MachineUsedStats,
 };
 
-use algo_lib::dbg;
-
-struct PlacementGroupVms {
-    id_to_part: BTreeMap<usize, i32>,
-    cnt_by_machine: BTreeMap<MachineId, usize>,
-}
-
-impl PlacementGroupVms {
-    pub fn new() -> Self {
-        Self {
-            id_to_part: BTreeMap::default(),
-            cnt_by_machine: BTreeMap::default(),
-        }
-    }
-
-    pub fn unregister_vm(&mut self, id: usize, machine_id: MachineId) {
-        self.id_to_part.remove(&id);
-        *self.cnt_by_machine.entry(machine_id).or_default() -= 1;
-    }
-
-    pub fn register_vm(&mut self, id: usize, part: i32, machine_id: MachineId) {
-        self.id_to_part.insert(id, part);
-        *self.cnt_by_machine.entry(machine_id).or_default() += 1;
-    }
-
-    pub fn any_vm_id(&self) -> Option<usize> {
-        self.id_to_part.keys().next().map(|&x| x)
-    }
-}
-
 pub struct GreedySolver {
-    rnd: Random,
     params: TestParams,
     placement_groups: Vec<PlacementGroup>,
     placement_groups_vms: Vec<PlacementGroupVms>,
@@ -55,9 +19,9 @@ pub struct GreedySolver {
     alive_vm: Vec<bool>,
     time: usize,
     machines_perm: Vec<usize>,
+    machines_perm_dc: Vec<Vec<usize>>,
+    racks_perm: Vec<RackId>,
 }
-
-const DEBUG: bool = false;
 
 struct PlaceOnMachineResult {
     vms: Vec<CreatedVm>,
@@ -65,21 +29,36 @@ struct PlaceOnMachineResult {
     m_id: usize,
 }
 
+#[derive(Clone)]
+pub struct RestrictionWay {
+    full_vms: usize,
+    total_vms: usize,
+    vms: Vec<CreatedVm>,
+}
+
+enum FixedDC {
+    NoRestrictions,
+    Chosen(usize),
+    NeedToChoose,
+}
+
 impl GreedySolver {
     pub fn new(params: TestParams) -> Self {
-        // Self::create_pngs_dir();
         let mut machines_perm = vec![];
+        let mut machines_perm_dc = vec![vec![]; params.num_dc];
+        let mut racks_perm = vec![];
         for rack in 0..params.num_racks {
             for dc in 0..params.num_dc {
+                racks_perm.push(RackId { dc, rack });
                 for inside_rack in 0..params.num_machines_per_rack {
                     let m_id = params.get_machine_id2(dc, rack, inside_rack);
                     machines_perm.push(m_id);
+                    machines_perm_dc[dc].push(m_id);
                 }
             }
         }
         Self {
             machines: params.gen_usage_stats(),
-            rnd: Random::new(78778889),
             params,
             placement_groups: vec![],
             placement_groups_vms: vec![],
@@ -87,30 +66,12 @@ impl GreedySolver {
             alive_vm: vec![],
             time: 0,
             machines_perm,
+            machines_perm_dc,
+            racks_perm,
         }
     }
 
-    fn create_pngs_dir() {
-        let path = "test_pics";
-        fs::remove_dir_all(path).unwrap();
-        fs::create_dir(path).unwrap();
-    }
-
-    fn save_fake_vms_png(&mut self) {
-        if !DEBUG {
-            return;
-        }
-        let mut fake_state = State::new(self.params.clone());
-        for i in 0..self.created_vms.len() {
-            if self.alive_vm[i] {
-                fake_state.register_new_vms(&[self.created_vms[i].clone()]);
-            }
-        }
-
-        fake_state.save_png(&format!("test_pics/{:03}.png", self.time));
-    }
-
-    pub fn new_placement_group(&mut self, idx: usize, placement_group: PlacementGroup) {
+    pub fn new_placement_group(&mut self, placement_group: PlacementGroup) {
         self.placement_groups.push(placement_group);
         self.placement_groups_vms.push(PlacementGroupVms::new());
     }
@@ -150,40 +111,15 @@ impl GreedySolver {
         res
     }
 
-    fn get_fixed_dc(
-        &mut self,
-        placement_group_id: usize,
-        try_soft_constraints: bool,
-    ) -> Option<usize> {
+    fn get_fixed_dc(&mut self, placement_group_id: usize, try_soft_constraints: bool) -> FixedDC {
         let network_affinity = self.placement_groups[placement_group_id].network_affinity_type;
         if network_affinity == 2 || (network_affinity == 1 && try_soft_constraints) {
-            Some(
-                match self.placement_groups_vms[placement_group_id].any_vm_id() {
-                    // TODO: smarter logic
-                    None => self.rnd.gen(0..self.params.num_dc),
-                    Some(vm_id) => self.created_vms[vm_id].machine.dc,
-                },
-            )
+            match self.placement_groups_vms[placement_group_id].any_vm_id() {
+                None => FixedDC::NeedToChoose,
+                Some(vm_id) => FixedDC::Chosen(self.created_vms[vm_id].machine.dc),
+            }
         } else {
-            None
-        }
-    }
-
-    fn max_vms_here_soft_restrictions(
-        &self,
-        placement_group_id: usize,
-        try_soft_constraints: bool,
-        m_id: MachineId,
-    ) -> usize {
-        let already = *self.placement_groups_vms[placement_group_id]
-            .cnt_by_machine
-            .get(&m_id)
-            .unwrap_or(&0);
-        let limit = self.placement_groups[placement_group_id].soft_max_vms_per_machine;
-        if limit == 0 || !try_soft_constraints {
-            std::usize::MAX
-        } else {
-            limit - already
+            FixedDC::NoRestrictions
         }
     }
 
@@ -192,23 +128,13 @@ impl GreedySolver {
         m_id: usize,
         vm_spec: &VmSpec,
         placement_group_id: usize,
-        try_soft_constraints: bool,
     ) -> PlaceOnMachineResult {
         let mut vms = vec![];
         let machine = self.params.get_machine_by_id(m_id);
 
-        let limit = self.max_vms_here_soft_restrictions(
-            placement_group_id,
-            try_soft_constraints,
-            self.params.get_machine_by_id(m_id),
-        );
-
         while let Some(placement) =
             self.machines[m_id].can_place_vm(vm_spec, machine, placement_group_id)
         {
-            if vms.len() >= limit {
-                break;
-            }
             self.machines[m_id].register_vm(&placement);
             vms.push(placement);
         }
@@ -219,21 +145,7 @@ impl GreedySolver {
         PlaceOnMachineResult { vms, full_vm, m_id }
     }
 
-    pub fn find_almost_no_restrictions(
-        &mut self,
-        placement_group_id: usize,
-        vm_spec: VmSpec,
-        need_cnt: usize,
-        try_soft_constraints: bool,
-    ) -> Option<Vec<CreatedVm>> {
-        // TODO: this is absolutely terrible
-        // TODO: try different dcs.
-        let fixed_dc = None; //self.get_fixed_dc(placement_group_id, try_soft_constraints);
-
-        let mut use_vms = vec![];
-
-        let mut by_machine = vec![];
-
+    fn calc_last_time_changed(&self) -> Vec<usize> {
         let mut last_time_changed = vec![std::usize::MAX; self.machines.len()];
         for i in 0..self.created_vms.len() {
             if self.alive_vm[i] {
@@ -241,18 +153,22 @@ impl GreedySolver {
                 last_time_changed[m_id] = i;
             }
         }
-        for m_id in self.machines_perm.clone() {
-            if let Some(fixed_dc) = fixed_dc {
-                if self.params.get_machine_by_id(m_id).dc != fixed_dc {
-                    continue;
-                }
-            }
-            let here = self.try_place_in_vms_on_machine(
-                m_id,
-                &vm_spec,
-                placement_group_id,
-                try_soft_constraints,
-            );
+        last_time_changed
+    }
+
+    pub fn find_no_restrictions(
+        &mut self,
+        placement_group_id: usize,
+        vm_spec: VmSpec,
+        need_cnt: usize,
+        last_time_changed: &[usize],
+        machines_to_check: &[usize],
+    ) -> Option<RestrictionWay> {
+        let mut use_vms = vec![];
+        let mut by_machine = vec![];
+
+        for &m_id in machines_to_check.iter() {
+            let here = self.try_place_in_vms_on_machine(m_id, &vm_spec, placement_group_id);
             if !here.vms.is_empty() {
                 by_machine.push(here);
             }
@@ -268,8 +184,15 @@ impl GreedySolver {
                 },
             )
         });
+        let mut full_vms = 0;
+        let mut total_vms = 0;
         for bm in by_machine.iter() {
             use_vms.extend(bm.vms.clone());
+            if bm.full_vm {
+                full_vms += 1;
+            } else {
+                total_vms += 1;
+            }
             if use_vms.len() >= need_cnt {
                 break;
             }
@@ -277,30 +200,220 @@ impl GreedySolver {
 
         use_vms.truncate(need_cnt);
         if use_vms.len() == need_cnt {
-            return Some(use_vms);
+            return Some(RestrictionWay {
+                full_vms,
+                total_vms,
+                vms: use_vms,
+            });
         }
         None
     }
 
-    fn are_soft_constraints_already_violated(&self, placement_group_id: usize) -> bool {
-        let pg = self.placement_groups[placement_group_id];
-        let info = &self.placement_groups_vms[placement_group_id];
-        if let Some(any_vm) = info.any_vm_id() {
-            for &vm_id in info.id_to_part.keys() {
-                if pg.network_affinity_type == 1
-                    && self.created_vms[vm_id].machine.dc != self.created_vms[any_vm].machine.dc
-                {
-                    return true;
+    pub fn find_almost_no_restrictions(
+        &mut self,
+        placement_group_id: usize,
+        vm_spec: VmSpec,
+        need_cnt: usize,
+        try_soft_constraints: bool,
+        last_time_changed: &[usize],
+    ) -> Option<Vec<CreatedVm>> {
+        let fixed_dc = self.get_fixed_dc(placement_group_id, try_soft_constraints);
+        match fixed_dc {
+            FixedDC::NoRestrictions => self
+                .find_no_restrictions(
+                    placement_group_id,
+                    vm_spec,
+                    need_cnt,
+                    last_time_changed,
+                    &self.machines_perm.clone(),
+                )
+                .map(|w| w.vms),
+            FixedDC::Chosen(dc) => self
+                .find_no_restrictions(
+                    placement_group_id,
+                    vm_spec,
+                    need_cnt,
+                    last_time_changed,
+                    &self.machines_perm_dc[dc].clone(),
+                )
+                .map(|w| w.vms),
+            FixedDC::NeedToChoose => {
+                let mut ways = vec![];
+                for dc in 0..self.params.num_dc {
+                    let mut tot_empty_slots = 0;
+                    for &m_id in self.machines_perm_dc[dc].iter() {
+                        tot_empty_slots += self.machines[m_id].max_vms_to_place(&vm_spec);
+                    }
+                    let w = self.find_no_restrictions(
+                        placement_group_id,
+                        vm_spec,
+                        need_cnt,
+                        last_time_changed,
+                        &self.machines_perm_dc[dc].clone(),
+                    );
+                    if let Some(w) = w {
+                        ways.push((tot_empty_slots, w, dc));
+                    }
                 }
-                if pg.rack_affinity_type == 1
-                    && self.created_vms[vm_id].machine.get_rack()
-                        != self.created_vms[any_vm].machine.get_rack()
-                {
-                    return true;
-                }
+                ways.sort_by_key(|(tot_empty_slots, w, _id)| {
+                    (
+                        std::u32::MAX - tot_empty_slots,
+                        std::usize::MAX - w.full_vms,
+                        w.total_vms,
+                    )
+                });
+                ways.get(0).map(|(_e, w, _)| w.vms.clone())
             }
         }
-        false
+    }
+
+    fn machines_inside_rack(&self, rack: RackId) -> Vec<usize> {
+        gen_vec(self.params.num_machines_per_rack, |inside_rack| {
+            self.params.get_machine_id2(rack.dc, rack.rack, inside_rack)
+        })
+    }
+
+    pub fn find_fixed_rack(
+        &mut self,
+        placement_group_id: usize,
+        vm_spec: VmSpec,
+        need_cnt: usize,
+        try_soft_constraints: bool,
+        last_time_changed: &[usize],
+    ) -> Option<Vec<CreatedVm>> {
+        let mut ways: Vec<(u32, RestrictionWay)> = vec![];
+        for rack in self.racks_perm.clone() {
+            let mut tot_empty_slots = 0;
+            let machines = self.machines_inside_rack(rack);
+
+            for &m_id in machines.iter() {
+                tot_empty_slots += self.machines[m_id].max_vms_to_place(&vm_spec);
+            }
+            let w = self.find_no_restrictions(
+                placement_group_id,
+                vm_spec,
+                need_cnt,
+                last_time_changed,
+                &machines,
+            );
+            if let Some(w) = w {
+                ways.push((tot_empty_slots, w));
+            }
+        }
+        ways.sort_by_key(|(tot_empty_slots, w)| {
+            (
+                std::u32::MAX - *tot_empty_slots,
+                std::usize::MAX - w.full_vms,
+                w.total_vms,
+            )
+        });
+        ways.get(0).map(|(_e, w)| w.vms.clone())
+    }
+
+    pub fn find_rack_anti_affinity_one_part(
+        &mut self,
+        placement_group_id: usize,
+        vm_spec: VmSpec,
+        need_cnt: usize,
+        try_soft_constraints: bool,
+        last_time_changed: &[usize],
+        part_id: i32,
+        used_racks: &mut BTreeMap<RackId, i32>,
+        force: bool,
+    ) -> Option<Vec<CreatedVm>> {
+        if self.placement_groups_vms[placement_group_id]
+            .any_vm_id()
+            .is_none()
+            && !force
+        {
+            return self.find_almost_no_restrictions(
+                placement_group_id,
+                vm_spec,
+                need_cnt,
+                try_soft_constraints,
+                last_time_changed,
+            );
+        }
+
+        let mut ok_machines = vec![];
+        let mut possible_machines = vec![];
+
+        let fixed_dc = self.get_fixed_dc(placement_group_id, try_soft_constraints);
+
+        for rack in self.racks_perm.iter() {
+            if let FixedDC::Chosen(fixed_dc) = fixed_dc {
+                if fixed_dc != rack.dc {
+                    continue;
+                }
+            }
+            match used_racks.get(rack) {
+                Some(&cur_part_id) => {
+                    if cur_part_id == part_id {
+                        ok_machines.extend(self.machines_inside_rack(*rack));
+                    }
+                }
+                None => possible_machines.extend(self.machines_inside_rack(*rack)),
+            }
+        }
+
+        for machines_to_check in [ok_machines, possible_machines].into_iter() {
+            let w = self.find_no_restrictions(
+                placement_group_id,
+                vm_spec,
+                need_cnt,
+                last_time_changed,
+                &machines_to_check,
+            );
+            if let Some(w) = w {
+                return Some(w.vms);
+            }
+        }
+        None
+    }
+
+    pub fn find_rack_anti_affinity(
+        &mut self,
+        placement_group_id: usize,
+        vm_spec: VmSpec,
+        need_cnt: usize,
+        try_soft_constraints: bool,
+        last_time_changed: &[usize],
+        part_id: i32,
+    ) -> Option<Vec<CreatedVm>> {
+        assert!(part_id != 0);
+
+        let mut used_racks = self.calculate_used_racks(placement_group_id);
+
+        if part_id > 0 {
+            self.find_rack_anti_affinity_one_part(
+                placement_group_id,
+                vm_spec,
+                need_cnt,
+                try_soft_constraints,
+                last_time_changed,
+                part_id,
+                &mut used_racks,
+                false,
+            )
+        } else {
+            let mut res = vec![];
+            for part_id in 1..=need_cnt as i32 {
+                let r = self.find_rack_anti_affinity_one_part(
+                    placement_group_id,
+                    vm_spec,
+                    1,
+                    try_soft_constraints,
+                    last_time_changed,
+                    part_id,
+                    &mut used_racks,
+                    part_id > 1,
+                )?;
+                assert!(r.len() == 1);
+                used_racks.insert(r[0].machine.get_rack(), part_id);
+                res.push(r[0].clone());
+            }
+            Some(res)
+        }
     }
 
     pub fn create_vms(
@@ -308,48 +421,49 @@ impl GreedySolver {
         vm_type: usize,
         placement_group_id: usize,
         partition_group: i32,
-        indexes: &[usize],
+        need_cnt: usize,
     ) -> Option<Vec<CreatedVm>> {
-        self.time += indexes.len();
+        self.time += need_cnt;
         let part_ids = match partition_group {
-            0 => vec![0; indexes.len()],
-            -1 => gen_vec(indexes.len(), |x| (x + 1) as i32),
-            x => vec![x; indexes.len()],
+            0 => vec![0; need_cnt],
+            -1 => gen_vec(need_cnt, |x| (x + 1) as i32),
+            x => vec![x; need_cnt],
         };
         let pg = self.placement_groups[placement_group_id].clone();
         let vm_spec = self.params.vm_specs[vm_type];
 
-        let need_cnt = indexes.len();
-
         let should_try_soft_constraints = pg.has_soft_constraints()
-            && !self.are_soft_constraints_already_violated(placement_group_id);
+            && !are_soft_constraints_already_violated(
+                &self.placement_groups[placement_group_id],
+                &self.placement_groups_vms[placement_group_id],
+                &self.created_vms,
+            );
 
-        dbg!(vm_spec, pg, need_cnt);
+        let last_time_changed = self.calc_last_time_changed();
 
         // TODO: we do not try soft constraints currently.
-        for try_soft_constraints in [false].into_iter() {
+        for try_soft_constraints in [true, false].into_iter() {
             if try_soft_constraints && !should_try_soft_constraints {
                 continue;
             }
             let created = if pg.rack_affinity_type == 2
                 || (pg.rack_affinity_type == 1 && try_soft_constraints)
             {
-                // dbg!(1);
-                // return None;
-                self.find_almost_no_restrictions(
+                self.find_fixed_rack(
                     placement_group_id,
                     vm_spec,
                     need_cnt,
                     try_soft_constraints,
+                    &last_time_changed,
                 )
             } else if pg.hard_rack_anti_affinity_partitions != 0 {
-                // dbg!(2);
-                // return None;
-                self.find_almost_no_restrictions(
+                self.find_rack_anti_affinity(
                     placement_group_id,
                     vm_spec,
                     need_cnt,
                     try_soft_constraints,
+                    &last_time_changed,
+                    partition_group,
                 )
             } else {
                 self.find_almost_no_restrictions(
@@ -357,15 +471,12 @@ impl GreedySolver {
                     vm_spec,
                     need_cnt,
                     try_soft_constraints,
+                    &last_time_changed,
                 )
             };
 
             if let Some(created) = created {
-                let res = self.register_created_vms(created, part_ids, placement_group_id);
-                if try_soft_constraints && cfg!(debug_assertions) {
-                    assert!(!self.are_soft_constraints_already_violated(placement_group_id));
-                }
-                return Some(res);
+                return Some(self.register_created_vms(created, part_ids, placement_group_id));
             }
         }
         None

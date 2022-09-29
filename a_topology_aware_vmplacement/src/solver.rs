@@ -1,14 +1,10 @@
-use std::{
-    cmp::{max, min},
-    collections::HashMap,
-};
+use std::{cmp::max, collections::HashMap};
 
-use algo_lib::dbg;
-use algo_lib::misc::{min_max::FindMinMaxPos, rand::Random};
+use algo_lib::misc::min_max::FindMinMaxPos;
 
 use crate::{
     types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec},
-    usage_stats::{MachineUsedStats, NumaUsedStats},
+    usage_stats::MachineUsedStats,
 };
 
 #[derive(Clone)]
@@ -28,7 +24,6 @@ pub struct Solver {
     created_vms: Vec<CreatedVm>,
     created_vm_specs: Vec<VmSpec>,
     created_vm_pg: Vec<usize>,
-    rnd: Random,
     soft_machine_affinity: SoftMachineAffinity,
 }
 
@@ -65,34 +60,20 @@ impl SoftMachineAffinity {
 
 impl Solver {
     pub fn new(params: TestParams) -> Self {
-        let mut machines = vec![];
-        for dc in 0..params.num_dc {
-            for rack in 0..params.num_racks {
-                for inside_rack in 0..params.num_machines_per_rack {
-                    machines.push(MachineId {
-                        dc,
-                        rack,
-                        inside_rack,
-                    });
-                }
-            }
-        }
         let machines_stats = params.gen_usage_stats();
         Self {
+            machines: params.machine_ids.clone(),
             params,
             placement_groups: vec![],
             placement_group_mappings: vec![],
-            machines,
             created_vms: vec![],
             created_vm_specs: vec![],
             machines_stats,
-            rnd: Random::new(7877883),
             soft_machine_affinity: SoftMachineAffinity::new(),
             created_vm_pg: vec![],
         }
     }
-    pub fn new_placement_group(&mut self, idx: usize, placement_group: PlacementGroup) {
-        assert!(self.placement_groups.len() == idx);
+    pub fn new_placement_group(&mut self, placement_group: PlacementGroup) {
         self.placement_groups.push(placement_group);
         let num_groups = max(1, placement_group.hard_rack_anti_affinity_partitions);
         if placement_group.hard_rack_anti_affinity_partitions != 0 {
@@ -105,16 +86,6 @@ impl Solver {
             fixed_dc: None,
             fixed_rack: None,
         });
-    }
-
-    fn get_machine_id(&self, dc: usize, rack: usize, inside_rack: usize) -> usize {
-        inside_rack
-            + rack * self.params.num_machines_per_rack
-            + dc * self.params.num_machines_per_rack * self.params.num_racks
-    }
-
-    fn get_machine_id2(&self, machine: &MachineId) -> usize {
-        self.get_machine_id(machine.dc, machine.rack, machine.inside_rack)
     }
 
     fn get_rack_id(&self, dc: usize, rack: usize) -> usize {
@@ -130,8 +101,9 @@ impl Solver {
     ) -> AvailableRack {
         let mut max_possible_vms = 0;
         for inside_rack in 0..self.params.num_machines_per_rack {
-            max_possible_vms += self.machines_stats[self.get_machine_id(dc, rack, inside_rack)]
-                .max_vms_to_place(&spec);
+            max_possible_vms += self.machines_stats
+                [self.params.get_machine_id2(dc, rack, inside_rack)]
+            .max_vms_to_place(&spec);
         }
         AvailableRack {
             dc,
@@ -155,7 +127,7 @@ impl Solver {
     // more - better
     fn placement_score(&self, vm: &CreatedVm) -> u32 {
         let mut sum = 0;
-        let m_id = self.get_machine_id2(&vm.machine);
+        let m_id = self.params.get_machine_id(&vm.machine);
         for node_id in 0..4 {
             if ((1 << node_id) & vm.numa_ids_mask) != 0 {
                 sum += (self.machines_stats[m_id].numa[node_id].free_cpu - vm.spec.cpu) % 96;
@@ -191,7 +163,7 @@ impl Solver {
     }
 
     fn register_vm(&mut self, vm: &CreatedVm, spec: &VmSpec, placement_group_id: usize) {
-        let m_id = self.get_machine_id2(&vm.machine);
+        let m_id = self.params.get_machine_id(&vm.machine);
         self.machines_stats[m_id].register_vm(vm);
         self.soft_machine_affinity
             .register_vm(vm.machine, placement_group_id);
@@ -199,7 +171,7 @@ impl Solver {
     }
 
     fn unregister_vm(&mut self, vm: &CreatedVm, spec: &VmSpec, placement_group_id: usize) {
-        let m_id = self.get_machine_id2(&vm.machine);
+        let m_id = self.params.get_machine_id(&vm.machine);
         for numa_id in 0..4 {
             if ((1 << numa_id) & vm.numa_ids_mask) != 0 {
                 self.machines_stats[m_id].numa[numa_id].unregister_vm(spec);
@@ -248,9 +220,6 @@ impl Solver {
             }
         }
 
-        let potential_positions: u32 = available_racks.iter().map(|ar| ar.max_possible_vms).sum();
-        // dbg!(potential_positions, need_vms, spec);
-
         let full: Vec<_> = available_racks
             .iter()
             .filter(|ar| ar.fixed_ok && ar.max_possible_vms as usize >= need_vms)
@@ -283,17 +252,12 @@ impl Solver {
         }
         let ar = available_racks[0].clone();
 
-        // if self.placement_groups[placement_group_id].rack_affinity_type == 2 {
-        //     dbg!("Trying to find best rack!", spec);
-        //     dbg!(&ar);
-        // }
-
         {
             let rack_id = self.get_rack_id(ar.dc, ar.rack);
             self.placement_group_mappings[placement_group_id].racks_used[rack_id] = true;
         }
         for inside_rack in 0..self.params.num_machines_per_rack {
-            let m_id = self.get_machine_id(ar.dc, ar.rack, inside_rack);
+            let m_id = self.params.get_machine_id2(ar.dc, ar.rack, inside_rack);
             self.placement_group_mappings[placement_group_id].possible_machines[group_id]
                 .push(self.machines[m_id].clone());
         }
@@ -302,7 +266,7 @@ impl Solver {
             dc: ar.dc,
             rack: ar.rack,
         });
-        return true;
+        true
     }
 
     fn find_best_placement(
@@ -325,7 +289,7 @@ impl Solver {
 
         for m in machines.iter() {
             if let Some(placement) =
-                self.can_place_vm(self.get_machine_id2(m), &spec, placement_group_id)
+                self.can_place_vm(self.params.get_machine_id(m), &spec, placement_group_id)
             {
                 let soft = self.is_safe(m.clone(), placement_group_id);
                 let score = self.placement_score(&placement);
@@ -345,13 +309,8 @@ impl Solver {
         vm_type: usize,
         placement_group_id: usize,
         partition_group: i32,
-        indexes: &[usize],
+        need_cnt: usize,
     ) -> Option<Vec<CreatedVm>> {
-        assert!(vm_type < self.params.vm_specs.len());
-        assert!(indexes[0] == self.created_vms.len());
-
-        // TODO: make it faster...
-        // let mapping = self.placement_group_mappings[placement_group_id].clone();
         let mut res = vec![];
 
         let spec = self.params.vm_specs[vm_type];
@@ -362,15 +321,14 @@ impl Solver {
             x => Some(x as usize - 1),
         };
 
-        for i in 0..indexes.len() {
+        for i in 0..need_cnt {
             let group_id = fixed_group_id.unwrap_or(i);
             let need_vms = if fixed_group_id.is_some() {
-                indexes.len() - i
+                need_cnt - i
             } else {
                 1
             };
             loop {
-                // TODO: soft constraint on vms / machine
                 if let Some(placement) =
                     self.find_best_placement(placement_group_id, group_id, &spec)
                 {
@@ -385,7 +343,6 @@ impl Solver {
             }
         }
 
-        assert_eq!(res.len(), indexes.len());
         self.created_vm_specs.extend(vec![spec; res.len()]);
         self.created_vms.extend(res.clone());
 

@@ -1,49 +1,17 @@
-use std::{
-    cmp::min,
-    collections::{BTreeMap, BTreeSet},
-    fs,
-};
+use std::collections::BTreeMap;
 
 use algo_lib::{
-    collections::{array_2d::Array2D, index_of::IndexOf, last_exn::LastExn},
+    collections::{array_2d::Array2D, last_exn::LastExn},
     misc::{func::id, gen_vector::gen_vec, rand::Random},
 };
 
 use crate::{
-    state::State,
-    types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec},
+    types::{
+        are_soft_constraints_already_violated, CreatedVm, PlacementGroup, PlacementGroupVms,
+        RackId, TestParams, VmSpec,
+    },
     usage_stats::MachineUsedStats,
 };
-
-use algo_lib::dbg;
-
-struct PlacementGroupVms {
-    id_to_part: BTreeMap<usize, i32>,
-    cnt_by_machine: BTreeMap<MachineId, usize>,
-}
-
-impl PlacementGroupVms {
-    pub fn new() -> Self {
-        Self {
-            id_to_part: BTreeMap::default(),
-            cnt_by_machine: BTreeMap::default(),
-        }
-    }
-
-    pub fn unregister_vm(&mut self, id: usize, machine_id: MachineId) {
-        self.id_to_part.remove(&id);
-        *self.cnt_by_machine.entry(machine_id).or_default() -= 1;
-    }
-
-    pub fn register_vm(&mut self, id: usize, part: i32, machine_id: MachineId) {
-        self.id_to_part.insert(id, part);
-        *self.cnt_by_machine.entry(machine_id).or_default() += 1;
-    }
-
-    pub fn any_vm_id(&self) -> Option<usize> {
-        self.id_to_part.keys().next().map(|&x| x)
-    }
-}
 
 pub struct RandomSolver {
     rnd: Random,
@@ -54,41 +22,14 @@ pub struct RandomSolver {
     machines: Vec<MachineUsedStats>,
     fake_vms: Vec<CreatedVm>,
     last_fake_vms_random: bool,
-    fake_cnt_by_rack: Vec<Array2D<usize>>,
-    png_iter: usize,
     alive_vm: Vec<bool>,
     time: usize,
 }
-
-const DEBUG: bool = false;
 
 struct PotentialByRack {
     vm_ids: Vec<usize>,
     rack_starts: Vec<(RackId, usize)>,
     rack_id_idx: Array2D<usize>,
-}
-
-#[derive(Clone, Copy, Debug)]
-enum VmTypeUsed {
-    None,
-    Some(usize),
-    Many,
-}
-
-impl VmTypeUsed {
-    pub fn add(&self, x: usize) -> Self {
-        match self {
-            VmTypeUsed::None => VmTypeUsed::Some(x),
-            &VmTypeUsed::Some(y) => {
-                if y == x {
-                    self.clone()
-                } else {
-                    VmTypeUsed::Many
-                }
-            }
-            VmTypeUsed::Many => VmTypeUsed::Many,
-        }
-    }
 }
 
 impl PotentialByRack {
@@ -134,7 +75,6 @@ impl PotentialByRack {
 
 impl RandomSolver {
     pub fn new(params: TestParams) -> Self {
-        Self::create_pngs_dir();
         Self {
             machines: params.gen_usage_stats(),
             rnd: Random::new(7877889),
@@ -144,8 +84,6 @@ impl RandomSolver {
             created_vms: vec![],
             fake_vms: vec![],
             last_fake_vms_random: false,
-            fake_cnt_by_rack: vec![],
-            png_iter: 0,
             alive_vm: vec![],
             time: 0,
         }
@@ -161,84 +99,8 @@ impl RandomSolver {
             (s.cpu + s.memory) * (s.numa_cnt as u32)
         });
         top_big.reverse();
-        // TODO: maybe different?
         top_big.truncate(cnt);
         top_big
-    }
-
-    // for each physical machine we try to use the same type of vm.
-    fn add_fake_vms_specific(&mut self) {
-        let mut used = vec![VmTypeUsed::None; self.params.total_machines()];
-        for i in 0..self.created_vms.len() {
-            if self.alive_vm[i] {
-                let m_id = self.params.get_machine_id(&self.created_vms[i].machine);
-                let vm_type = self
-                    .params
-                    .vm_specs
-                    .index_of(&self.created_vms[i].spec)
-                    .unwrap();
-                used[m_id] = used[m_id].add(vm_type);
-            }
-        }
-        let mut machines_to_use = vec![vec![]; self.params.vm_specs.len()];
-        for i in 0..used.len() {
-            if let VmTypeUsed::Some(x) = used[i] {
-                machines_to_use[x].push(i);
-            }
-        }
-        let mut cnt_by_type = vec![0; self.params.vm_specs.len()];
-        let mut iters = vec![0; self.params.vm_specs.len()];
-        for it in 0..2 {
-            loop {
-                let still_can_use: Vec<_> = (0..self.params.vm_specs.len())
-                    .filter(|&id| iters[id] < used.len())
-                    .collect();
-                if still_can_use.is_empty() {
-                    break;
-                }
-                let vm_id = still_can_use
-                    .iter()
-                    .map(|&idx| (cnt_by_type[idx], idx))
-                    .min()
-                    .unwrap()
-                    .1;
-                let m_id = machines_to_use[vm_id].pop().unwrap_or_else(|| {
-                    let r = iters[vm_id];
-                    iters[vm_id] += 1;
-                    r
-                });
-                match used[m_id] {
-                    VmTypeUsed::None => (),
-                    VmTypeUsed::Some(y) => {
-                        if y != vm_id && (y != 7 || vm_id != 4) {
-                            continue;
-                        }
-                    }
-                    VmTypeUsed::Many => continue,
-                }
-
-                let vm_spec = &self.params.vm_specs[vm_id];
-                while let Some(placement) = self.machines[m_id].can_place_vm(
-                    &vm_spec,
-                    self.params.get_machine_by_id(m_id),
-                    0,
-                ) {
-                    self.machines[m_id].register_vm(&placement);
-                    self.fake_vms.push(placement);
-                    cnt_by_type[vm_id] += 1;
-                    used[m_id] = used[m_id].add(vm_id);
-                }
-            }
-            if !DEBUG {
-                break;
-            }
-            for x in used.iter_mut() {
-                *x = VmTypeUsed::Some(0);
-            }
-            iters[0] = 0;
-        }
-        self.save_fake_vms_png();
-        // dbg!(cnt_by_type);
     }
 
     fn randomly_add_fake_vms(&mut self, without: &[usize]) -> Vec<usize> {
@@ -287,22 +149,6 @@ impl RandomSolver {
         }
     }
 
-    fn update_fake_stats(&mut self) {
-        if !cfg!(debug_assertions) {
-            return;
-        }
-        let mut cnt_by_rack = vec![
-            Array2D::new(0, self.params.num_dc, self.params.num_racks);
-            self.params.vm_specs.len()
-        ];
-        for vm in self.fake_vms.iter() {
-            let type_id = self.params.vm_specs.index_of(&vm.spec).unwrap();
-            cnt_by_rack[type_id][vm.machine.dc][vm.machine.rack] += 1;
-        }
-        // dbg!(cnt_by_rack[0][7]);
-        self.fake_cnt_by_rack = cnt_by_rack;
-    }
-
     fn recreate_fake_vms(&mut self, only_specicfic_type: Option<usize>) {
         if self.last_fake_vms_random && only_specicfic_type.is_none() {
             return;
@@ -326,30 +172,17 @@ impl RandomSolver {
                     }
                 }
             }
-            dbg!("specific", self.time, vm_type, self.fake_vms.len());
             self.rnd.shuffle(&mut self.fake_vms);
             self.last_fake_vms_random = false;
-            self.update_fake_stats();
-            return;
-        }
-        if self.params.vm_specs.len() == 9 {
-            // TODO: this actually should be a different check :)
-            self.add_fake_vms_specific();
-            self.last_fake_vms_random = true;
-            self.rnd.shuffle(&mut self.fake_vms);
-            self.update_fake_stats();
             return;
         }
 
         let added = self.randomly_add_fake_vms(&[]);
-        dbg!(added);
         self.remove_all_fake_vms();
         {
             // TODO: maybe different for different tests?
-            let top = self.gen_top_big(self.params.vm_specs.len());
+            let top = self.gen_top_big(1);
             for &first_vm in top.iter() {
-                let debug = first_vm == 4;
-                // let first_vm = self.params.vm_specs.len() - 1;
                 let first_spec = self.params.vm_specs[first_vm];
                 let mut by_rack: BTreeMap<RackId, u32> = BTreeMap::new();
                 for m_id in 0..self.machines.len() {
@@ -364,9 +197,6 @@ impl RandomSolver {
                 ways.reverse();
                 let mut more = added[first_vm];
                 for w in ways.iter() {
-                    if debug {
-                        // dbg!(w);
-                    }
                     for inside_rack in 0..self.params.num_machines_per_rack {
                         let m_id = self.params.get_machine_id2(w.0.dc, w.0.rack, inside_rack);
                         while more > 0 {
@@ -375,7 +205,6 @@ impl RandomSolver {
                                 self.params.get_machine_by_id(m_id),
                                 0,
                             ) {
-                                // dbg!(&placement);
                                 more -= 1;
                                 self.machines[m_id].register_vm(&placement);
                                 self.fake_vms.push(placement);
@@ -390,45 +219,12 @@ impl RandomSolver {
                 }
             }
             self.randomly_add_fake_vms(&top);
-
-            self.save_fake_vms_png();
-            let mut really_added = vec![0; self.params.vm_specs.len()];
-            for vm in self.fake_vms.iter() {
-                really_added[self.params.vm_specs.index_of(&vm.spec).unwrap()] += 1;
-            }
-            dbg!(really_added);
-            // TODO: save png.
         }
         self.last_fake_vms_random = true;
         self.rnd.shuffle(&mut self.fake_vms);
-        self.update_fake_stats();
     }
 
-    fn create_pngs_dir() {
-        let path = "test_pics";
-        fs::remove_dir_all(path).unwrap();
-        fs::create_dir(path).unwrap();
-    }
-
-    fn save_fake_vms_png(&mut self) {
-        if !DEBUG {
-            return;
-        }
-        self.png_iter += 1;
-        let mut fake_state = State::new(self.params.clone());
-        for i in 0..self.created_vms.len() {
-            if self.alive_vm[i] {
-                // fake_state.register_new_vms(&[self.created_vms[i].clone()]);
-            }
-        }
-
-        fake_state.register_new_vms(&self.fake_vms);
-        fake_state.save_png(&format!("test_pics/{:03}.png", self.time));
-    }
-
-    pub fn new_placement_group(&mut self, idx: usize, placement_group: PlacementGroup) {
-        // self.time += 1;
-        // dbg!(placement_group.soft_max_vms_per_machine);
+    pub fn new_placement_group(&mut self, placement_group: PlacementGroup) {
         self.placement_groups.push(placement_group);
         self.placement_groups_vms.push(PlacementGroupVms::new());
     }
@@ -641,11 +437,6 @@ impl RandomSolver {
                 created.push(one);
             }
 
-            if cfg!(debug_assertions) {
-                // TODO: assert different ids
-                let different: BTreeSet<_> = created.iter().collect();
-                assert!(different.len() == created.len());
-            }
             assert_eq!(created.len(), need_cnt);
             Some(created)
         } else {
@@ -669,7 +460,6 @@ impl RandomSolver {
         // TODO: try different dcs.
         let fixed_dc = self.get_fixed_dc(placement_group_id, try_soft_constraints);
 
-        dbg!(vm_spec, need_cnt);
         let mut use_ids = vec![];
         for i in 0..self.fake_vms.len() {
             if self.fake_vms[i].spec == vm_spec {
@@ -680,110 +470,17 @@ impl RandomSolver {
                 }
                 use_ids.push(i);
                 if use_ids.len() == need_cnt {
-                    // TODO: remove back.
-                    // break;
-                }
-            }
-        }
-        {
-            #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-            struct ByMachine {
-                full_machine: bool,
-                cnt: usize,
-                machine: MachineId,
-            }
-            let mut by_machine: BTreeMap<MachineId, Vec<usize>> = BTreeMap::new();
-            for &i in use_ids.iter() {
-                let m = self.fake_vms[i].machine;
-                by_machine.entry(m).or_default().push(i);
-            }
-            let mut all_machines = vec![];
-            for (m, v) in by_machine.iter() {
-                let already = *self.placement_groups_vms[placement_group_id]
-                    .cnt_by_machine
-                    .get(m)
-                    .unwrap_or(&0);
-                let limit = self.placement_groups[placement_group_id].soft_max_vms_per_machine;
-                let more_ok = if limit == 0 || !try_soft_constraints {
-                    std::usize::MAX
-                } else {
-                    limit - already
-                };
-                let sz = min(v.len(), more_ok);
-                let m_id = self.params.get_machine_id(m);
-                let cur_stats = self.machines[m_id].total_free_resources();
-                let full_machine =
-                    cur_stats.free_cpu == 0 && cur_stats.free_memory == 0 && v.len() == sz;
-                all_machines.push(ByMachine {
-                    full_machine,
-                    cnt: sz as usize,
-                    machine: m.clone(),
-                });
-            }
-            all_machines.sort_by_key(|bm| (bm.full_machine, std::usize::MAX - bm.cnt));
-            all_machines.reverse();
-            let mut new_use_ids = vec![];
-            // TODO: .rev()?
-            let mut full = 0;
-            let mut not_full = 0;
-            for by_m in all_machines.iter() {
-                let machine_in_ids = by_machine[&by_m.machine].clone();
-
-                if by_m.full_machine {
-                    full += 1;
-                } else {
-                    not_full += 1;
-                }
-
-                new_use_ids.extend(machine_in_ids[..by_m.cnt].to_vec());
-                if new_use_ids.len() >= need_cnt {
                     break;
                 }
             }
-            dbg!(full, not_full);
-            use_ids = new_use_ids;
-        }
-        {
-            // let mut machines = BTreeSet::new();
-            // for &i in use_ids.iter() {
-            //     machines.insert(self.fake_vms[i].machine);
-            // }
-            // dbg!(machines.len(), use_ids.len(), vm_spec);
-            // if vm_spec == self.params.vm_specs[4] {
-            //     assert!(false);
-            // }
         }
         // TODO: optimize here.
-        use_ids.truncate(need_cnt);
         if use_ids.len() == need_cnt {
             // TODO: maybe delete?
-            use_ids.reverse();
+            // use_ids.reverse();
             return Some(use_ids);
         }
         None
-    }
-
-    // TODO: soft vms per machine
-
-    fn are_soft_constraints_already_violated(&self, placement_group_id: usize) -> bool {
-        let pg = self.placement_groups[placement_group_id];
-        let info = &self.placement_groups_vms[placement_group_id];
-        if let Some(any_vm) = info.any_vm_id() {
-            for &vm_id in info.id_to_part.keys() {
-                if pg.network_affinity_type == 1
-                    && self.created_vms[vm_id].machine.dc != self.created_vms[any_vm].machine.dc
-                {
-                    return true;
-                }
-                if pg.rack_affinity_type == 1
-                    && self.created_vms[vm_id].machine.get_rack()
-                        != self.created_vms[any_vm].machine.get_rack()
-                {
-                    return true;
-                }
-            }
-        }
-        false
     }
 
     pub fn create_vms(
@@ -791,21 +488,23 @@ impl RandomSolver {
         vm_type: usize,
         placement_group_id: usize,
         partition_group: i32,
-        indexes: &[usize],
+        need_cnt: usize,
     ) -> Option<Vec<CreatedVm>> {
-        self.time += indexes.len();
+        self.time += need_cnt;
         let part_ids = match partition_group {
-            0 => vec![0; indexes.len()],
-            -1 => gen_vec(indexes.len(), |x| (x + 1) as i32),
-            x => vec![x; indexes.len()],
+            0 => vec![0; need_cnt],
+            -1 => gen_vec(need_cnt, |x| (x + 1) as i32),
+            x => vec![x; need_cnt],
         };
         let pg = self.placement_groups[placement_group_id].clone();
         let vm_spec = self.params.vm_specs[vm_type];
 
-        let need_cnt = indexes.len();
-
         let should_try_soft_constraints = pg.has_soft_constraints()
-            && !self.are_soft_constraints_already_violated(placement_group_id);
+            && !are_soft_constraints_already_violated(
+                &self.placement_groups[placement_group_id],
+                &self.placement_groups_vms[placement_group_id],
+                &self.created_vms,
+            );
 
         for try_soft_constraints in [true, false].into_iter() {
             if try_soft_constraints && !should_try_soft_constraints {
@@ -835,11 +534,7 @@ impl RandomSolver {
                 };
 
                 if let Some(created) = created {
-                    let res = self.register_created_vms(created, part_ids, placement_group_id);
-                    if try_soft_constraints && cfg!(debug_assertions) {
-                        assert!(!self.are_soft_constraints_already_violated(placement_group_id));
-                    }
-                    return res;
+                    return self.register_created_vms(created, part_ids, placement_group_id);
                 }
             }
         }

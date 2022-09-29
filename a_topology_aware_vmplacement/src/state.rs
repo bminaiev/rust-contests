@@ -7,7 +7,7 @@ use image::ImageBuffer;
 //END MAIN
 
 use crate::{
-    types::{CreatedVm, MachineId, PlacementGroup, TestParams, VmSpec},
+    types::{CreatedVm, PlacementGroup, TestParams},
     usage_stats::MachineUsedStats,
 };
 
@@ -79,17 +79,6 @@ impl State {
                 .stats
                 .unregister_vm(&self.vms[vm_id]);
         }
-    }
-
-    pub fn calc_vm_num_per_spec(&self) -> Vec<usize> {
-        let mut res = vec![0; self.params.vm_specs.len()];
-        for machine in self.machines.iter() {
-            for &vm_id in machine.alive_vm_ids.iter() {
-                let spec = self.vms[vm_id].spec;
-                res[self.params.vm_specs.index_of(&spec).unwrap()] += 1;
-            }
-        }
-        res
     }
 
     pub fn save_png(&self, path: &str) {
@@ -165,39 +154,5 @@ impl State {
         image.save(path).unwrap();
 
         //END MAIN
-    }
-
-    pub fn analyze_failure(&self, path: &str) {
-        let vms_by_type = self.calc_vm_num_per_spec();
-        let mut machines_stats = self.params.gen_usage_stats();
-        let mut best_state = Self::new(self.params.clone());
-        for id in (0..vms_by_type.len()).rev() {
-            let spec = self.params.vm_specs[id];
-            for _ in 0..vms_by_type[id] {
-                let mut found = false;
-                for m_id in 0..machines_stats.len() {
-                    let machine = self.params.get_machine_by_id(m_id);
-                    if let Some(placement) = machines_stats[m_id].can_place_vm(&spec, machine, 0) {
-                        machines_stats[m_id].register_vm(&placement);
-                        found = true;
-                        best_state.register_new_vms(&[placement]);
-                        break;
-                    }
-                }
-                assert!(found);
-            }
-        }
-        best_state.save_png(path)
-    }
-
-    pub fn get_num_vms_by_type(&self) -> BTreeMap<VmSpec, usize> {
-        let mut res = BTreeMap::new();
-        for m in self.machines.iter() {
-            for &vm_id in m.alive_vm_ids.iter() {
-                let spec = self.vms[vm_id].spec;
-                *res.entry(spec).or_default() += 1;
-            }
-        }
-        res
     }
 }

@@ -1,6 +1,6 @@
-use algo_lib::misc::gen_vector::gen_vec;
+use std::collections::BTreeMap;
 
-use crate::usage_stats::{MachineUsedStats, NumaUsedStats};
+use crate::usage_stats::MachineUsedStats;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Numa {
@@ -120,11 +120,6 @@ impl TestParams {
 
     pub fn get_machine_by_id(&self, id: usize) -> MachineId {
         self.machine_ids[id]
-        // MachineId {
-        //     dc: id / self.num_machines_per_rack / self.num_racks,
-        //     rack: (id / self.num_machines_per_rack) % self.num_racks,
-        //     inside_rack: id % (self.num_machines_per_rack),
-        // }
     }
 
     pub(crate) fn get_machine_id2(&self, dc: usize, rack: usize, inside_rack: usize) -> usize {
@@ -136,4 +131,54 @@ impl TestParams {
     pub fn gen_usage_stats(&self) -> Vec<MachineUsedStats> {
         vec![MachineUsedStats::new(self); self.total_machines()]
     }
+}
+
+pub struct PlacementGroupVms {
+    pub id_to_part: BTreeMap<usize, i32>,
+    cnt_by_machine: BTreeMap<MachineId, usize>,
+}
+
+impl PlacementGroupVms {
+    pub fn new() -> Self {
+        Self {
+            id_to_part: BTreeMap::default(),
+            cnt_by_machine: BTreeMap::default(),
+        }
+    }
+
+    pub fn unregister_vm(&mut self, id: usize, machine_id: MachineId) {
+        self.id_to_part.remove(&id);
+        *self.cnt_by_machine.entry(machine_id).or_default() -= 1;
+    }
+
+    pub fn register_vm(&mut self, id: usize, part: i32, machine_id: MachineId) {
+        self.id_to_part.insert(id, part);
+        *self.cnt_by_machine.entry(machine_id).or_default() += 1;
+    }
+
+    pub fn any_vm_id(&self) -> Option<usize> {
+        self.id_to_part.keys().next().map(|&x| x)
+    }
+}
+
+pub fn are_soft_constraints_already_violated(
+    pg: &PlacementGroup,
+    info: &PlacementGroupVms,
+    created_vms: &[CreatedVm],
+) -> bool {
+    if let Some(any_vm) = info.any_vm_id() {
+        for &vm_id in info.id_to_part.keys() {
+            if pg.network_affinity_type == 1
+                && created_vms[vm_id].machine.dc != created_vms[any_vm].machine.dc
+            {
+                return true;
+            }
+            if pg.rack_affinity_type == 1
+                && created_vms[vm_id].machine.get_rack() != created_vms[any_vm].machine.get_rack()
+            {
+                return true;
+            }
+        }
+    }
+    false
 }

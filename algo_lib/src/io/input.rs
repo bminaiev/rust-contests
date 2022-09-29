@@ -1,5 +1,4 @@
 use crate::collections::array_2d::Array2D;
-use crate::misc::ord_f64::OrdF64;
 use std::fmt::Debug;
 use std::io::Read;
 use std::marker::PhantomData;
@@ -200,11 +199,11 @@ impl Input {
         self.get().unwrap().into()
     }
 
-    fn read_float(&mut self) -> OrdF64 {
+    fn read_float(&mut self) -> f64 {
         self.read_string().parse().unwrap()
     }
 
-    pub fn f64(&mut self) -> OrdF64 {
+    pub fn f64(&mut self) -> f64 {
         self.read_float()
     }
 
