@@ -1,8 +1,9 @@
 //{"name":"A. Topology-Aware VM Placement","group":"Codeforces - ICPC 2022 Online Challenge powered by HUAWEI - Problem 2","url":"https://codeforces.com/contest/1724/problem/A","interactive":true,"timeLimit":15000,"tests":[{"input":"2 2 2 2\n8 16\n8 16\n3\n1 1 1\n1 4 2\n2 4 8\n1\n1 4 1\n1 0\n2\n3 1 1 1\n1 2 3\n2\n3 1 1 1\n4 5 6\n1\n2 0 0\n2 2\n2\n3 3 2 0\n7 8 9\n3\n3 3 5 6\n2\n2 3 1 4\n10 11\n2\n2 3 1 3\n12 13\n4\n","output":"1 1 1 1\n1 1 2 1\n1 2 1 1\n2 1 1 1\n2 1 2 1\n2 2 1 1\n1 2 1 1 2\n1 2 2 1 2\n1 2 2 1 2\n2 2 1 1 2\n2 2 2 1 2\n-1\n"}],"testType":"single","input":{"type":"stdin","fileName":null,"pattern":null},"output":{"type":"stdout","fileName":null,"pattern":null},"languages":{"java":{"taskClass":"ATopologyAwareVMPlacement"}}}
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::time::Instant;
 
+use algo_lib::collections::array_2d::Array2D;
 use algo_lib::collections::index_of::IndexOf;
 #[allow(unused)]
 use algo_lib::io::output::{output, set_global_output_to_file};
@@ -14,15 +15,15 @@ use algo_lib::misc::gen_vector::gen_vec;
 use algo_lib::misc::vec_apply_delta::ApplyDelta;
 use algo_lib::{dbg, out, out_line};
 
-use crate::random_solver::RandomSolver;
+use crate::greedy_solver::GreedySolver;
 use crate::state::State;
 use crate::types::{Numa, PlacementGroup, TestParams, VmSpec};
 
 mod empty_solver;
 mod fake_solver;
 mod graph_solver;
+mod greedy_solver;
 mod machine_optimizer;
-mod random_solver;
 mod solver;
 mod state;
 mod types;
@@ -67,6 +68,81 @@ fn is_same_ratio(numa: &[VmSpec]) -> bool {
     true
 }
 
+#[derive(Debug)]
+struct Segment {
+    from: usize,
+    to: usize,
+}
+struct SegmentsChecker {
+    segs: Vec<Segment>,
+}
+
+static mut good_pref: usize = 0;
+static mut good_suf: usize = 0;
+static mut bad: usize = 0;
+
+impl SegmentsChecker {
+    pub fn new() -> Self {
+        Self { segs: vec![] }
+    }
+
+    pub fn add(&mut self, from: usize, to: usize) {
+        self.segs.push(Segment { from, to });
+    }
+
+    fn show(rem_len: usize, full_len: usize) {
+        dbg!(format!("{}/{}", rem_len, full_len));
+    }
+
+    fn rem_segment(&mut self, from: usize, to: usize) {
+        for i in 0..self.segs.len() {
+            let s = &mut self.segs[i];
+            if s.from == from && s.to >= to {
+                Self::show(to - from, s.to - s.from);
+                s.from = to;
+                unsafe {
+                    good_pref += 1;
+                }
+
+                return;
+            }
+            if s.to == to && s.from <= from {
+                Self::show(to - from, s.to - s.from);
+                s.to = to;
+                unsafe {
+                    good_suf += 1;
+                }
+                return;
+            }
+            if s.from < from && s.to > to {
+                unsafe {
+                    bad += 1;
+                    dbg!("CENTER OF SEGMENT?", from, to, s, good_pref, good_suf, bad);
+                }
+                let right = Segment { from: to, to: s.to };
+                s.to = from;
+                self.segs.push(right);
+                return;
+            }
+        }
+        dbg!("FULLY...");
+    }
+
+    pub fn remove(&mut self, ids: &[usize]) {
+        let mut ids = ids.to_vec();
+        ids.sort();
+        let mut iter = 0;
+        while iter != ids.len() {
+            let mut j = iter + 1;
+            while j != ids.len() && ids[j] == ids[j - 1] + 1 {
+                j += 1;
+            }
+            self.rem_segment(ids[iter], ids[j - 1] + 1);
+            iter = j;
+        }
+    }
+}
+
 fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
     let start = Instant::now();
 
@@ -90,19 +166,24 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
 
     // dbg!(params);
 
-    let mut solver = RandomSolver::new(params.clone());
+    let mut solver = GreedySolver::new(params.clone());
     let mut state = State::new(params.clone());
 
     let mut total_vms_created = 0;
     let mut total_queries = 0;
 
-    // let mut log = vec![];
+    const LOGS: bool = false;
+    let mut log = vec![];
 
     // let mut last_pg_used = HashMap::new();
     // let mut pg_stats = BTreeMap::new();
 
+    // let mut sc = SegmentsChecker::new();
+
     loop {
         total_queries += 1;
+        // let vm_types_per_spec = state.calc_vm_num_per_spec();
+        // dbg!(vm_types_per_spec);
         let query_type = input.usize();
         match query_type {
             1 => {
@@ -147,13 +228,18 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                 // });
 
                 // let prev = last_pg_used.get(&placement_group_id).unwrap_or(&0);
-                // log.push(format!(
-                //     "{total_queries}. CREATE VMS: {num_vms} x {:?}, group_id={partition_group}, pg={placement_group_id}, prev_time={prev}",
-                //     params.vm_specs[vm_type]
-                // ));
+
+                if LOGS {
+                    log.push(format!(
+                    "{total_queries}. CREATE VMS: {num_vms} x {:?}, group_id={partition_group}, pg={placement_group_id}. Start from id = {}",
+                    params.vm_specs[vm_type], state.vms.len()
+                ));
+                }
+
                 // last_pg_used.insert(placement_group_id, total_queries);
 
                 let indexes = input.vec::<usize>(num_vms).sub_from_all(1);
+                // sc.add(indexes[0], indexes[0] + indexes.len());
 
                 if let Some(res) =
                     solver.create_vms(vm_type, placement_group_id, partition_group, &indexes)
@@ -206,16 +292,29 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                 let num_vms = input.usize();
                 let ids = input.vec::<usize>(num_vms).sub_from_all(1);
 
+                // sc.remove(&ids);
+
+                let mut pgs = BTreeSet::new();
+                for &id in ids.iter() {
+                    pgs.insert(state.vms[id].placement_group_id);
+                }
+
                 let mut by_type = vec![0; params.vm_specs.len()];
                 for &id in ids.iter() {
                     by_type[params.vm_specs.index_of(&state.vms[id].spec).unwrap()] += 1;
                 }
-                // let mut msg = format!("{total_queries}. DEL VMs: {num_vms}.");
-                // for type_id in 0..by_type.len() {
-                //     if by_type[type_id] != 0 {
-                //         msg += &format!(" {} x {:?}.", by_type[type_id], params.vm_specs[type_id]);
-                //     }
-                // }
+                if LOGS {
+                    let mut msg = format!("{total_queries}. DEL VMs: {num_vms}.");
+                    for type_id in 0..by_type.len() {
+                        if by_type[type_id] != 0 {
+                            msg +=
+                                &format!(" {} x {:?}.", by_type[type_id], params.vm_specs[type_id]);
+                        }
+                    }
+                    msg += &format!("PGs: {:?}. Ids = {:?}", pgs, ids);
+                    log.push(msg);
+                }
+
                 // for &id in ids.iter() {
                 //     let created_vm = &state.vms[id];
                 //     let type_id = params.vm_specs.index_of(&created_vm.spec).unwrap();
@@ -225,7 +324,6 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
                 // }
                 // let cnt_types = by_type.iter().filter(|&x| *x != 0).count();
                 // assert!(cnt_types == 1);
-                // log.push(msg);
 
                 solver.delete_vms(&ids);
                 state.delete_vms(&ids);
@@ -252,8 +350,11 @@ fn solve(input: &mut Input, test_case: usize, print_result: bool) -> Result {
         "a_topology_aware_vmplacement/pics/{}-state.png",
         test_case
     ));
-    // save_log(test_case, log);
+    if LOGS {
+        save_log(test_case, log);
+    }
     // save_pg_stats(test_case, &pg_stats, &params);
+    // save_vms_del_time(test_case, &state);
     save_vm_types(test_case, &state.get_num_vms_by_type());
     //END MAIN
 
@@ -283,6 +384,62 @@ fn save_vm_types(test_case: usize, vm_types: &BTreeMap<VmSpec, usize>) {
     ));
     for (k, v) in vm_types.iter() {
         out_line!(format!("{:?} -> {v}", k));
+    }
+    output().flush();
+}
+
+fn save_vms_del_time(test_case: usize, state: &State) {
+    set_global_output_to_file(&format!(
+        "a_topology_aware_vmplacement/logs/{}-vm-del-times.txt",
+        test_case
+    ));
+    let mut diffs = vec![];
+    let max_time = state.create_del_times.iter().map(|x| x.0).max().unwrap();
+    let mut cnt = Array2D::new(0, state.params.vm_specs.len(), max_time + 1);
+
+    for i in 0..state.vms.len() {
+        let spec = state.vms[i].spec;
+        if i > 0 && state.create_del_times[i].0 != state.create_del_times[i - 1].0 {
+            out_line!();
+        }
+        let vm_type = state.params.vm_specs.index_of(&state.vms[i].spec).unwrap();
+        cnt[vm_type][state.create_del_times[i].0] += 1;
+        diffs.push(state.create_del_times[i].1.unwrap_or(max_time) - state.create_del_times[i].0);
+        if let Some(d) = state.create_del_times[i].1 {
+            cnt[vm_type][state.create_del_times[i].1.unwrap()] -= 1;
+        }
+        out_line!(format!(
+            "spec={:?}, created={}, deteled={:?}",
+            spec, state.create_del_times[i].0, state.create_del_times[i].1
+        ));
+        // if i + 1 < state.vms.len() && state.create_del_times[i].0 == state.create_del_times[i + 1].0
+        // {
+        //     if let Some(d1) = state.create_del_times[i].1 {
+        //         let d2 = state.create_del_times[i + 1].1.unwrap();
+        //         assert!(d1 >= d2);
+        //     }
+        // }
+    }
+    // diffs.sort();
+
+    // for i in 0..diffs.len() {
+    //     if i % 10 == 0 {
+    //         out_line!(diffs[i]);
+    //     }
+    // }
+
+    let mut sum = vec![0; state.params.vm_specs.len()];
+    for i in 0..max_time {
+        for j in 0..sum.len() {
+            sum[j] += cnt[j][i];
+        }
+        if i % 100 == 0 {
+            out!(i, '\t');
+            for j in 0..sum.len() {
+                out!(sum[j], '\t');
+            }
+            out_line!();
+        }
     }
     output().flush();
 }
@@ -339,7 +496,7 @@ fn read_baseline(test_id: usize) -> Result {
 fn stress() {
     let mut stats = vec![];
 
-    for test_id in 11..12 {
+    for test_id in 4..5 {
         dbg!(test_id);
         let mut input = Input::new_file(format!(
             "./a_topology_aware_vmplacement/local_test_kit/sample/{:02}",

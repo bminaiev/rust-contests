@@ -26,10 +26,12 @@ impl MachineState {
 
 #[derive(Clone)]
 pub struct State {
-    params: TestParams,
+    pub params: TestParams,
     pub placement_groups: Vec<PlacementGroup>,
     pub vms: Vec<CreatedVm>,
     machines: Vec<MachineState>,
+    pub create_del_times: Vec<(usize, Option<usize>)>,
+    time: usize,
 }
 
 impl State {
@@ -45,6 +47,8 @@ impl State {
             params,
             placement_groups: vec![],
             vms: vec![],
+            create_del_times: vec![],
+            time: 0,
         }
     }
 
@@ -53,7 +57,10 @@ impl State {
     }
 
     pub(crate) fn register_new_vms(&mut self, res: &[CreatedVm]) {
+        self.time += res.len();
         let first = self.vms.len();
+        self.create_del_times
+            .extend(vec![(self.time, None); res.len()]);
         self.vms.extend(res.to_vec());
         for pos in first..self.vms.len() {
             let machine = &mut self.machines[self.params.get_machine_id(&self.vms[pos].machine)];
@@ -63,7 +70,9 @@ impl State {
     }
 
     pub(crate) fn delete_vms(&mut self, ids: &[usize]) {
+        // self.time += 1;
         for &vm_id in ids.iter() {
+            self.create_del_times[vm_id].1 = Some(self.time);
             let machine_id = self.params.get_machine_id(&self.vms[vm_id].machine);
             self.machines[machine_id].remove_vm(vm_id);
             self.machines[machine_id]

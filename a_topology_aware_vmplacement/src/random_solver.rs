@@ -1,4 +1,8 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    cmp::min,
+    collections::{BTreeMap, BTreeSet},
+    fs,
+};
 
 use algo_lib::{
     collections::{array_2d::Array2D, index_of::IndexOf, last_exn::LastExn},
@@ -6,7 +10,8 @@ use algo_lib::{
 };
 
 use crate::{
-    types::{CreatedVm, PlacementGroup, RackId, TestParams, VmSpec},
+    state::State,
+    types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec},
     usage_stats::MachineUsedStats,
 };
 
@@ -14,21 +19,25 @@ use algo_lib::dbg;
 
 struct PlacementGroupVms {
     id_to_part: BTreeMap<usize, i32>,
+    cnt_by_machine: BTreeMap<MachineId, usize>,
 }
 
 impl PlacementGroupVms {
     pub fn new() -> Self {
         Self {
             id_to_part: BTreeMap::default(),
+            cnt_by_machine: BTreeMap::default(),
         }
     }
 
-    pub fn unregister_vm(&mut self, id: usize) {
+    pub fn unregister_vm(&mut self, id: usize, machine_id: MachineId) {
         self.id_to_part.remove(&id);
+        *self.cnt_by_machine.entry(machine_id).or_default() -= 1;
     }
 
-    pub fn register_vm(&mut self, id: usize, part: i32) {
+    pub fn register_vm(&mut self, id: usize, part: i32, machine_id: MachineId) {
         self.id_to_part.insert(id, part);
+        *self.cnt_by_machine.entry(machine_id).or_default() += 1;
     }
 
     pub fn any_vm_id(&self) -> Option<usize> {
@@ -46,12 +55,40 @@ pub struct RandomSolver {
     fake_vms: Vec<CreatedVm>,
     last_fake_vms_random: bool,
     fake_cnt_by_rack: Vec<Array2D<usize>>,
+    png_iter: usize,
+    alive_vm: Vec<bool>,
+    time: usize,
 }
+
+const DEBUG: bool = false;
 
 struct PotentialByRack {
     vm_ids: Vec<usize>,
     rack_starts: Vec<(RackId, usize)>,
     rack_id_idx: Array2D<usize>,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum VmTypeUsed {
+    None,
+    Some(usize),
+    Many,
+}
+
+impl VmTypeUsed {
+    pub fn add(&self, x: usize) -> Self {
+        match self {
+            VmTypeUsed::None => VmTypeUsed::Some(x),
+            &VmTypeUsed::Some(y) => {
+                if y == x {
+                    self.clone()
+                } else {
+                    VmTypeUsed::Many
+                }
+            }
+            VmTypeUsed::Many => VmTypeUsed::Many,
+        }
+    }
 }
 
 impl PotentialByRack {
@@ -97,9 +134,10 @@ impl PotentialByRack {
 
 impl RandomSolver {
     pub fn new(params: TestParams) -> Self {
+        Self::create_pngs_dir();
         Self {
             machines: params.gen_usage_stats(),
-            rnd: Random::new(787788),
+            rnd: Random::new(7877889),
             params,
             placement_groups: vec![],
             placement_groups_vms: vec![],
@@ -107,6 +145,9 @@ impl RandomSolver {
             fake_vms: vec![],
             last_fake_vms_random: false,
             fake_cnt_by_rack: vec![],
+            png_iter: 0,
+            alive_vm: vec![],
+            time: 0,
         }
     }
 
@@ -123,6 +164,81 @@ impl RandomSolver {
         // TODO: maybe different?
         top_big.truncate(cnt);
         top_big
+    }
+
+    // for each physical machine we try to use the same type of vm.
+    fn add_fake_vms_specific(&mut self) {
+        let mut used = vec![VmTypeUsed::None; self.params.total_machines()];
+        for i in 0..self.created_vms.len() {
+            if self.alive_vm[i] {
+                let m_id = self.params.get_machine_id(&self.created_vms[i].machine);
+                let vm_type = self
+                    .params
+                    .vm_specs
+                    .index_of(&self.created_vms[i].spec)
+                    .unwrap();
+                used[m_id] = used[m_id].add(vm_type);
+            }
+        }
+        let mut machines_to_use = vec![vec![]; self.params.vm_specs.len()];
+        for i in 0..used.len() {
+            if let VmTypeUsed::Some(x) = used[i] {
+                machines_to_use[x].push(i);
+            }
+        }
+        let mut cnt_by_type = vec![0; self.params.vm_specs.len()];
+        let mut iters = vec![0; self.params.vm_specs.len()];
+        for it in 0..2 {
+            loop {
+                let still_can_use: Vec<_> = (0..self.params.vm_specs.len())
+                    .filter(|&id| iters[id] < used.len())
+                    .collect();
+                if still_can_use.is_empty() {
+                    break;
+                }
+                let vm_id = still_can_use
+                    .iter()
+                    .map(|&idx| (cnt_by_type[idx], idx))
+                    .min()
+                    .unwrap()
+                    .1;
+                let m_id = machines_to_use[vm_id].pop().unwrap_or_else(|| {
+                    let r = iters[vm_id];
+                    iters[vm_id] += 1;
+                    r
+                });
+                match used[m_id] {
+                    VmTypeUsed::None => (),
+                    VmTypeUsed::Some(y) => {
+                        if y != vm_id && (y != 7 || vm_id != 4) {
+                            continue;
+                        }
+                    }
+                    VmTypeUsed::Many => continue,
+                }
+
+                let vm_spec = &self.params.vm_specs[vm_id];
+                while let Some(placement) = self.machines[m_id].can_place_vm(
+                    &vm_spec,
+                    self.params.get_machine_by_id(m_id),
+                    0,
+                ) {
+                    self.machines[m_id].register_vm(&placement);
+                    self.fake_vms.push(placement);
+                    cnt_by_type[vm_id] += 1;
+                    used[m_id] = used[m_id].add(vm_id);
+                }
+            }
+            if !DEBUG {
+                break;
+            }
+            for x in used.iter_mut() {
+                *x = VmTypeUsed::Some(0);
+            }
+            iters[0] = 0;
+        }
+        self.save_fake_vms_png();
+        // dbg!(cnt_by_type);
     }
 
     fn randomly_add_fake_vms(&mut self, without: &[usize]) -> Vec<usize> {
@@ -183,7 +299,7 @@ impl RandomSolver {
             let type_id = self.params.vm_specs.index_of(&vm.spec).unwrap();
             cnt_by_rack[type_id][vm.machine.dc][vm.machine.rack] += 1;
         }
-        // dbg!(cnt_by_rack[3][7]);
+        // dbg!(cnt_by_rack[0][7]);
         self.fake_cnt_by_rack = cnt_by_rack;
     }
 
@@ -210,17 +326,29 @@ impl RandomSolver {
                     }
                 }
             }
+            dbg!("specific", self.time, vm_type, self.fake_vms.len());
             self.rnd.shuffle(&mut self.fake_vms);
             self.last_fake_vms_random = false;
             self.update_fake_stats();
             return;
         }
+        if self.params.vm_specs.len() == 9 {
+            // TODO: this actually should be a different check :)
+            self.add_fake_vms_specific();
+            self.last_fake_vms_random = true;
+            self.rnd.shuffle(&mut self.fake_vms);
+            self.update_fake_stats();
+            return;
+        }
+
         let added = self.randomly_add_fake_vms(&[]);
+        dbg!(added);
         self.remove_all_fake_vms();
         {
             // TODO: maybe different for different tests?
-            let top = self.gen_top_big(1);
+            let top = self.gen_top_big(self.params.vm_specs.len());
             for &first_vm in top.iter() {
+                let debug = first_vm == 4;
                 // let first_vm = self.params.vm_specs.len() - 1;
                 let first_spec = self.params.vm_specs[first_vm];
                 let mut by_rack: BTreeMap<RackId, u32> = BTreeMap::new();
@@ -236,9 +364,12 @@ impl RandomSolver {
                 ways.reverse();
                 let mut more = added[first_vm];
                 for w in ways.iter() {
+                    if debug {
+                        // dbg!(w);
+                    }
                     for inside_rack in 0..self.params.num_machines_per_rack {
                         let m_id = self.params.get_machine_id2(w.0.dc, w.0.rack, inside_rack);
-                        if more > 0 {
+                        while more > 0 {
                             if let Some(placement) = self.machines[m_id].can_place_vm(
                                 &first_spec,
                                 self.params.get_machine_by_id(m_id),
@@ -248,6 +379,8 @@ impl RandomSolver {
                                 more -= 1;
                                 self.machines[m_id].register_vm(&placement);
                                 self.fake_vms.push(placement);
+                            } else {
+                                break;
                             }
                         }
                     }
@@ -257,13 +390,45 @@ impl RandomSolver {
                 }
             }
             self.randomly_add_fake_vms(&top);
+
+            self.save_fake_vms_png();
+            let mut really_added = vec![0; self.params.vm_specs.len()];
+            for vm in self.fake_vms.iter() {
+                really_added[self.params.vm_specs.index_of(&vm.spec).unwrap()] += 1;
+            }
+            dbg!(really_added);
+            // TODO: save png.
         }
         self.last_fake_vms_random = true;
         self.rnd.shuffle(&mut self.fake_vms);
         self.update_fake_stats();
     }
 
+    fn create_pngs_dir() {
+        let path = "test_pics";
+        fs::remove_dir_all(path).unwrap();
+        fs::create_dir(path).unwrap();
+    }
+
+    fn save_fake_vms_png(&mut self) {
+        if !DEBUG {
+            return;
+        }
+        self.png_iter += 1;
+        let mut fake_state = State::new(self.params.clone());
+        for i in 0..self.created_vms.len() {
+            if self.alive_vm[i] {
+                // fake_state.register_new_vms(&[self.created_vms[i].clone()]);
+            }
+        }
+
+        fake_state.register_new_vms(&self.fake_vms);
+        fake_state.save_png(&format!("test_pics/{:03}.png", self.time));
+    }
+
     pub fn new_placement_group(&mut self, idx: usize, placement_group: PlacementGroup) {
+        // self.time += 1;
+        // dbg!(placement_group.soft_max_vms_per_machine);
         self.placement_groups.push(placement_group);
         self.placement_groups_vms.push(PlacementGroupVms::new());
     }
@@ -341,8 +506,11 @@ impl RandomSolver {
             .collect();
         for i in 0..created.len() {
             created[i].placement_group_id = placement_group_id;
-            self.placement_groups_vms[created[i].placement_group_id]
-                .register_vm(self.created_vms.len() + i, part_ids[i]);
+            self.placement_groups_vms[created[i].placement_group_id].register_vm(
+                self.created_vms.len() + i,
+                part_ids[i],
+                created[i].machine,
+            );
         }
         self.created_vms.extend(created.clone());
         {
@@ -359,6 +527,7 @@ impl RandomSolver {
             }
             self.fake_vms.truncate(new_sz);
         }
+        self.alive_vm.extend(vec![true; created.len()]);
         Some(created)
     }
 
@@ -500,6 +669,7 @@ impl RandomSolver {
         // TODO: try different dcs.
         let fixed_dc = self.get_fixed_dc(placement_group_id, try_soft_constraints);
 
+        dbg!(vm_spec, need_cnt);
         let mut use_ids = vec![];
         for i in 0..self.fake_vms.len() {
             if self.fake_vms[i].spec == vm_spec {
@@ -510,11 +680,84 @@ impl RandomSolver {
                 }
                 use_ids.push(i);
                 if use_ids.len() == need_cnt {
-                    break;
+                    // TODO: remove back.
+                    // break;
                 }
             }
         }
+        {
+            #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+            struct ByMachine {
+                full_machine: bool,
+                cnt: usize,
+                machine: MachineId,
+            }
+            let mut by_machine: BTreeMap<MachineId, Vec<usize>> = BTreeMap::new();
+            for &i in use_ids.iter() {
+                let m = self.fake_vms[i].machine;
+                by_machine.entry(m).or_default().push(i);
+            }
+            let mut all_machines = vec![];
+            for (m, v) in by_machine.iter() {
+                let already = *self.placement_groups_vms[placement_group_id]
+                    .cnt_by_machine
+                    .get(m)
+                    .unwrap_or(&0);
+                let limit = self.placement_groups[placement_group_id].soft_max_vms_per_machine;
+                let more_ok = if limit == 0 || !try_soft_constraints {
+                    std::usize::MAX
+                } else {
+                    limit - already
+                };
+                let sz = min(v.len(), more_ok);
+                let m_id = self.params.get_machine_id(m);
+                let cur_stats = self.machines[m_id].total_free_resources();
+                let full_machine =
+                    cur_stats.free_cpu == 0 && cur_stats.free_memory == 0 && v.len() == sz;
+                all_machines.push(ByMachine {
+                    full_machine,
+                    cnt: sz as usize,
+                    machine: m.clone(),
+                });
+            }
+            all_machines.sort_by_key(|bm| (bm.full_machine, std::usize::MAX - bm.cnt));
+            all_machines.reverse();
+            let mut new_use_ids = vec![];
+            // TODO: .rev()?
+            let mut full = 0;
+            let mut not_full = 0;
+            for by_m in all_machines.iter() {
+                let machine_in_ids = by_machine[&by_m.machine].clone();
+
+                if by_m.full_machine {
+                    full += 1;
+                } else {
+                    not_full += 1;
+                }
+
+                new_use_ids.extend(machine_in_ids[..by_m.cnt].to_vec());
+                if new_use_ids.len() >= need_cnt {
+                    break;
+                }
+            }
+            dbg!(full, not_full);
+            use_ids = new_use_ids;
+        }
+        {
+            // let mut machines = BTreeSet::new();
+            // for &i in use_ids.iter() {
+            //     machines.insert(self.fake_vms[i].machine);
+            // }
+            // dbg!(machines.len(), use_ids.len(), vm_spec);
+            // if vm_spec == self.params.vm_specs[4] {
+            //     assert!(false);
+            // }
+        }
+        // TODO: optimize here.
+        use_ids.truncate(need_cnt);
         if use_ids.len() == need_cnt {
+            // TODO: maybe delete?
+            use_ids.reverse();
             return Some(use_ids);
         }
         None
@@ -550,6 +793,7 @@ impl RandomSolver {
         partition_group: i32,
         indexes: &[usize],
     ) -> Option<Vec<CreatedVm>> {
+        self.time += indexes.len();
         let part_ids = match partition_group {
             0 => vec![0; indexes.len()],
             -1 => gen_vec(indexes.len(), |x| (x + 1) as i32),
@@ -603,10 +847,12 @@ impl RandomSolver {
     }
 
     pub fn delete_vms(&mut self, ids: &[usize]) {
+        // self.time += 1;
         for &id in ids.iter() {
             let vm = &self.created_vms[id];
             self.machines[self.params.get_machine_id(&vm.machine)].unregister_vm(&vm);
-            self.placement_groups_vms[vm.placement_group_id].unregister_vm(id);
+            self.placement_groups_vms[vm.placement_group_id].unregister_vm(id, vm.machine);
+            self.alive_vm[id] = false;
         }
         self.last_fake_vms_random = false;
     }
