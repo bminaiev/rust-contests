@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-use crate::types::{CreatedVm, MachineId, Numa, PlacementGroup, VmSpec};
+use crate::types::{CreatedVm, MachineId, Numa, PlGroup, VmSpec};
 use algo_lib::dbg;
 use algo_lib::misc::rand::Random;
 use marathon_utils::dynamic_plot::DynamicPlot;
@@ -44,7 +44,7 @@ pub struct EmptySolver {
     num_machines_per_rack: usize,
     numa: Vec<Numa>,
     vm_types: Vec<VmSpec>,
-    placement_groups: Vec<PlacementGroup>,
+    placement_groups: Vec<PlGroup>,
     placement_group_mappings: Vec<PlacementGroupMapping>,
     machines: Vec<MachineId>,
     machines_stats: Vec<MachineUsedStats>,

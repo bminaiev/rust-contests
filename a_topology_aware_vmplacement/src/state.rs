@@ -7,7 +7,7 @@ use image::ImageBuffer;
 //END MAIN
 
 use crate::{
-    types::{CreatedVm, PlacementGroup, TestParams},
+    types::{CreatedVm, PlGroup, TestParams},
     usage_stats::MachineUsedStats,
 };
 
@@ -27,7 +27,7 @@ impl MachineState {
 #[derive(Clone)]
 pub struct State {
     pub params: TestParams,
-    pub placement_groups: Vec<PlacementGroup>,
+    pub placement_groups: Vec<PlGroup>,
     pub vms: Vec<CreatedVm>,
     machines: Vec<MachineState>,
     pub create_del_times: Vec<(usize, Option<usize>)>,
@@ -52,7 +52,7 @@ impl State {
         }
     }
 
-    pub(crate) fn new_placement_group(&mut self, placement_group: crate::types::PlacementGroup) {
+    pub(crate) fn new_placement_group(&mut self, placement_group: crate::types::PlGroup) {
         self.placement_groups.push(placement_group);
     }
 

@@ -20,13 +20,13 @@ use algo_lib::{out, out_line};
 use crate::{
     graph_solver::find_shuffling,
     state::State,
-    types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec},
+    types::{CreatedVm, MachineId, PlGroup, RackId, TestParams, VmSpec},
     usage_stats::{MachineUsedStats, NumaUsedStats},
 };
 
 pub struct FakeSolver {
     params: TestParams,
-    pub placement_groups: Vec<PlacementGroup>,
+    pub placement_groups: Vec<PlGroup>,
     created_vms: Vec<CreatedVm>,
     is_vm_alive: Vec<bool>,
     seeds_to_test: Vec<usize>,
@@ -79,7 +79,7 @@ impl FakeSolver {
             all_good_perms,
         }
     }
-    pub fn new_placement_group(&mut self, idx: usize, placement_group: PlacementGroup) {
+    pub fn new_placement_group(&mut self, idx: usize, placement_group: PlGroup) {
         assert!(self.placement_groups.len() == idx);
         self.placement_groups.push(placement_group);
     }

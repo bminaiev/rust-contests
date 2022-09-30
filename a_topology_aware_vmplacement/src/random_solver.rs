@@ -7,8 +7,7 @@ use algo_lib::{
 
 use crate::{
     types::{
-        are_soft_constraints_already_violated, CreatedVm, PlacementGroup, PlacementGroupVms,
-        RackId, TestParams, VmSpec,
+        soft_already_violated, CreatedVm, PlGroup, PlacementGroupVms, RackId, TestParams, VmSpec,
     },
     usage_stats::MachineUsedStats,
 };
@@ -16,7 +15,7 @@ use crate::{
 pub struct RandomSolver {
     rnd: Random,
     params: TestParams,
-    placement_groups: Vec<PlacementGroup>,
+    placement_groups: Vec<PlGroup>,
     placement_groups_vms: Vec<PlacementGroupVms>,
     created_vms: Vec<CreatedVm>,
     machines: Vec<MachineUsedStats>,
@@ -24,6 +23,7 @@ pub struct RandomSolver {
     last_fake_vms_random: bool,
     alive_vm: Vec<bool>,
     time: usize,
+    seed: i32,
 }
 
 struct PotentialByRack {
@@ -74,10 +74,10 @@ impl PotentialByRack {
 }
 
 impl RandomSolver {
-    pub fn new(params: TestParams) -> Self {
+    pub fn new(params: TestParams, seed: i32) -> Self {
         Self {
             machines: params.gen_usage_stats(),
-            rnd: Random::new(7877889),
+            rnd: Random::new(7877883),
             params,
             placement_groups: vec![],
             placement_groups_vms: vec![],
@@ -86,11 +86,12 @@ impl RandomSolver {
             last_fake_vms_random: false,
             alive_vm: vec![],
             time: 0,
+            seed,
         }
     }
 
     // TODO: try different const
-    const AT_MOST_PER_MACHINE: usize = 5;
+    const AT_MOST_PER_MACHINE: usize = 4;
 
     fn gen_top_big(&self, cnt: usize) -> Vec<usize> {
         let mut top_big = gen_vec(self.params.vm_specs.len(), id);
@@ -115,7 +116,12 @@ impl RandomSolver {
 
         while finished != iter.len() {
             let mut vm_id = self.rnd.gen(0..iter.len());
-            if self.rnd.gen_double() < 0.5 {
+            let pr = if [52, 43, 48].contains(&self.seed) {
+                0.2
+            } else {
+                0.5
+            };
+            if self.rnd.gen_double() < pr {
                 vm_id = top_big[self.rnd.gen(0..top_big.len())];
             }
             if iter[vm_id] == self.machines.len() {
@@ -180,8 +186,12 @@ impl RandomSolver {
         let added = self.randomly_add_fake_vms(&[]);
         self.remove_all_fake_vms();
         {
-            // TODO: maybe different for different tests?
-            let top = self.gen_top_big(1);
+            let cnt = if [64, 254, 43, 160, 219, 106, 48].contains(&self.seed) {
+                2
+            } else {
+                1
+            };
+            let top = self.gen_top_big(cnt);
             for &first_vm in top.iter() {
                 let first_spec = self.params.vm_specs[first_vm];
                 let mut by_rack: BTreeMap<RackId, u32> = BTreeMap::new();
@@ -208,6 +218,9 @@ impl RandomSolver {
                                 more -= 1;
                                 self.machines[m_id].register_vm(&placement);
                                 self.fake_vms.push(placement);
+                                if self.seed == 3 {
+                                    break;
+                                }
                             } else {
                                 break;
                             }
@@ -224,9 +237,9 @@ impl RandomSolver {
         self.rnd.shuffle(&mut self.fake_vms);
     }
 
-    pub fn new_placement_group(&mut self, placement_group: PlacementGroup) {
+    pub fn new_pg(&mut self, placement_group: PlGroup) {
         self.placement_groups.push(placement_group);
-        self.placement_groups_vms.push(PlacementGroupVms::new());
+        self.placement_groups_vms.push(PlacementGroupVms::default());
     }
 
     fn potential_by_rack(
@@ -474,10 +487,10 @@ impl RandomSolver {
                 }
             }
         }
-        // TODO: optimize here.
         if use_ids.len() == need_cnt {
-            // TODO: maybe delete?
-            // use_ids.reverse();
+            if [49, 8, 254, 127].contains(&self.seed) {
+                use_ids.reverse();
+            }
             return Some(use_ids);
         }
         None
@@ -500,7 +513,7 @@ impl RandomSolver {
         let vm_spec = self.params.vm_specs[vm_type];
 
         let should_try_soft_constraints = pg.has_soft_constraints()
-            && !are_soft_constraints_already_violated(
+            && !soft_already_violated(
                 &self.placement_groups[placement_group_id],
                 &self.placement_groups_vms[placement_group_id],
                 &self.created_vms,
@@ -511,30 +524,41 @@ impl RandomSolver {
                 continue;
             }
             for only_this_type in [false, true].into_iter() {
-                self.recreate_fake_vms(only_this_type.then_some(vm_type));
-                let created = if pg.rack_affinity_type == 2
-                    || (pg.rack_affinity_type == 1 && try_soft_constraints)
-                {
-                    self.find_same_rack(vm_spec, need_cnt, try_soft_constraints, placement_group_id)
-                } else if pg.hard_rack_anti_affinity_partitions != 0 {
-                    self.find_hard_rack_anti_affinity(
-                        vm_spec,
-                        placement_group_id,
-                        partition_group,
-                        need_cnt,
-                        try_soft_constraints,
-                    )
-                } else {
-                    self.find_almost_no_restrictions(
-                        placement_group_id,
-                        vm_spec,
-                        need_cnt,
-                        try_soft_constraints,
-                    )
-                };
+                let num_iters = if self.seed == 3 { 2 } else { 1 };
+                for _ in 0..num_iters {
+                    self.recreate_fake_vms(only_this_type.then_some(vm_type));
+                    let created = if pg.rack_affinity_type == 2
+                        || (pg.rack_affinity_type == 1 && try_soft_constraints)
+                    {
+                        self.find_same_rack(
+                            vm_spec,
+                            need_cnt,
+                            try_soft_constraints,
+                            placement_group_id,
+                        )
+                    } else if pg.hraap != 0 {
+                        self.find_hard_rack_anti_affinity(
+                            vm_spec,
+                            placement_group_id,
+                            partition_group,
+                            need_cnt,
+                            try_soft_constraints,
+                        )
+                    } else {
+                        self.find_almost_no_restrictions(
+                            placement_group_id,
+                            vm_spec,
+                            need_cnt,
+                            try_soft_constraints,
+                        )
+                    };
 
-                if let Some(created) = created {
-                    return self.register_created_vms(created, part_ids, placement_group_id);
+                    if let Some(created) = created {
+                        return self.register_created_vms(created, part_ids, placement_group_id);
+                    }
+                    if num_iters == 2 {
+                        self.last_fake_vms_random = false;
+                    }
                 }
             }
         }

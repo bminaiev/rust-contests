@@ -3,7 +3,7 @@ use std::{cmp::max, collections::HashMap};
 use algo_lib::misc::min_max::FindMinMaxPos;
 
 use crate::{
-    types::{CreatedVm, MachineId, PlacementGroup, RackId, TestParams, VmSpec},
+    types::{CreatedVm, MachineId, PlGroup, RackId, TestParams, VmSpec},
     usage_stats::MachineUsedStats,
 };
 
@@ -17,7 +17,7 @@ struct PlacementGroupMapping {
 
 pub struct Solver {
     params: TestParams,
-    pub placement_groups: Vec<PlacementGroup>,
+    pub placement_groups: Vec<PlGroup>,
     placement_group_mappings: Vec<PlacementGroupMapping>,
     machines: Vec<MachineId>,
     machines_stats: Vec<MachineUsedStats>,
@@ -73,10 +73,10 @@ impl Solver {
             created_vm_pg: vec![],
         }
     }
-    pub fn new_placement_group(&mut self, placement_group: PlacementGroup) {
+    pub fn new_pg(&mut self, placement_group: PlGroup) {
         self.placement_groups.push(placement_group);
-        let num_groups = max(1, placement_group.hard_rack_anti_affinity_partitions);
-        if placement_group.hard_rack_anti_affinity_partitions != 0 {
+        let num_groups = max(1, placement_group.hraap);
+        if placement_group.hraap != 0 {
             assert!(placement_group.rack_affinity_type == 0);
         }
 

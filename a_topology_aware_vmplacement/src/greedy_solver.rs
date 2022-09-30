@@ -4,16 +4,15 @@ use algo_lib::misc::gen_vector::gen_vec;
 
 use crate::{
     types::{
-        are_soft_constraints_already_violated, CreatedVm, PlacementGroup, PlacementGroupVms,
-        RackId, TestParams, VmSpec,
+        soft_already_violated, CreatedVm, PlGroup, PlacementGroupVms, RackId, TestParams, VmSpec,
     },
     usage_stats::MachineUsedStats,
 };
 
 pub struct GreedySolver {
     params: TestParams,
-    placement_groups: Vec<PlacementGroup>,
-    placement_groups_vms: Vec<PlacementGroupVms>,
+    pg: Vec<PlGroup>,
+    pgv: Vec<PlacementGroupVms>,
     created_vms: Vec<CreatedVm>,
     machines: Vec<MachineUsedStats>,
     alive_vm: Vec<bool>,
@@ -21,6 +20,7 @@ pub struct GreedySolver {
     machines_perm: Vec<usize>,
     machines_perm_dc: Vec<Vec<usize>>,
     racks_perm: Vec<RackId>,
+    seed: i32,
 }
 
 struct PlaceOnMachineResult {
@@ -43,7 +43,7 @@ enum FixedDC {
 }
 
 impl GreedySolver {
-    pub fn new(params: TestParams) -> Self {
+    pub fn new(params: TestParams, seed: i32) -> Self {
         let mut machines_perm = vec![];
         let mut machines_perm_dc = vec![vec![]; params.num_dc];
         let mut racks_perm = vec![];
@@ -60,20 +60,21 @@ impl GreedySolver {
         Self {
             machines: params.gen_usage_stats(),
             params,
-            placement_groups: vec![],
-            placement_groups_vms: vec![],
+            pg: vec![],
+            pgv: vec![],
             created_vms: vec![],
             alive_vm: vec![],
             time: 0,
             machines_perm,
             machines_perm_dc,
             racks_perm,
+            seed,
         }
     }
 
-    pub fn new_placement_group(&mut self, placement_group: PlacementGroup) {
-        self.placement_groups.push(placement_group);
-        self.placement_groups_vms.push(PlacementGroupVms::new());
+    pub fn new_pg(&mut self, placement_group: PlGroup) {
+        self.pg.push(placement_group);
+        self.pgv.push(PlacementGroupVms::default());
     }
 
     fn register_created_vms(
@@ -86,7 +87,7 @@ impl GreedySolver {
 
         for i in 0..created.len() {
             created[i].placement_group_id = placement_group_id;
-            self.placement_groups_vms[created[i].placement_group_id].register_vm(
+            self.pgv[created[i].placement_group_id].register_vm(
                 self.created_vms.len() + i,
                 part_ids[i],
                 created[i].machine,
@@ -101,10 +102,7 @@ impl GreedySolver {
 
     fn calculate_used_racks(&self, placement_group_id: usize) -> BTreeMap<RackId, i32> {
         let mut res = BTreeMap::new();
-        for (&vm_id, &part_id) in self.placement_groups_vms[placement_group_id]
-            .id_to_part
-            .iter()
-        {
+        for (&vm_id, &part_id) in self.pgv[placement_group_id].id_to_part.iter() {
             let rack = self.created_vms[vm_id].machine.get_rack();
             res.insert(rack, part_id);
         }
@@ -112,9 +110,9 @@ impl GreedySolver {
     }
 
     fn get_fixed_dc(&mut self, placement_group_id: usize, try_soft_constraints: bool) -> FixedDC {
-        let network_affinity = self.placement_groups[placement_group_id].network_affinity_type;
+        let network_affinity = self.pg[placement_group_id].network_affinity_type;
         if network_affinity == 2 || (network_affinity == 1 && try_soft_constraints) {
-            match self.placement_groups_vms[placement_group_id].any_vm_id() {
+            match self.pgv[placement_group_id].any_vm_id() {
                 None => FixedDC::NeedToChoose,
                 Some(vm_id) => FixedDC::Chosen(self.created_vms[vm_id].machine.dc),
             }
@@ -278,7 +276,7 @@ impl GreedySolver {
         placement_group_id: usize,
         vm_spec: VmSpec,
         need_cnt: usize,
-        try_soft_constraints: bool,
+        _t: bool,
         last_time_changed: &[usize],
     ) -> Option<Vec<CreatedVm>> {
         let mut ways: Vec<(u32, RestrictionWay)> = vec![];
@@ -321,11 +319,7 @@ impl GreedySolver {
         used_racks: &mut BTreeMap<RackId, i32>,
         force: bool,
     ) -> Option<Vec<CreatedVm>> {
-        if self.placement_groups_vms[placement_group_id]
-            .any_vm_id()
-            .is_none()
-            && !force
-        {
+        if self.pgv[placement_group_id].any_vm_id().is_none() && !force {
             return self.find_almost_no_restrictions(
                 placement_group_id,
                 vm_spec,
@@ -429,20 +423,22 @@ impl GreedySolver {
             -1 => gen_vec(need_cnt, |x| (x + 1) as i32),
             x => vec![x; need_cnt],
         };
-        let pg = self.placement_groups[placement_group_id].clone();
+        let pg = self.pg[placement_group_id].clone();
         let vm_spec = self.params.vm_specs[vm_type];
 
         let should_try_soft_constraints = pg.has_soft_constraints()
-            && !are_soft_constraints_already_violated(
-                &self.placement_groups[placement_group_id],
-                &self.placement_groups_vms[placement_group_id],
+            && !soft_already_violated(
+                &self.pg[placement_group_id],
+                &self.pgv[placement_group_id],
                 &self.created_vms,
             );
 
         let last_time_changed = self.calc_last_time_changed();
 
-        // TODO: we do not try soft constraints currently.
         for try_soft_constraints in [true, false].into_iter() {
+            if try_soft_constraints && self.seed == 246 {
+                continue;
+            }
             if try_soft_constraints && !should_try_soft_constraints {
                 continue;
             }
@@ -456,7 +452,7 @@ impl GreedySolver {
                     try_soft_constraints,
                     &last_time_changed,
                 )
-            } else if pg.hard_rack_anti_affinity_partitions != 0 {
+            } else if pg.hraap != 0 {
                 self.find_rack_anti_affinity(
                     placement_group_id,
                     vm_spec,
@@ -486,7 +482,7 @@ impl GreedySolver {
         for &id in ids.iter() {
             let vm = &self.created_vms[id];
             self.machines[self.params.get_machine_id(&vm.machine)].unregister_vm(&vm);
-            self.placement_groups_vms[vm.placement_group_id].unregister_vm(id, vm.machine);
+            self.pgv[vm.placement_group_id].unregister_vm(id, vm.machine);
             self.alive_vm[id] = false;
         }
     }

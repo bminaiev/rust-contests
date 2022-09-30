@@ -7,7 +7,7 @@ use algo_lib::misc::gen_vector::gen_vec;
 use algo_lib::{dbg, out, out_line};
 
 use crate::meta_solver::MetaSolver;
-use crate::types::{Numa, PlacementGroup, TestParams, VmSpec};
+use crate::types::{Numa, PlGroup, TestParams, VmSpec};
 
 mod additional_stats;
 mod empty_solver;
@@ -39,35 +39,35 @@ fn solve(input: &mut Input, _: usize, print_result: bool) {
         memory: input.read(),
     });
 
-    let params = TestParams::new(num_dc, num_racks, num_machines_per_rack, numa, vm_types);
-    let mut solver = MetaSolver::new(params.clone());
+    let read_pg = |input: &mut Input| -> PlGroup {
+        let _ = input.usize();
+        let hraap = input.usize();
+        let soft_max_vms_per_machine = input.usize();
+        let network_affinity_type = input.usize();
+        let rack_affinity_type = input.usize();
 
-    let mut total_vms_created = 0;
-    let mut total_queries = 0;
+        PlGroup {
+            hraap,
+            soft_max_vms_per_machine,
+            network_affinity_type,
+            rack_affinity_type,
+        }
+    };
+
+    assert!(input.usize() == 1);
+    let pg1 = read_pg(input);
+
+    let params = TestParams::new(num_dc, num_racks, num_machines_per_rack, numa, vm_types);
+    let mut solver = MetaSolver::new(params.clone(), &pg1);
+    solver.new_pg(pg1);
 
     loop {
-        total_queries += 1;
         let query_type = input.usize();
         match query_type {
             1 => {
-                // create placement group
-                let _ = input.usize();
-                let hard_rack_anti_affinity_partitions = input.usize();
-                let soft_max_vms_per_machine = input.usize();
-                let network_affinity_type = input.usize();
-                let rack_affinity_type = input.usize();
-
-                let placement_group = PlacementGroup {
-                    hard_rack_anti_affinity_partitions,
-                    soft_max_vms_per_machine,
-                    network_affinity_type,
-                    rack_affinity_type,
-                };
-
-                solver.new_placement_group(placement_group);
+                solver.new_pg(read_pg(input));
             }
             2 => {
-                // create vm
                 let num_vms = input.usize();
 
                 let vm_type = input.usize() - 1;
@@ -102,29 +102,20 @@ fn solve(input: &mut Input, _: usize, print_result: bool) {
                     break;
                 }
 
-                total_vms_created += num_vms;
                 output().flush();
             }
             3 => {
-                // vm deletion
                 let num_vms = input.usize();
                 let ids = gen_vec(num_vms, |_| input.usize() - 1);
 
                 solver.delete_vms(&ids);
             }
             4 => {
-                // termination
                 break;
             }
-            _ => {
-                unreachable!("Wrong op type: {}", query_type)
-            }
+            _ => (),
         };
     }
-
-    //START MAIN
-    dbg!(total_vms_created, total_queries);
-    //END MAIN
 }
 
 pub(crate) fn run(mut input: Input) -> bool {
