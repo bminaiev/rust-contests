@@ -6,12 +6,18 @@ use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
 
 pub trait ParallelJob: Sync + Send + Default + Clone {
+    type Context: Sync;
+
     fn read_input(&mut self, input: &mut Input);
-    fn solve(&mut self);
+    fn solve(&mut self, context: &Self::Context);
     fn write_output(&mut self, test_case: usize);
 }
 
-pub fn run_parallel<J: ParallelJob>(input: &mut Input, num_threads: Option<usize>) {
+pub fn run_parallel<J: ParallelJob>(
+    input: &mut Input,
+    num_threads: Option<usize>,
+    context: &J::Context,
+) {
     let start = Instant::now();
 
     let t = input.read();
@@ -26,7 +32,7 @@ pub fn run_parallel<J: ParallelJob>(input: &mut Input, num_threads: Option<usize
     thread_pool.build_global().unwrap();
     let rem = AtomicUsize::new(t);
     jobs.par_iter_mut().enumerate().for_each(|(test, job)| {
-        job.solve();
+        job.solve(context);
         eprintln!(
             "Test {} done, {} remaining",
             test,
