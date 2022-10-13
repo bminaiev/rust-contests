@@ -1,7 +1,7 @@
-use std::cmp::Ordering;
+use std::cmp::{max, min, Ordering};
 
 use crate::{
-    geometry::point::PointT,
+    geometry::{orientation::make_ccw, point::PointT},
     misc::{binary_search::binary_search_last_true, num_traits::Number},
 };
 
@@ -49,10 +49,10 @@ pub struct PointLocation<T: Number> {
     all_y: Vec<T>,
     pub parents: Vec<Option<usize>>,
     tree_nodes: Vec<Vec<Segment<T>>>,
+    same_y: Vec<Vec<Segment<T>>>,
 }
 
 impl<T: Number> PointLocation<T> {
-    // vertices should be specified in ccw order
     pub fn new(polygons: &[Vec<PointT<T>>]) -> Self {
         let mut all_y: Vec<T> = polygons
             .iter()
@@ -62,22 +62,37 @@ impl<T: Number> PointLocation<T> {
         all_y.dedup();
         let tree_nodes_cnt = all_y.len().next_power_of_two() * 2;
         let mut res = Self {
+            same_y: vec![vec![]; all_y.len()],
             all_y,
             parents: vec![None; polygons.len()],
             tree_nodes: vec![vec![]; tree_nodes_cnt],
         };
         for (polygon_id, polygon) in polygons.iter().enumerate() {
+            let polygon = make_ccw(polygon.clone());
             for i in 0..polygon.len() {
+                let p = polygon[i];
+                res.same_y[res.all_y.binary_search(&p.y).unwrap()].push(Segment {
+                    fr: p,
+                    to: p,
+                    polygon_id,
+                });
                 let segment = Segment {
                     fr: polygon[i],
                     to: polygon[if i + 1 == polygon.len() { 0 } else { i + 1 }],
                     polygon_id,
                 };
-                res.add_segment(0, 0, res.all_y.len() - 1, &segment);
+                if segment.fr.y == segment.to.y {
+                    res.same_y[res.all_y.binary_search(&segment.fr.y).unwrap()].push(segment);
+                } else {
+                    res.add_segment(0, 0, res.all_y.len() - 1, &segment);
+                }
             }
         }
         for node in res.tree_nodes.iter_mut() {
             node.sort();
+        }
+        for same_y in res.same_y.iter_mut() {
+            same_y.sort_by_key(|s| s.fr.x + s.to.x);
         }
 
         let mut polygons_left_points: Vec<_> = polygons
@@ -87,7 +102,7 @@ impl<T: Number> PointLocation<T> {
             .collect();
         polygons_left_points.sort();
         for (&p, polygon_id) in polygons_left_points.into_iter() {
-            res.parents[polygon_id] = res.locate_point(p);
+            res.parents[polygon_id] = res.locate_point(p, false);
         }
         res
     }
@@ -107,7 +122,23 @@ impl<T: Number> PointLocation<T> {
         }
     }
 
-    pub fn locate_point(&self, p: PointT<T>) -> Option<usize> {
+    pub fn locate_point(&self, p: PointT<T>, incl_bound: bool) -> Option<usize> {
+        if incl_bound {
+            if let Ok(y) = self.all_y.binary_search(&p.y) {
+                let segs = &self.same_y[y];
+                if let Ok(p1) = segs.binary_search_by(|seg| {
+                    if p.x < min(seg.fr.x, seg.to.x) {
+                        Ordering::Greater
+                    } else if p.x > max(seg.fr.x, seg.to.x) {
+                        Ordering::Less
+                    } else {
+                        Ordering::Equal
+                    }
+                }) {
+                    return Some(segs[p1].polygon_id);
+                }
+            }
+        }
         let mut segment: Option<Segment<T>> = None;
         let mut tree_v = 0;
         let (mut l, mut r) = (0, self.all_y.len() - 1);
@@ -118,7 +149,11 @@ impl<T: Number> PointLocation<T> {
                 break;
             }
             if let Some(idx) = binary_search_last_true(0..self.tree_nodes[tree_v].len(), |i| {
-                self.tree_nodes[tree_v][i].cmp_p(p) == Ordering::Less
+                match self.tree_nodes[tree_v][i].cmp_p(p) {
+                    Ordering::Less => true,
+                    Ordering::Equal => incl_bound,
+                    Ordering::Greater => false,
+                }
             }) {
                 let new_segment = self.tree_nodes[tree_v][idx];
                 if segment.is_none() || segment.unwrap().cmp(&new_segment) == Ordering::Less {
@@ -141,7 +176,11 @@ impl<T: Number> PointLocation<T> {
         }
         segment.and_then(|segment| {
             if segment.fr.y < segment.to.y {
-                self.parents[segment.polygon_id]
+                if PointT::vect_mul(&segment.fr, &segment.to, &p) == T::ZERO {
+                    Some(segment.polygon_id)
+                } else {
+                    self.parents[segment.polygon_id]
+                }
             } else {
                 Some(segment.polygon_id)
             }

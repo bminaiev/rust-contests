@@ -6,6 +6,7 @@ pub mod direction;
 pub mod half_plane_intersection;
 pub mod half_plane_intersection_test;
 pub mod line;
+pub mod orientation;
 pub mod point;
 pub mod point_location;
 pub mod polygon;
