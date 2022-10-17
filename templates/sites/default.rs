@@ -5,6 +5,5 @@ fn solve(input: &mut Input, _test_case: usize) {
 pub(crate) fn run(mut input: Input) -> bool {
     $INVOKE
     output().flush();
-    input.skip_whitespace();
-    input.peek().is_none()
+    true
 }

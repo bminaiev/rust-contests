@@ -5,6 +5,12 @@ pub struct Permutation {
     pos_of_element: Vec<usize>,
 }
 
+impl std::fmt::Debug for Permutation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{:?}", self.ids))
+    }
+}
+
 impl Permutation {
     pub fn new(n: usize) -> Self {
         Self::from_vec((0..n).collect())
