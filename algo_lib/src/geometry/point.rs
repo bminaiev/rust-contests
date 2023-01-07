@@ -7,7 +7,7 @@ use crate::misc::num_traits::Number;
 use crate::misc::ord_f64::OrdF64;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug, Default)]
 pub struct PointT<T: Number> {
     pub x: T,
     pub y: T,
