@@ -86,6 +86,7 @@ pub struct SimulatedAnnealing {
     finish_temp: OrdF64,
     current_temperature: OrdF64,
     last_score: OrdF64,
+    best_seen_score: OrdF64,
     last_delta: OrdF64,
     last_printed_status_iter: usize,
     max_num_status_updates: usize,
@@ -126,6 +127,7 @@ impl SimulatedAnnealing {
             start_temp: f!(start_temp),
             finish_temp: f!(finish_temp),
             current_temperature: f!(start_temp),
+            best_seen_score: last_score,
             last_score,
             last_delta: f!(0.0),
             last_printed_status_iter: 0,
@@ -148,11 +150,12 @@ impl SimulatedAnnealing {
     fn print_status(&self) {
         let elapsed_ms = self.instant.elapsed().as_millis();
         eprintln!(
-            "After {}ms ({:?} iters), % of accepted changes = {:.3}%, score is: {}",
+            "After {}ms ({:?} iters), % of accepted changes = {:.3}%, score is: {}, best: {}",
             elapsed_ms,
             HumanReadableUsize(self.iterations_passed),
             self.acceptance_percent(),
-            self.last_score
+            self.last_score,
+            self.best_seen_score,
         );
     }
 
@@ -198,6 +201,18 @@ impl SimulatedAnnealing {
         self.last_delta = delta_if_positive_is_good;
         if delta_if_positive_is_good >= f!(0.0) {
             self.last_score = new_score;
+            match self.search_for {
+                SearchFor::MaximumScore => {
+                    if new_score > self.best_seen_score {
+                        self.best_seen_score = new_score
+                    }
+                }
+                SearchFor::MinimumScore => {
+                    if new_score < self.best_seen_score {
+                        self.best_seen_score = new_score;
+                    }
+                }
+            }
             if delta_if_positive_is_good != f!(0.0) {
                 self.accept_rate.add(self.iterations_passed);
             }
