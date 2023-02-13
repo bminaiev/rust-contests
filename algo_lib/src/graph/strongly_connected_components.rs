@@ -20,6 +20,7 @@ where
     CompressedGraph::with_edge_iter(graph.num_vertices(), iter())
 }
 
+#[derive(Debug)]
 pub struct StronglyConnectedComponents<CompIdType> {
     pub num_comps: usize,
     pub comp_id: Vec<CompIdType>,
@@ -75,8 +76,8 @@ where
             let v = v as usize;
             if !dfs2.seen(v) {
                 dfs2.run(SimpleEdge::new(v));
+                dfs2.state.1 += CompIdType::ONE;
             }
-            dfs2.state.1 += CompIdType::ONE;
         }
     }
     StronglyConnectedComponents {

@@ -71,4 +71,9 @@ impl Line {
         let z = self.a * p.x + self.b * p.y + self.c;
         z * z / (self.a * self.a + self.b * self.b)
     }
+
+    pub fn closest_to_zero(&self) -> Point {
+        let den = self.a * self.a + self.b * self.b;
+        Point::new(-self.a * self.c / den, -self.b * self.c / den)
+    }
 }
