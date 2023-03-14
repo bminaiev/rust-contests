@@ -94,6 +94,7 @@ pub struct SimulatedAnnealing {
     silent: bool,
     accept_rate: AcceptRate,
     save_cheker: SaveChecker,
+    out_prefix: String,
 }
 
 impl SimulatedAnnealing {
@@ -136,6 +137,7 @@ impl SimulatedAnnealing {
             silent: false,
             accept_rate: AcceptRate::new(),
             save_cheker,
+            out_prefix: String::new(),
         }
     }
 
@@ -147,10 +149,15 @@ impl SimulatedAnnealing {
         self.instant.elapsed().as_secs_f64() * 1000.0
     }
 
+    pub fn with_out_prefix(&mut self, prefix: String) {
+        self.out_prefix = prefix;
+    }
+
     fn print_status(&self) {
         let elapsed_ms = self.instant.elapsed().as_millis();
         eprintln!(
-            "After {}ms ({:?} iters), % of accepted changes = {:.3}%, score is: {}, best: {}",
+            "{}After {}ms ({:?} iters), % of accepted changes = {:.3}%, score is: {}, best: {}",
+            self.out_prefix,
             elapsed_ms,
             HumanReadableUsize(self.iterations_passed),
             self.acceptance_percent(),

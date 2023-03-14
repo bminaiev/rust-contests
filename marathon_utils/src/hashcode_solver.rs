@@ -108,7 +108,7 @@ impl<'a> OneTest<'a> {
     }
 
     // TODO: make this atomic.. (or we can lose result)
-    pub fn save_result(&self, f: &mut dyn FnMut()) {
+    pub fn save_result(&mut self, f: &mut dyn FnMut()) {
         set_global_output_to_file(&self.output_path.to_str().unwrap());
         f();
         let symlink_path = &format!("/home/borys/{}.out", self.name);
