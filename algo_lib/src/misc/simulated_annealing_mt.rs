@@ -1,7 +1,10 @@
 use std::{
     fmt::Display,
     ops::{AddAssign, Range},
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
     thread,
     time::Instant,
 };
@@ -17,14 +20,14 @@ use crate::{
 };
 
 pub trait SaState: Send + Clone {
-    type Change;
+    type Change: Send;
     type Score: Into<OrdF64> + Display + AddAssign + Copy + Send;
 
     fn apply(&mut self, change: &Self::Change);
     fn change_score_delta(&self, change: &Self::Change) -> Self::Score;
 }
 
-pub fn should_go<T: Into<OrdF64>>(
+fn should_go<T: Into<OrdF64>>(
     score_delta: T,
     search_for: SearchFor,
     current_temperature: OrdF64,
@@ -57,7 +60,7 @@ pub fn simulated_annealing_mt<State: SaState>(
     searching_for: SearchFor,
     start_temp: f64,
     finish_temp: f64,
-) {
+) -> State {
     let num_threads = 20;
 
     let start_temp = f!(start_temp);
@@ -67,6 +70,10 @@ pub fn simulated_annealing_mt<State: SaState>(
     const UPDATE_EVERY: f64 = 0.01;
 
     let best_solution = Arc::new(Mutex::new(OrdF64::MAX));
+    let best_res = Arc::new(Mutex::new(start_state.clone()));
+
+    let changes = Arc::new(Mutex::new(vec![]));
+    let glob_changes_version = Arc::new(AtomicUsize::new(0));
 
     thread::scope(|scope| {
         for thread_id in 0..num_threads {
@@ -74,11 +81,18 @@ pub fn simulated_annealing_mt<State: SaState>(
 
             let mut state = start_state.clone();
             let mut gen_change = gen_change.clone();
+            let changes = changes.clone();
+            let glob_changes_version = glob_changes_version.clone();
+            let mut best_res = best_res.clone();
 
             scope.spawn(move || {
                 let mut cur_score = start_score;
                 let mut rnd = Random::new(787788 + thread_id);
                 let mut last_updated = 0.0;
+                let mut changes_version = 0;
+
+                let mut applied_changes = 0;
+                let mut not_applied_changes = 0;
 
                 loop {
                     let part_time_elapsed = start.elapsed().as_secs_f64() / max_time_sec;
@@ -94,7 +108,7 @@ pub fn simulated_annealing_mt<State: SaState>(
                         }
                         if thread_id == 0 {
                             eprintln!(
-                                "Time(s):\t{}\tCurrent score:\t{}",
+                                "Time(s):\t{}\tCurrent score:\t{}\tApplied:\t{applied_changes}\tDiscarded\t{not_applied_changes}",
                                 start.elapsed().as_secs_f64(),
                                 *best_solution_guard
                             );
@@ -102,6 +116,17 @@ pub fn simulated_annealing_mt<State: SaState>(
 
                         last_updated = part_time_elapsed;
                     }
+                    if glob_changes_version.load(Ordering::Relaxed) != changes_version
+                    {
+                        let changes_lock = changes.lock().unwrap();
+                        while changes_version < changes_lock.len() {
+                            let change = &changes_lock[changes_version];
+                            cur_score += State::change_score_delta(&state, &change);
+                            state.apply(change);
+                            changes_version += 1;
+                        }
+                    }
+
                     // when [part_time_elapsed] = 0.0, should be equal to [self.start_temp]
                     // when [part_time_elapsed] = 1.0, should be equal to [self.finish_temp]
                     let current_temperature =
@@ -110,16 +135,30 @@ pub fn simulated_annealing_mt<State: SaState>(
                     if let Some(change) = gen_change(&state, &mut rnd) {
                         let score_delta = State::change_score_delta(&state, &change);
                         if should_go(score_delta, searching_for, current_temperature, &mut rnd) {
-                            cur_score += score_delta;
-                            state.apply(&change);
+                            if glob_changes_version.compare_exchange_weak(changes_version, changes_version + 1, Ordering::Relaxed, Ordering::Relaxed).is_ok() {
+                                let mut changes_lock = changes.lock().unwrap();
+                                cur_score += score_delta;
+                                state.apply(&change);
+                                changes_lock.push(change);
+                                changes_version += 1;
+                                applied_changes += 1;
+                            } else {
+                                not_applied_changes += 1;
+                            }
                         }
                     }
+                }
+                eprintln!("Thread {thread_id}. Applied: {applied_changes}, discarded: {not_applied_changes}");
+                if thread_id == 0 {
+                    *best_res.lock().unwrap() = state.clone();
                 }
             });
         }
     });
 
-    eprintln!("Done!")
+    eprintln!("Done!");
+    let res = best_res.lock().unwrap().clone();
+    res
 }
 
 // TODO: move to a separate file
@@ -127,7 +166,7 @@ pub fn simulated_annealing_mt<State: SaState>(
 fn test() {
     eprintln!("Hello!");
     let mut rnd = Random::new(787788);
-    let n = 500;
+    let n = 100;
     type Point = PointT<OrdF64>;
     let pts = gen_vec(n, |_| {
         Point::new(f!(rnd.gen_double()), f!(rnd.gen_double()))
@@ -173,7 +212,7 @@ fn test() {
     let start_score = calc_score(&start_state);
 
     simulated_annealing_mt(
-        10.0,
+        1.0,
         start_state,
         start_score,
         |state: &State, rnd: &mut Random| {
@@ -184,7 +223,7 @@ fn test() {
             Some(Change { rev, score_delta })
         },
         SearchFor::MinimumScore,
-        1.0,
-        0.0001,
+        0.2,
+        5e-3,
     );
 }
