@@ -1,6 +1,8 @@
 use std::{
     fmt::Display,
     ops::{AddAssign, Range},
+    sync::{Arc, Mutex},
+    thread,
     time::Instant,
 };
 
@@ -14,9 +16,9 @@ use crate::{
     },
 };
 
-pub trait SaState {
+pub trait SaState: Send + Clone {
     type Change;
-    type Score: Into<OrdF64> + Display + AddAssign + Copy;
+    type Score: Into<OrdF64> + Display + AddAssign + Copy + Send;
 
     fn apply(&mut self, change: &Self::Change);
     fn change_score_delta(&self, change: &Self::Change) -> Self::Score;
@@ -51,41 +53,72 @@ pub fn simulated_annealing_mt<State: SaState>(
     max_time_sec: f64,
     start_state: State,
     start_score: State::Score,
-    mut gen_change: impl FnMut(&State, &mut Random) -> Option<State::Change>,
+    gen_change: impl FnMut(&State, &mut Random) -> Option<State::Change> + Send + Clone,
     searching_for: SearchFor,
     start_temp: f64,
     finish_temp: f64,
 ) {
+    let num_threads = 20;
+
     let start_temp = f!(start_temp);
     let finish_temp = f!(finish_temp);
     let start = Instant::now();
-    let mut cur_score = start_score;
-    let mut state = start_state;
-    let mut rnd = Random::new(787788);
-    const UPDATE_EVERY: f64 = 0.1;
-    let mut last_updated = 0.0;
-    loop {
-        let part_time_elapsed = start.elapsed().as_secs_f64() / max_time_sec;
-        if part_time_elapsed >= 1.0 {
-            break;
-        }
 
-        if part_time_elapsed > last_updated + UPDATE_EVERY {
-            eprintln!("Time: {:?}, Current score: {cur_score}", start.elapsed());
-            last_updated = part_time_elapsed;
-        }
-        // when [part_time_elapsed] = 0.0, should be equal to [self.start_temp]
-        // when [part_time_elapsed] = 1.0, should be equal to [self.finish_temp]
-        let current_temperature = start_temp * (finish_temp / start_temp).powf(part_time_elapsed);
+    const UPDATE_EVERY: f64 = 0.01;
 
-        if let Some(change) = gen_change(&state, &mut rnd) {
-            let score_delta = State::change_score_delta(&state, &change);
-            if should_go(score_delta, searching_for, current_temperature, &mut rnd) {
-                cur_score += score_delta;
-                state.apply(&change);
-            }
+    let best_solution = Arc::new(Mutex::new(OrdF64::MAX));
+
+    thread::scope(|scope| {
+        for thread_id in 0..num_threads {
+            let best_solution_clone = Arc::clone(&best_solution);
+
+            let mut state = start_state.clone();
+            let mut gen_change = gen_change.clone();
+
+            scope.spawn(move || {
+                let mut cur_score = start_score;
+                let mut rnd = Random::new(787788 + thread_id);
+                let mut last_updated = 0.0;
+
+                loop {
+                    let part_time_elapsed = start.elapsed().as_secs_f64() / max_time_sec;
+                    if part_time_elapsed >= 1.0 {
+                        break;
+                    }
+
+                    if part_time_elapsed > last_updated + UPDATE_EVERY {
+                        let mut best_solution_guard = best_solution_clone.lock().unwrap();
+                        let cur_score = cur_score.into();
+                        if cur_score < *best_solution_guard {
+                            *best_solution_guard = cur_score;
+                        }
+                        if thread_id == 0 {
+                            eprintln!(
+                                "Time(s):\t{}\tCurrent score:\t{}",
+                                start.elapsed().as_secs_f64(),
+                                *best_solution_guard
+                            );
+                        }
+
+                        last_updated = part_time_elapsed;
+                    }
+                    // when [part_time_elapsed] = 0.0, should be equal to [self.start_temp]
+                    // when [part_time_elapsed] = 1.0, should be equal to [self.finish_temp]
+                    let current_temperature =
+                        start_temp * (finish_temp / start_temp).powf(part_time_elapsed);
+
+                    if let Some(change) = gen_change(&state, &mut rnd) {
+                        let score_delta = State::change_score_delta(&state, &change);
+                        if should_go(score_delta, searching_for, current_temperature, &mut rnd) {
+                            cur_score += score_delta;
+                            state.apply(&change);
+                        }
+                    }
+                }
+            });
         }
-    }
+    });
+
     eprintln!("Done!")
 }
 
