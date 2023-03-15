@@ -30,6 +30,7 @@ pub mod range_intersect;
 pub mod rec_function;
 pub mod run_parallel;
 pub mod simulated_annealing;
+pub mod simulated_annealing_mt;
 pub mod sse_utils;
 pub mod step_down;
 pub mod ternary_search;
