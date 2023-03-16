@@ -4,7 +4,7 @@ use crate::{f, misc::human_readable_usize::HumanReadableUsize};
 
 use super::{num_traits::HasConstants, ord_f64::OrdF64, rand::Random};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SearchFor {
     MinimumScore,
     MaximumScore,

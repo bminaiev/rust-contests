@@ -3,7 +3,7 @@ use std::{
     ops::{AddAssign, Range},
     sync::{
         atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
+        Arc, Mutex, RwLock,
     },
     thread,
     time::Instant,
@@ -20,7 +20,7 @@ use crate::{
 };
 
 pub trait SaState: Send + Clone {
-    type Change: Send;
+    type Change: Send + Sync;
     type Score: Into<OrdF64> + Display + AddAssign + Copy + Send;
 
     fn apply(&mut self, change: &Self::Change);
@@ -70,9 +70,12 @@ pub fn simulated_annealing_mt<State: SaState>(
     const UPDATE_EVERY: f64 = 0.01;
 
     let best_solution = Arc::new(Mutex::new(OrdF64::MAX));
+    if searching_for == SearchFor::MaximumScore {
+        *best_solution.lock().unwrap() = f!(0.0);
+    }
     let best_res = Arc::new(Mutex::new(start_state.clone()));
 
-    let changes = Arc::new(Mutex::new(vec![]));
+    let changes = Arc::new(RwLock::new(vec![]));
     let glob_changes_version = Arc::new(AtomicUsize::new(0));
 
     thread::scope(|scope| {
@@ -83,7 +86,7 @@ pub fn simulated_annealing_mt<State: SaState>(
             let mut gen_change = gen_change.clone();
             let changes = changes.clone();
             let glob_changes_version = glob_changes_version.clone();
-            let mut best_res = best_res.clone();
+            let best_res = best_res.clone();
 
             scope.spawn(move || {
                 let mut cur_score = start_score;
@@ -103,7 +106,7 @@ pub fn simulated_annealing_mt<State: SaState>(
                     if part_time_elapsed > last_updated + UPDATE_EVERY {
                         let mut best_solution_guard = best_solution_clone.lock().unwrap();
                         let cur_score = cur_score.into();
-                        if cur_score < *best_solution_guard {
+                        if (cur_score < *best_solution_guard && searching_for == SearchFor::MinimumScore) || (cur_score > *best_solution_guard && searching_for == SearchFor::MaximumScore) {
                             *best_solution_guard = cur_score;
                         }
                         if thread_id == 0 {
@@ -118,7 +121,7 @@ pub fn simulated_annealing_mt<State: SaState>(
                     }
                     if glob_changes_version.load(Ordering::Relaxed) != changes_version
                     {
-                        let changes_lock = changes.lock().unwrap();
+                        let changes_lock = changes.read().unwrap();
                         while changes_version < changes_lock.len() {
                             let change = &changes_lock[changes_version];
                             cur_score += State::change_score_delta(&state, &change);
@@ -136,7 +139,7 @@ pub fn simulated_annealing_mt<State: SaState>(
                         let score_delta = State::change_score_delta(&state, &change);
                         if should_go(score_delta, searching_for, current_temperature, &mut rnd) {
                             if glob_changes_version.compare_exchange_weak(changes_version, changes_version + 1, Ordering::Relaxed, Ordering::Relaxed).is_ok() {
-                                let mut changes_lock = changes.lock().unwrap();
+                                let mut changes_lock = changes.write().unwrap();
                                 cur_score += score_delta;
                                 state.apply(&change);
                                 changes_lock.push(change);
