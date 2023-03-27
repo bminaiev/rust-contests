@@ -44,3 +44,17 @@ pub fn read_graph(
     };
     CompressedGraph::with_edge_iter(num_vertices, edges.iter().map(|(fr, edge)| (*fr, *edge)))
 }
+
+pub fn read_undirected_graph(
+    input: &mut Input,
+    num_vertices: usize,
+    num_edges: usize,
+) -> CompressedGraph<SimpleEdge> {
+    read_graph(
+        input,
+        num_vertices,
+        num_edges,
+        Directional::Undirected,
+        Indexation::FromOne,
+    )
+}

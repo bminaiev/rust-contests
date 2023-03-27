@@ -52,3 +52,20 @@ where
     };
     CompressedGraph::with_edge_iter(num_vertices, edges.iter().map(|(fr, edge)| (*fr, *edge)))
 }
+
+pub fn read_weighted_undirected_graph<T>(
+    input: &mut Input,
+    num_vertices: usize,
+    num_edges: usize,
+) -> CompressedGraph<WeightedEdge<T>>
+where
+    T: Number + Readable,
+{
+    read_weighted_graph(
+        input,
+        num_vertices,
+        num_edges,
+        Directional::Undirected,
+        Indexation::FromOne,
+    )
+}
