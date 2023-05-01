@@ -109,6 +109,10 @@ impl BitSet {
             *x |= *y;
         }
     }
+
+    pub fn count_ones(&self) -> usize {
+        self.values.iter().map(|x| x.count_ones() as usize).sum()
+    }
 }
 
 impl BitOrAssign<&BitSet> for BitSet {

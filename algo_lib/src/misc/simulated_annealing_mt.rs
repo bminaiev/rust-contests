@@ -1,21 +1,15 @@
 use std::{
     fmt::Display,
-    ops::{AddAssign, Range},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex, RwLock,
-    },
+    ops::AddAssign,
+    sync::{Arc, Mutex},
     thread,
     time::Instant,
 };
 
 use crate::{
-    collections::array_2d::Array2D,
     f,
-    geometry::point::PointT,
     misc::{
-        gen_vector::gen_vec, num_traits::HasConstants, ord_f64::OrdF64, rand::Random,
-        simulated_annealing::SearchFor,
+        num_traits::HasConstants, ord_f64::OrdF64, rand::Random, simulated_annealing::SearchFor,
     },
 };
 
@@ -61,7 +55,7 @@ pub fn simulated_annealing_mt<State: SaState>(
     start_temp: f64,
     finish_temp: f64,
 ) -> State {
-    let num_threads = 20;
+    let num_threads = 10;
 
     let start_temp = f!(start_temp);
     let finish_temp = f!(finish_temp);
@@ -75,8 +69,7 @@ pub fn simulated_annealing_mt<State: SaState>(
     }
     let best_res = Arc::new(Mutex::new(start_state.clone()));
 
-    let changes = Arc::new(RwLock::new(vec![]));
-    let glob_changes_version = Arc::new(AtomicUsize::new(0));
+    let changes = Arc::new(Mutex::new(vec![]));
 
     thread::scope(|scope| {
         for thread_id in 0..num_threads {
@@ -85,7 +78,6 @@ pub fn simulated_annealing_mt<State: SaState>(
             let mut state = start_state.clone();
             let mut gen_change = gen_change.clone();
             let changes = changes.clone();
-            let glob_changes_version = glob_changes_version.clone();
             let best_res = best_res.clone();
 
             scope.spawn(move || {
@@ -119,9 +111,8 @@ pub fn simulated_annealing_mt<State: SaState>(
 
                         last_updated = part_time_elapsed;
                     }
-                    if glob_changes_version.load(Ordering::Relaxed) != changes_version
                     {
-                        let changes_lock = changes.read().unwrap();
+                        let changes_lock = changes.lock().unwrap();
                         while changes_version < changes_lock.len() {
                             let change = &changes_lock[changes_version];
                             cur_score += State::change_score_delta(&state, &change);
@@ -138,8 +129,8 @@ pub fn simulated_annealing_mt<State: SaState>(
                     if let Some(change) = gen_change(&state, &mut rnd) {
                         let score_delta = State::change_score_delta(&state, &change);
                         if should_go(score_delta, searching_for, current_temperature, &mut rnd) {
-                            if glob_changes_version.compare_exchange_weak(changes_version, changes_version + 1, Ordering::Relaxed, Ordering::Relaxed).is_ok() {
-                                let mut changes_lock = changes.write().unwrap();
+                            let mut changes_lock = changes.lock().unwrap();
+                            if changes_lock.len() == changes_version {
                                 cur_score += score_delta;
                                 state.apply(&change);
                                 changes_lock.push(change);
@@ -164,69 +155,89 @@ pub fn simulated_annealing_mt<State: SaState>(
     res
 }
 
-// TODO: move to a separate file
-#[test]
-fn test() {
-    eprintln!("Hello!");
-    let mut rnd = Random::new(787788);
-    let n = 100;
-    type Point = PointT<OrdF64>;
-    let pts = gen_vec(n, |_| {
-        Point::new(f!(rnd.gen_double()), f!(rnd.gen_double()))
-    });
-    let d = Array2D::new_f(n, n, |id1, id2| pts[id1].dist2(&pts[id2]));
+#[cfg(test)]
+mod tests {
+    // TODO: move to a separate file
 
-    #[derive(Clone)]
-    struct State {
-        perm: Vec<usize>,
-    }
+    use std::ops::Range;
 
-    let calc_score = |state: &State| -> OrdF64 {
-        let mut res = OrdF64::ZERO;
-        for i in 0..state.perm.len() {
-            let x = state.perm[i];
-            let y = state.perm[(i + 1) % state.perm.len()];
-            res += d[x][y];
-        }
-        res
+    use crate::{
+        collections::array_2d::Array2D,
+        f,
+        geometry::point::PointT,
+        misc::{
+            gen_vector::gen_vec,
+            num_traits::HasConstants,
+            ord_f64::OrdF64,
+            rand::Random,
+            simulated_annealing::SearchFor,
+            simulated_annealing_mt::{simulated_annealing_mt, SaState},
+        },
     };
 
-    struct Change {
-        rev: Range<usize>,
-        score_delta: OrdF64,
-    }
+    #[test]
+    fn test() {
+        eprintln!("Hello!");
+        let mut rnd = Random::new(787788);
+        let n = 100;
+        type Point = PointT<OrdF64>;
+        let pts = gen_vec(n, |_| {
+            Point::new(f!(rnd.gen_double()), f!(rnd.gen_double()))
+        });
+        let d = Array2D::new_f(n, n, |id1, id2| pts[id1].dist2(&pts[id2]));
 
-    impl SaState for State {
-        type Change = Change;
-
-        type Score = OrdF64;
-
-        fn apply(&mut self, change: &Self::Change) {
-            self.perm[change.rev.clone()].reverse()
+        #[derive(Clone)]
+        struct State {
+            perm: Vec<usize>,
         }
 
-        fn change_score_delta(&self, change: &Self::Change) -> Self::Score {
-            change.score_delta
+        let calc_score = |state: &State| -> OrdF64 {
+            let mut res = OrdF64::ZERO;
+            for i in 0..state.perm.len() {
+                let x = state.perm[i];
+                let y = state.perm[(i + 1) % state.perm.len()];
+                res += d[x][y];
+            }
+            res
+        };
+
+        struct Change {
+            rev: Range<usize>,
+            score_delta: OrdF64,
         }
+
+        impl SaState for State {
+            type Change = Change;
+
+            type Score = OrdF64;
+
+            fn apply(&mut self, change: &Self::Change) {
+                self.perm[change.rev.clone()].reverse()
+            }
+
+            fn change_score_delta(&self, change: &Self::Change) -> Self::Score {
+                change.score_delta
+            }
+        }
+
+        let perm = rnd.gen_permutation(n);
+        let start_state = State { perm };
+        let start_score = calc_score(&start_state);
+
+        simulated_annealing_mt(
+            1.0,
+            start_state,
+            start_score,
+            |state: &State, rnd: &mut Random| {
+                let rev = rnd.gen_nonempty_range(n);
+                let mut new_state = state.clone();
+                new_state.perm[rev.clone()].reverse();
+                let score_delta = calc_score(&new_state) - calc_score(state);
+                Some(Change { rev, score_delta })
+            },
+            SearchFor::MinimumScore,
+            0.2,
+            5e-3,
+        );
     }
-
-    let perm = rnd.gen_permutation(n);
-    let start_state = State { perm };
-    let start_score = calc_score(&start_state);
-
-    simulated_annealing_mt(
-        1.0,
-        start_state,
-        start_score,
-        |state: &State, rnd: &mut Random| {
-            let rev = rnd.gen_nonempty_range(n);
-            let mut new_state = state.clone();
-            new_state.perm[rev.clone()].reverse();
-            let score_delta = calc_score(&new_state) - calc_score(state);
-            Some(Change { rev, score_delta })
-        },
-        SearchFor::MinimumScore,
-        0.2,
-        5e-3,
-    );
 }

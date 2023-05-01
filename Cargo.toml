@@ -3,3 +3,7 @@ members = [
     "main",
     "algo_lib",
 ]
+
+
+[profile.release]
+debug = 1
