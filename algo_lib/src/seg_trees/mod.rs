@@ -10,3 +10,4 @@ pub mod lazy_seg_tree_max_update;
 pub mod lazy_seg_tree_set_sum;
 pub mod lazy_seg_tree_string_hash;
 pub mod persistent_tree;
+pub mod persistent_tree_rc;

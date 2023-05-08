@@ -1,6 +1,6 @@
 use crate::misc::binary_search::binary_search_last_true;
 use crate::misc::num_traits::Number;
-use crate::seg_trees::persistent_tree::{
+use crate::seg_trees::persistent_tree_rc::{
     PersistentTree, PersistentTreeNode, PersistentTreeWithoutLinks,
 };
 use std::cmp::{min, Ordering};

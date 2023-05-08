@@ -1,255 +1,198 @@
-use std::cmp::{max, min};
-use std::ops::Range;
-use std::rc::Rc;
+use std::ops::{Index, Range};
 
-pub trait PersistentTreeNode: Sized + Clone {
-    type Update: Clone;
-    type Context;
+use crate::seg_trees::lazy_seg_tree::LazySegTreeNodeSpec;
 
-    fn apply_update(node: &PersistentTree<Self>, update: &Self::Update) -> Self;
-    fn join_updates(
-        ctx: &Self::Context,
-        old_update: &Self::Update,
-        new_update: &Self::Update,
-    ) -> Self::Update;
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct NodeId(u32);
 
-    // arghhh....
-    fn need_switch_child(update: &Self::Update) -> bool;
-    fn join(
-        ctx: &Self::Context,
-        lhs: &PersistentTreeWithoutLinks<Self>,
-        rhs: &PersistentTreeWithoutLinks<Self>,
-    ) -> Self;
+impl NodeId {
+    pub const NONE: Self = NodeId(std::u32::MAX);
 }
 
 #[derive(Clone)]
-pub struct PersistentTreeWithoutLinks<Node>
-where
-    Node: PersistentTreeNode,
-{
-    node: Node,
-    size: u32,
-    update_to_push: Option<Node::Update>,
+pub struct TreeNode<T: LazySegTreeNodeSpec> {
+    left: NodeId,
+    right: NodeId,
+    node: T,
+    update: Option<T::Update>,
 }
 
-impl<Node> PersistentTreeWithoutLinks<Node>
-where
-    Node: PersistentTreeNode,
-{
-    pub fn size(&self) -> usize {
-        self.size as usize
-    }
-
-    pub fn join_nodes(ctx: &Node::Context, lhs: &Self, rhs: &Self) -> Self {
-        Self {
-            node: Node::join(ctx, &lhs, &rhs),
-            size: lhs.size + rhs.size,
-            update_to_push: None,
-        }
-    }
-
-    pub fn node(&self) -> &Node {
+impl<T: LazySegTreeNodeSpec> TreeNode<T> {
+    pub fn inner(&self) -> &T {
         &self.node
     }
 }
 
-#[derive(Clone)]
-pub struct PersistentTree<Node>
-where
-    Node: PersistentTreeNode,
-{
-    without_links: PersistentTreeWithoutLinks<Node>,
-    child: Option<[Rc<PersistentTree<Node>>; 2]>,
+pub struct PersistentSegTree<T: LazySegTreeNodeSpec> {
+    nodes: Vec<TreeNode<T>>,
+    context: T::Context,
+    n: usize,
 }
 
-impl<Node> PersistentTree<Node>
-where
-    Node: PersistentTreeNode,
-{
-    pub fn join_nodes(
-        ctx: &Node::Context,
-        lhs: Rc<PersistentTree<Node>>,
-        rhs: Rc<PersistentTree<Node>>,
-    ) -> Rc<PersistentTree<Node>> {
-        Rc::new(Self {
-            without_links: PersistentTreeWithoutLinks::join_nodes(
-                ctx,
-                &lhs.without_links,
-                &rhs.without_links,
-            ),
-            child: Some([lhs, rhs]),
-        })
-    }
+impl<T: LazySegTreeNodeSpec> Index<NodeId> for PersistentSegTree<T> {
+    type Output = T;
 
-    pub fn size(&self) -> usize {
-        self.without_links.size()
+    fn index(&self, index: NodeId) -> &Self::Output {
+        &self.nodes[index.0 as usize].node
     }
+}
 
-    pub fn node(&self) -> &Node {
-        &self.without_links.node
-    }
-
-    fn create_range(
-        ctx: &Node::Context,
-        range: Range<usize>,
-        f: &mut impl FnMut(usize) -> Node,
-    ) -> Rc<Self> {
-        if range.len() == 1 {
-            Rc::new(Self {
-                without_links: PersistentTreeWithoutLinks {
-                    node: f(range.start),
-                    size: 1,
-                    update_to_push: None,
-                },
-                child: None,
-            })
-        } else {
-            let half = (range.start + range.end) >> 1;
-            let left = Self::create_range(ctx, range.start..half, f);
-            let right = Self::create_range(ctx, half..range.end, f);
-            Self::join_nodes(ctx, left, right)
-        }
-    }
-
-    pub fn create(ctx: &Node::Context, n: usize, f: &mut impl FnMut(usize) -> Node) -> Rc<Self> {
+impl<T: LazySegTreeNodeSpec> PersistentSegTree<T> {
+    pub fn new_f_with_context(
+        n: usize,
+        f: &dyn Fn(usize) -> T,
+        context: T::Context,
+    ) -> (Self, NodeId) {
         assert!(n > 0);
-        Self::create_range(ctx, 0..n, f)
+        let mut res = Self {
+            nodes: vec![],
+            context,
+            n,
+        };
+        let root = res.build_f(0..n, f);
+        (res, root)
     }
 
-    fn relax(ctx: &Node::Context, node: &Self) -> (PersistentTree<Node>, PersistentTree<Node>) {
-        let child =
-            |idx: usize| -> &Rc<PersistentTree<Node>> { &node.child.as_ref().unwrap()[idx] };
-
-        if let Some(update) = &node.without_links.update_to_push {
-            let lhs = Self::apply_update_to_node(ctx, child(0), update);
-            let rhs = Self::apply_update_to_node(ctx, child(1), update);
-            if Node::need_switch_child(update) {
-                (rhs, lhs)
-            } else {
-                (lhs, rhs)
+    pub fn build_f(&mut self, range: Range<usize>, f: &dyn Fn(usize) -> T) -> NodeId {
+        let node = if range.len() == 1 {
+            TreeNode {
+                left: NodeId::NONE,
+                right: NodeId::NONE,
+                node: f(range.start),
+                update: None,
             }
         } else {
-            (child(0).as_ref().clone(), child(1).as_ref().clone())
-        }
-    }
-
-    pub fn calc(
-        ctx: &Node::Context,
-        node: &Self,
-        range: Range<usize>,
-    ) -> PersistentTreeWithoutLinks<Node> {
-        assert_ne!(range.len(), 0);
-        assert!(range.end <= node.size());
-        if range.start == 0 && range.end == node.size() {
-            return node.without_links.clone();
-        }
-        let (child0, child1) = Self::relax(ctx, node);
-
-        let half = child0.size();
-        if range.end <= half {
-            return Self::calc(ctx, &child0, range);
-        }
-        if range.start >= half {
-            return Self::calc(ctx, &child1, range.start - half..range.end - half);
-        }
-        let lhs = Self::calc(ctx, &child0, range.start..half);
-        let rhs = Self::calc(ctx, &child1, 0..range.end - half);
-        PersistentTreeWithoutLinks::join_nodes(ctx, &lhs, &rhs)
-    }
-
-    pub fn calc_and_save(
-        ctx: &Node::Context,
-        node: &Rc<PersistentTree<Node>>,
-        range: Range<usize>,
-    ) -> Rc<PersistentTree<Node>> {
-        assert_ne!(range.len(), 0);
-        assert!(range.end <= node.size());
-        if range.start == 0 && range.end == node.size() {
-            return node.clone();
-        }
-        let (child0, child1) = Self::relax(ctx, node);
-        // TODO: not ideal
-        let (child0, child1) = (Rc::new(child0), Rc::new(child1));
-
-        let half = child0.size();
-        if range.end <= half {
-            return Self::calc_and_save(ctx, &child0, range);
-        }
-        if range.start >= half {
-            return Self::calc_and_save(ctx, &child1, range.start - half..range.end - half);
-        }
-        let lhs = Self::calc_and_save(ctx, &child0, range.start..half);
-        let rhs = Self::calc_and_save(ctx, &child1, 0..range.end - half);
-        Self::join_nodes(ctx, lhs, rhs)
-    }
-
-    pub fn get(ctx: &Node::Context, node: &Self, pos: usize) -> PersistentTreeWithoutLinks<Node> {
-        assert!(pos < node.size());
-        if node.size() == 1 {
-            return node.without_links.clone();
-        }
-        let (child0, child1) = Self::relax(ctx, node);
-        if pos < child0.size() {
-            Self::get(ctx, &child0, pos)
-        } else {
-            Self::get(ctx, &child1, pos - child0.size())
-        }
-    }
-
-    pub fn apply_update_to_node(
-        ctx: &Node::Context,
-        node: &Rc<Self>,
-        update: &Node::Update,
-    ) -> Self {
-        let update_to_push = match &node.without_links.update_to_push {
-            None => Some(update.clone()),
-            Some(old_update) => Some(Node::join_updates(ctx, old_update, update)),
-        };
-        return Self {
-            without_links: PersistentTreeWithoutLinks {
-                node: Node::apply_update(node, update),
-                size: node.without_links.size,
-                update_to_push,
-            },
-            child: node.child.clone(),
-        };
-    }
-
-    #[must_use]
-    pub fn update(
-        ctx: &Node::Context,
-        node: &Rc<Self>,
-        range: Range<usize>,
-        update: &Node::Update,
-    ) -> Rc<Self> {
-        assert_ne!(range.len(), 0);
-        assert!(range.end <= node.size());
-        if range.start == 0 && range.end == node.size() {
-            return Rc::new(Self::apply_update_to_node(ctx, node, update));
-        }
-
-        let (child0, child1) = Self::relax(ctx, node);
-        // TODO: not ideal, could reuse old nodes?
-        let (child0, child1) = (Rc::new(child0), Rc::new(child1));
-
-        let half = child0.size();
-        let lhs = if range.start >= half {
-            child0
-        } else {
-            Self::update(ctx, &child0, range.start..min(range.end, half), update)
+            let m = (range.start + range.end) >> 1;
+            let left = self.build_f(range.start..m, f);
+            let right = self.build_f(m..range.end, f);
+            self.unite(left, right)
         };
 
-        let rhs = if range.end <= half {
-            child1
+        self.new_node(node)
+    }
+
+    fn unite(&self, left: NodeId, right: NodeId) -> TreeNode<T> {
+        TreeNode {
+            left,
+            right,
+            node: T::unite(&self.node(left).node, &self.node(right).node, &self.context),
+            update: None,
+        }
+    }
+
+    pub fn update(&mut self, id: NodeId, range: Range<usize>, update: &T::Update) -> NodeId {
+        assert!(range.len() > 0);
+        assert!(range.start < self.n);
+        self.update_(self.node(id).clone(), 0..self.n, range, update)
+    }
+
+    fn update_(
+        &mut self,
+        node: TreeNode<T>,
+        node_range: Range<usize>,
+        update_range: Range<usize>,
+        update: &T::Update,
+    ) -> NodeId {
+        if update_range.start >= node_range.end || node_range.start >= update_range.end {
+            return self.new_node(node);
+        }
+        if update_range.start <= node_range.start && node_range.end <= update_range.end {
+            let mut node: TreeNode<T> = node.clone();
+            T::apply_update(&mut node.node, update);
+            return self.new_node(node);
+        }
+        let m = node_range.start + ((node_range.end - node_range.start) >> 1);
+        let mut left_id = node.left;
+        let mut right_id = node.right;
+        if let Some(update) = &node.update {
+            let (node_left, node_right) = self.get_children(&node);
+            left_id = self.update_(node_left, node_range.start..m, update_range.clone(), update);
+            right_id = self.update_(node_right, m..node_range.end, update_range, update);
         } else {
-            Self::update(
-                ctx,
-                &child1,
-                max(half, range.start - half)..range.end - half,
-                update,
+            if update_range.start < m {
+                left_id = self.update_(
+                    self.node(left_id).clone(),
+                    node_range.start..m,
+                    update_range.clone(),
+                    update,
+                );
+            }
+            if update_range.end > m {
+                right_id = self.update_(
+                    self.node(right_id).clone(),
+                    m..node_range.end,
+                    update_range,
+                    update,
+                );
+            }
+        }
+        let new_node = self.unite(left_id, right_id);
+        self.new_node(new_node)
+    }
+
+    fn new_node(&mut self, node: TreeNode<T>) -> NodeId {
+        self.nodes.push(node);
+        NodeId(self.nodes.len() as u32 - 1)
+    }
+
+    pub fn get(&self, id: NodeId, range: Range<usize>) -> T {
+        assert!(range.len() > 0);
+        self.get_(self.node(id), 0..self.n, range)
+    }
+
+    fn get_(&self, node: &TreeNode<T>, node_range: Range<usize>, query: Range<usize>) -> T {
+        assert!(query.len() > 0);
+        assert!(query.end >= node_range.start);
+        assert!(query.start < node_range.end);
+        if query.start <= node_range.start && node_range.end <= query.end {
+            return node.node.clone();
+        }
+        let m = node_range.start + ((node_range.end - node_range.start) >> 1);
+        let (node_left, node_right) = self.get_children(node);
+        if query.start >= m {
+            self.get_(&node_right, m..node_range.end, query)
+        } else if query.end <= m {
+            self.get_(&node_left, node_range.start..m, query)
+        } else {
+            T::unite(
+                &self.get_(&node_left, node_range.start..m, query.clone()),
+                &self.get_(&node_right, m..node_range.end, query),
+                &self.context,
             )
-        };
+        }
+    }
 
-        Self::join_nodes(ctx, lhs, rhs)
+    pub fn get_children(&self, node: &TreeNode<T>) -> (TreeNode<T>, TreeNode<T>) {
+        let mut left = self.node(node.left).clone();
+        let mut right = self.node(node.right).clone();
+        if let Some(update) = &node.update {
+            self.apply_update(&mut left, &update);
+            self.apply_update(&mut right, &update);
+        }
+        (left, right)
+    }
+
+    fn apply_update(&self, node: &mut TreeNode<T>, update: &T::Update) {
+        T::apply_update(&mut node.node, update);
+        Self::join_updates(&mut node.update, update);
+    }
+
+    fn join_updates(current: &mut Option<T::Update>, add: &T::Update) {
+        match current {
+            None => *current = Some(add.clone()),
+            Some(current) => T::join_updates(current, add),
+        };
+    }
+
+    pub fn node(&self, id: NodeId) -> &TreeNode<T> {
+        &self.nodes[id.0 as usize]
+    }
+
+    pub fn len_nodes(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        self.nodes.reserve(additional);
     }
 }
