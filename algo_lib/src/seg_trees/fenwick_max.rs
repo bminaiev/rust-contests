@@ -37,4 +37,10 @@ impl<T: Number> FenwickMax<T> {
     pub fn len(&self) -> usize {
         self.values.len()
     }
+
+    pub fn clear(&mut self) {
+        for v in self.values.iter_mut() {
+            *v = T::ZERO;
+        }
+    }
 }
