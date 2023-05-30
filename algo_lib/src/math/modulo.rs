@@ -35,7 +35,7 @@ where
     }
 
     #[allow(dead_code)]
-    fn inv(self) -> Self {
+    pub fn inv(self) -> Self {
         ModWithValue(Self::rev_rec(self.0, M::val()), PhantomData)
     }
 

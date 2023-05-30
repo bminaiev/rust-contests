@@ -6,6 +6,7 @@ pub mod gauss;
 pub mod gcd;
 pub mod modulo;
 pub mod modulo_bench;
+pub mod modulo_pair;
 pub mod modulo_runtime;
 pub mod modulo_tests;
 pub mod ntt;

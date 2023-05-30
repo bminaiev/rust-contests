@@ -1,6 +1,6 @@
 #[cfg(test)]
 pub mod tests {
-    use crate::math::modulo::*;
+    use crate::math::{modulo::*, modulo_pair::ModPair998_007};
 
     type Mod = Mod7;
 
@@ -68,5 +68,21 @@ pub mod tests {
     fn consts() {
         let one = Mod::ONE - Mod::ZERO;
         assert_eq!(format!("{:?}", one), "1");
+    }
+
+    #[test]
+    fn pair() {
+        type Mod = ModPair998_007;
+        let x = Mod::new(1);
+        let y = Mod::new(2);
+        assert_eq!(format!("{:?}", x + y), "(3,3)");
+    }
+
+    #[test]
+    fn pair_big() {
+        type Mod = ModPair998_007;
+        let x = Mod::new(1_000_000_000);
+        let y = Mod::new(1_000_000_000);
+        assert_eq!(format!("{:?}", x + y), "((?? 3511294 ??),-14)");
     }
 }
