@@ -46,7 +46,7 @@ where
             .map(|id| Vec::with_capacity(cnt_adj[id] as usize))
             .collect();
         for (fr, edge) in edges.iter() {
-            adj[*fr].push(edge.clone());
+            adj[*fr].push(*edge);
         }
         Self {
             adj,

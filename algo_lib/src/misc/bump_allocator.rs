@@ -75,7 +75,7 @@ unsafe impl GlobalAlloc for BumpAlloc {
             handle_alloc_error(layout);
         }
 
-        inner.mmap.offset(aligned_offset as isize)
+        inner.mmap.add(aligned_offset)
     }
 
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}

@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::geometry::direction::DirectionT;
 use crate::geometry::line::Line;
 use crate::geometry::point::PointT;
@@ -32,12 +34,10 @@ where
     ///
     pub fn to_the_left(&self, p: &PointT<T>) -> i32 {
         let v_mul = PointT::<T>::vect_mul(&self.from, &self.to, p);
-        if v_mul > T::ZERO {
-            1
-        } else if v_mul < T::ZERO {
-            -1
-        } else {
-            0
+        match v_mul.cmp(&T::ZERO) {
+            Ordering::Less => -1,
+            Ordering::Equal => 0,
+            Ordering::Greater => 1,
         }
     }
 }
@@ -49,8 +49,7 @@ impl SegmentT<OrdF64> {
 
     pub fn contains(&self, p: &PointT<OrdF64>) -> bool {
         // TODO: should use eps?
-        return inside_bounding_box(self, p)
-            && PointT::vect_mul(&self.from, &self.to, p) == OrdF64::ZERO;
+        inside_bounding_box(self, p) && PointT::vect_mul(&self.from, &self.to, p) == OrdF64::ZERO
     }
 
     pub fn len2(&self) -> OrdF64 {

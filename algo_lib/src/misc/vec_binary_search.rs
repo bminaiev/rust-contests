@@ -31,7 +31,7 @@ where
     where
         T: Ord + Clone,
     {
-        match self.binary_search(&val) {
+        match self.binary_search(val) {
             Ok(pos) | Err(pos) => {
                 if pos == 0 {
                     None
@@ -67,7 +67,7 @@ where
     where
         T: Ord + Clone,
     {
-        match self.binary_search(&val) {
+        match self.binary_search(val) {
             Ok(pos) | Err(pos) => {
                 if pos == 0 {
                     None

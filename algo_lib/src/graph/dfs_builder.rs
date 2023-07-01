@@ -6,8 +6,8 @@ pub struct DfsBuilder<'a, Graph, Edge, State, FEnter, FExit>
 where
     Graph: GraphTrait<Edge>,
     Edge: EdgeTrait,
-    FEnter: FnMut(usize, &Edge, &mut State) -> (),
-    FExit: FnMut(usize, &Edge, &mut State) -> (),
+    FEnter: FnMut(usize, &Edge, &mut State),
+    FExit: FnMut(usize, &Edge, &mut State),
 {
     seen: BitSet,
     graph: &'a Graph,
@@ -45,8 +45,8 @@ where
         seen: BitSet::new(n),
         graph,
         state,
-        on_enter_f: (|_, _, _| -> () {}),
-        on_exit_f: (|_, _, _| -> () {}),
+        on_enter_f: (|_, _, _| {}),
+        on_exit_f: (|_, _, _| {}),
         stack: vec![],
     }
 }
@@ -55,15 +55,15 @@ impl<'a, Graph, Edge, State, FEnter, FExit> DfsBuilder<'a, Graph, Edge, State, F
 where
     Graph: GraphTrait<Edge>,
     Edge: EdgeTrait,
-    FEnter: FnMut(usize, &Edge, &mut State) -> (),
-    FExit: FnMut(usize, &Edge, &mut State) -> (),
+    FEnter: FnMut(usize, &Edge, &mut State),
+    FExit: FnMut(usize, &Edge, &mut State),
 {
     pub fn on_exit<FExit2>(
         self,
         on_exit_f: FExit2,
     ) -> DfsBuilder<'a, Graph, Edge, State, FEnter, FExit2>
     where
-        FExit2: FnMut(usize, &Edge, &mut State) -> (),
+        FExit2: FnMut(usize, &Edge, &mut State),
     {
         DfsBuilder {
             seen: self.seen,
@@ -80,7 +80,7 @@ where
         on_enter_f: FEnter2,
     ) -> DfsBuilder<'a, Graph, Edge, State, FEnter2, FExit>
     where
-        FEnter2: FnMut(usize, &Edge, &mut State) -> (),
+        FEnter2: FnMut(usize, &Edge, &mut State),
     {
         DfsBuilder {
             seen: self.seen,
@@ -96,7 +96,7 @@ where
         self.seen.get(v)
     }
 
-    pub fn set_seen(&mut self, v: usize, value : bool) {
+    pub fn set_seen(&mut self, v: usize, value: bool) {
         self.seen.set(v, value)
     }
 
@@ -112,8 +112,7 @@ where
                         self.seen.set(edge.to(), true);
                         (self.on_enter_f)(parent as usize, &edge, self.state);
                         for edge in self.graph.adj(edge.to()) {
-                            self.stack
-                                .push(Frame::CheckEdge(edge.to() as u32, edge.clone()));
+                            self.stack.push(Frame::CheckEdge(edge.to() as u32, *edge));
                         }
                     }
                 }

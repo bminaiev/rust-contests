@@ -35,10 +35,9 @@ where
 
         let root = (2..)
             .map(M::from_i32)
-            .filter(|&root| -> bool {
+            .find(|&root| -> bool {
                 root.pown(root_power - 1) != M::ONE && root.pown(root_power) == M::ONE
             })
-            .next()
             .unwrap();
 
         Self { root, root_power }

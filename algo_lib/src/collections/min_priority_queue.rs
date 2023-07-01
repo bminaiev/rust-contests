@@ -1,6 +1,7 @@
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 
+#[derive(Default)]
 pub struct MinPriorityQueue<T>(BinaryHeap<Reverse<T>>)
 where
     T: Ord;

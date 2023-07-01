@@ -15,7 +15,7 @@ where
     for v in 0..n {
         for edge in graph.adj(v) {
             if edge.to() > v {
-                all_edges.push((v, edge.clone()));
+                all_edges.push((v, *edge));
             }
         }
     }

@@ -48,12 +48,12 @@ impl<T: DsuNodeTrait> DsuWithRollbacks<T> {
         while self.p[v] != v {
             v = self.p[v];
         }
-        return v;
+        v
     }
 
     pub fn get_node(&self, mut v: usize) -> &T {
         v = self.get(v);
-        return &self.nodes[v];
+        &self.nodes[v]
     }
 
     pub fn save(&mut self, i: usize) {

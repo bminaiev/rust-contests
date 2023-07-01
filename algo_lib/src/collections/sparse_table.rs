@@ -38,7 +38,7 @@ where
                     matrix[lvl][pos] = matrix[lvl - 1][pos].clone();
                 } else {
                     matrix[lvl][pos] =
-                        Spec::join(&matrix[lvl - 1][pos], &matrix[lvl - 1][from], &values);
+                        Spec::join(&matrix[lvl - 1][pos], &matrix[lvl - 1][from], values);
                 }
             }
         }

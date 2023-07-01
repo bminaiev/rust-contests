@@ -49,11 +49,9 @@ impl SuffixArray {
     {
         let n = str.len();
         let mut lcp = vec![0; n - 1];
-        let mut k = 0;
+        let mut k = 0usize;
         for i in 0..n {
-            if k > 0 {
-                k -= 1;
-            }
+            k = k.saturating_sub(1);
             if pos_in_sorted[i] == n - 1 {
                 k = 0;
                 continue;
@@ -85,13 +83,13 @@ impl SuffixArray {
         let n = str.len();
         let mut sorted_suffixes = gen_vec(str.len(), |x| x);
         // TODO: replace with counting sort?
-        sorted_suffixes.sort_by_key(|&id| str[id as usize]);
+        sorted_suffixes.sort_by_key(|&id| str[id]);
         let mut class_eq = vec![0; n];
         for win in sorted_suffixes.windows(2) {
-            if str[win[1] as usize] != str[win[0] as usize] {
-                class_eq[win[1] as usize] = class_eq[win[0] as usize] + 1;
+            if str[win[1]] != str[win[0]] {
+                class_eq[win[1]] = class_eq[win[0]] + 1;
             } else {
-                class_eq[win[1] as usize] = class_eq[win[0] as usize];
+                class_eq[win[1]] = class_eq[win[0]];
             }
         }
         let mut num_classes = class_eq.iter().max().unwrap() + 1;
@@ -133,9 +131,7 @@ impl SuffixArray {
                 }
                 class_eq_new[sorted_suffixes[i]] = num_classes - 1;
             }
-            for i in 0..n {
-                class_eq[i] = class_eq_new[i];
-            }
+            class_eq.copy_from_slice(&class_eq_new);
         }
 
         let pos_in_sorted = rev_permutation(&sorted_suffixes);

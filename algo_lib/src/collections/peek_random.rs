@@ -8,7 +8,7 @@ pub trait PeekRandom<T> {
 impl<T> PeekRandom<T> for &[T] {
     fn peek_random(&self, rnd: &mut Random) -> Option<&T> {
         if self.is_empty() {
-            return None;
+            None
         } else {
             Some(&self[rnd.gen_index(self)])
         }
@@ -22,7 +22,7 @@ impl<T> PeekRandom<T> for &[T] {
 impl<T> PeekRandom<T> for Vec<T> {
     fn peek_random(&self, rnd: &mut Random) -> Option<&T> {
         if self.is_empty() {
-            return None;
+            None
         } else {
             Some(&self[rnd.gen_index(self)])
         }

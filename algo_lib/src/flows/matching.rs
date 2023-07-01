@@ -26,7 +26,7 @@ pub fn find_matching(g: &[Vec<usize>], right_size: usize) -> MatchingResult {
                 return true;
             }
         }
-        return false;
+        false
     });
     let mut size = 0;
     for v in 0..n {

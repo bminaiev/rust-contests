@@ -31,7 +31,7 @@ pub fn float_binary_search_first_true(
                     }
                     eprintln!("{} --> {}", val.key, val.value);
                 }
-                assert!(false, "Function is not monotonic!");
+                unreachable!("Function is not monotonic!");
             }
         }
     }

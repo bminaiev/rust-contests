@@ -21,7 +21,7 @@ where
         .map(|sz| Vec::with_capacity(sz))
         .collect();
     for val in a.iter() {
-        res[val.to_i32() as usize].push(val.clone());
+        res[val.to_i32() as usize].push(*val);
     }
     res
 }

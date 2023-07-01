@@ -16,13 +16,13 @@ impl SingleSizeFixedNumElementsAllocator {
         let max_size = elem_size * max_elems_num;
         unsafe {
             let data = System.alloc(Layout::from_size_align(max_size, ALIGN).unwrap());
-            let used_from = data.offset(max_size as isize);
-            return Self {
+            let used_from = data.add(max_size);
+            Self {
                 data,
                 used_from,
                 elem_size,
-            };
-        };
+            }
+        }
     }
 
     pub fn alloc(&mut self) -> *mut u8 {

@@ -9,7 +9,7 @@ use std::num::ParseFloatError;
 use std::ops::{Neg, Rem};
 use std::str::FromStr;
 
-#[derive(PartialOrd, PartialEq, Copy, Clone, Default)]
+#[derive(PartialEq, Copy, Clone, Default)]
 pub struct OrdF64(pub f64);
 
 impl OrdF64 {
@@ -44,6 +44,12 @@ impl Eq for OrdF64 {}
 impl Ord for OrdF64 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap()
+    }
+}
+
+impl PartialOrd for OrdF64 {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
     }
 }
 

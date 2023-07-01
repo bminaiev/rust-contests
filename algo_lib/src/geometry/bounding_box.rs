@@ -53,7 +53,7 @@ impl<T: Number> BoundingBox<T> {
         if PointT::vect_mul(p1, p2, &PointT::new(self.max.x, self.max.y)) <= T::ZERO {
             return false;
         }
-        return true;
+        true
     }
 
     // TODO: this is wrong code!!!!???
@@ -85,6 +85,6 @@ impl<T: Number> BoundingBox<T> {
             return false;
         }
 
-        return true;
+        true
     }
 }

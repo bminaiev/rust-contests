@@ -42,7 +42,7 @@ where
     T: Number,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.cmp(&other) == Ordering::Equal
+        self.cmp(other) == Ordering::Equal
     }
 }
 
@@ -68,6 +68,6 @@ where
     T: Number,
 {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(&other).unwrap()
+        self.partial_cmp(other).unwrap()
     }
 }

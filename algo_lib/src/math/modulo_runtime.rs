@@ -20,7 +20,7 @@ impl ModRuntime {
         if a == 1 {
             return a;
         }
-        return ((1 - Self::rev_rec(m % a, a) as i64 * m as i64) / a as i64 + m as i64) as i32;
+        ((1 - Self::rev_rec(m % a, a) as i64 * m as i64) / a as i64 + m as i64) as i32
     }
 
     #[allow(dead_code)]
@@ -140,7 +140,7 @@ impl std::ops::Add for ModRuntime {
 
 impl std::ops::AddAssign for ModRuntime {
     fn add_assign(&mut self, rhs: Self) {
-        Self::assert_reasonable_pair(&self, &rhs);
+        Self::assert_reasonable_pair(self, &rhs);
         self.value += rhs.value;
         if self.value >= self.m {
             self.value -= self.m;
@@ -164,7 +164,7 @@ impl std::ops::Sub for ModRuntime {
 
 impl std::ops::SubAssign for ModRuntime {
     fn sub_assign(&mut self, rhs: Self) {
-        Self::assert_reasonable_pair(&self, &rhs);
+        Self::assert_reasonable_pair(self, &rhs);
         self.value -= rhs.value;
         if self.value < 0 {
             self.value += self.m;
@@ -184,7 +184,7 @@ impl std::ops::Mul for ModRuntime {
 
 impl std::ops::MulAssign for ModRuntime {
     fn mul_assign(&mut self, rhs: Self) {
-        Self::assert_reasonable_pair(&self, &rhs);
+        Self::assert_reasonable_pair(self, &rhs);
         self.value = ((self.value as i64) * (rhs.value as i64) % (self.m as i64)) as i32;
     }
 }
@@ -192,6 +192,7 @@ impl std::ops::MulAssign for ModRuntime {
 impl std::ops::Div for ModRuntime {
     type Output = Self;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn div(self, rhs: Self) -> Self::Output {
         Self::assert_reasonable_pair(&self, &rhs);
         let rhs_inv = rhs.inv();
@@ -200,8 +201,9 @@ impl std::ops::Div for ModRuntime {
 }
 
 impl std::ops::DivAssign for ModRuntime {
+    #[allow(clippy::suspicious_op_assign_impl)]
     fn div_assign(&mut self, rhs: Self) {
-        Self::assert_reasonable_pair(&self, &rhs);
+        Self::assert_reasonable_pair(self, &rhs);
         *self *= rhs.inv();
     }
 }
@@ -253,6 +255,7 @@ impl RuntimeModBuilder {
         Self { modulo }
     }
 
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(&self, x: i32) -> ModRuntime {
         ModRuntime {
             value: x,

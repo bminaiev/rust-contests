@@ -50,6 +50,7 @@ impl Permutation {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> bool {
         for pos in (1..(self.ids.len())).rev() {
             if self.ids[pos - 1] < self.ids[pos] {
@@ -66,6 +67,7 @@ impl Permutation {
         false
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.ids.len()
     }

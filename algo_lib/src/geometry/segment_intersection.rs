@@ -15,13 +15,7 @@ pub fn inside_bounding_box(seg: &Segment, p: &Point) -> bool {
 }
 
 pub fn segment_intersection(seg1: &Segment, seg2: &Segment) -> Option<Point> {
-    if let Some(inter) = seg1.to_line().intersect(&seg2.to_line()) {
-        if inside_bounding_box(seg1, &inter) && inside_bounding_box(seg2, &inter) {
-            Some(inter)
-        } else {
-            None
-        }
-    } else {
-        None
-    }
+    seg1.to_line()
+        .intersect(&seg2.to_line())
+        .filter(|&inter| inside_bounding_box(seg1, &inter) && inside_bounding_box(seg2, &inter))
 }

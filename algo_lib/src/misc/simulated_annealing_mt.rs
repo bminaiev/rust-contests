@@ -115,7 +115,7 @@ pub fn simulated_annealing_mt<State: SaState>(
                         let changes_lock = changes.lock().unwrap();
                         while changes_version < changes_lock.len() {
                             let change = &changes_lock[changes_version];
-                            cur_score += State::change_score_delta(&state, &change);
+                            cur_score += State::change_score_delta(&state, change);
                             state.apply(change);
                             changes_version += 1;
                         }

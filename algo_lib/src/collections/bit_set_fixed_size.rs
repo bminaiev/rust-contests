@@ -62,7 +62,7 @@ impl BitSetFixedSize {
                 while self.get(pos) {
                     pos += 1;
                 }
-                return pos;
+                pos
             }
         }
     }

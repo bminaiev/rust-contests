@@ -69,7 +69,7 @@ impl BitSet {
                 while self.get(pos) {
                     pos += 1;
                 }
-                return pos;
+                pos
             }
         }
     }
@@ -122,15 +122,13 @@ impl BitOrAssign<&BitSet> for BitSet {
             unsafe {
                 self.bitor_assign_avx2(rhs);
             }
+        } else if is_x86_feature_detected!("ssse3") {
+            unsafe {
+                self.bitor_assign_ssse3(rhs);
+            }
         } else {
-            if is_x86_feature_detected!("ssse3") {
-                unsafe {
-                    self.bitor_assign_ssse3(rhs);
-                }
-            } else {
-                for (x, y) in self.values.iter_mut().zip(rhs.values.iter()) {
-                    *x |= *y;
-                }
+            for (x, y) in self.values.iter_mut().zip(rhs.values.iter()) {
+                *x |= *y;
             }
         }
     }

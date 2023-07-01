@@ -126,15 +126,15 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
     }
 
     pub fn update(&mut self, range: Range<usize>, update: T::Update) {
-        if range.len() == 0 {
+        if range.is_empty() {
             return;
         }
-        assert!(range.len() > 0);
+        assert!(!range.is_empty());
         self.modify_(0, 0, self.n, range.start, range.end, &update);
     }
 
     pub fn get(&mut self, range: Range<usize>) -> T {
-        assert!(range.len() > 0);
+        assert!(!range.is_empty());
         self.get_(0, 0, self.n, range.start, range.end)
     }
 

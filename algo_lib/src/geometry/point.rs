@@ -28,7 +28,7 @@ impl<T: Number> PointT<T> {
         if self.y > T::ZERO || (self.y == T::ZERO && self.x >= T::ZERO) {
             return 0;
         }
-        return 1;
+        1
     }
 
     pub fn dist_manh(&self, p2: &PointT<T>) -> T {

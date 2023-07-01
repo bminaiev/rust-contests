@@ -1,7 +1,7 @@
 use crate::{geometry::point::PointT, misc::num_traits::Number};
 
 pub fn convex_hull<T: Number>(a: &[PointT<T>]) -> Vec<PointT<T>> {
-    if a.len() == 0 {
+    if a.is_empty() {
         return vec![];
     }
     let mut a = a.to_vec();
@@ -15,7 +15,7 @@ pub fn convex_hull<T: Number>(a: &[PointT<T>]) -> Vec<PointT<T>> {
             .then(start.dist2(p1).cmp(&start.dist2(p2)))
     });
     let mut res = vec![start];
-    for &p in a[1..].into_iter() {
+    for &p in a[1..].iter() {
         while res.len() >= 2 {
             let sz = res.len();
             let p2 = res[sz - 2];

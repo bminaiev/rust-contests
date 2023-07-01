@@ -112,7 +112,7 @@ impl<T: Number> PointLocation<T> {
         let max_y = self.all_y[r];
         let (lower, higher) = segment.get_lower_higher();
         if lower.y <= min_y && higher.y >= max_y {
-            self.tree_nodes[tree_v].push(segment.clone());
+            self.tree_nodes[tree_v].push(*segment);
         } else if lower.y >= max_y || higher.y <= min_y {
             return;
         } else {

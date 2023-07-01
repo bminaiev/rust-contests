@@ -27,7 +27,7 @@ where
     type Item = &'a [T];
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.slice.len() == 0 {
+        if self.slice.is_empty() {
             return None;
         }
         let mut next = 1;

@@ -56,7 +56,7 @@ impl Line {
             res,
             self.abs_dist(&res)
         );
-        return Some(res);
+        Some(res)
     }
 
     pub fn signed_dist(&self, p: &Point) -> OrdF64 {

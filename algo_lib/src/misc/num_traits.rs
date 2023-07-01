@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
@@ -124,12 +125,10 @@ impl HasConstants<Self> for f64 {
 
 impl<T: Number> Signum for T {
     fn signum(&self) -> i32 {
-        if self > &T::ZERO {
-            1
-        } else if self < &T::ZERO {
-            -1
-        } else {
-            0
+        match self.cmp(&T::ZERO) {
+            Ordering::Greater => 1,
+            Ordering::Less => -1,
+            Ordering::Equal => 0,
         }
     }
 }

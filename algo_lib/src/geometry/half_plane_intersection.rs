@@ -34,8 +34,8 @@ pub fn half_plane_intersection(
 ) -> Option<Polygon> {
     if let Some(inf) = add_inf_bound {
         let pts: Vec<_> = [(-inf, -inf), (inf, -inf), (inf, inf), (-inf, inf)]
-            .iter()
-            .map(|(x, y)| Point::new(x.clone(), y.clone()))
+            .into_iter()
+            .map(|(x, y)| Point::new(x, y))
             .collect();
         for i in 0..pts.len() {
             planes.push(Segment::new(pts[i], pts[(i + 1) % pts.len()]));
@@ -72,7 +72,7 @@ pub fn half_plane_intersection(
 
     for plane in planes.iter() {
         if !deque.is_empty() {
-            let last = deque.get(deque.len() - 1).unwrap();
+            let last = deque.back().unwrap();
             if plane.dir() == last.dir() && plane.to_the_left(&last.from) >= 0 {
                 continue;
             }
@@ -92,7 +92,7 @@ pub fn half_plane_intersection(
         if !deque.is_empty() && deque[deque.len() - 1].dir().inverse() == plane.dir() {
             return None;
         }
-        deque.push_back(plane.clone());
+        deque.push_back(*plane);
     }
 
     while deque.len() >= 3 {

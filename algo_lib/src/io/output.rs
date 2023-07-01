@@ -199,7 +199,8 @@ pub fn set_global_output_to_stdout() {
 
 pub fn set_global_output_to_file(path: &str) {
     unsafe {
-        let out_file = std::fs::File::create(path).expect(&format!("Can't create file {}", path));
+        let out_file =
+            std::fs::File::create(path).unwrap_or_else(|_| panic!("Can't create file {}", path));
         OUTPUT = Some(Output::new(Box::new(out_file)));
     }
 }

@@ -54,7 +54,7 @@ pub mod tests {
     #[test]
     fn same_pt() {
         let p = Point::new(3, 5);
-        let hull = convex_hull(&vec![p, p]);
+        let hull = convex_hull(&[p, p]);
         assert_eq!(hull, vec![p]);
     }
 

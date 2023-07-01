@@ -15,7 +15,7 @@ where
                 continue;
             }
             f.call(edge.to(), v);
-            res[edge.to()] = edge.clone();
+            res[edge.to()] = *edge;
         }
     })
     .call(root_edge.to(), root_edge.to());

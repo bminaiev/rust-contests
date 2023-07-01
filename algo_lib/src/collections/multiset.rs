@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+#[derive(Default)]
 pub struct MultiSet<T> {
     set: BTreeMap<T, u32>,
     len: usize,
@@ -24,14 +25,14 @@ impl<T: Ord> MultiSet<T> {
     {
         if let Some(&cnt) = self.set.get(key) {
             if cnt == 1 {
-                self.set.remove(&key);
+                self.set.remove(key);
             } else {
                 self.set.insert(key.clone(), cnt - 1);
             }
             self.len -= 1;
-            return true;
+            true
         } else {
-            return false;
+            false
         }
     }
 

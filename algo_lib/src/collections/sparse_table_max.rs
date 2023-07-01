@@ -42,7 +42,7 @@ where
             }
         }
         Self {
-            values: values.iter().cloned().collect(),
+            values: values.to_vec(),
             max,
         }
     }

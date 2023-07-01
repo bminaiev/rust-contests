@@ -31,7 +31,7 @@ where
         if a == 1 {
             return a;
         }
-        return ((1 - Self::rev_rec(m % a, a) as i64 * m as i64) / a as i64 + m as i64) as i32;
+        ((1 - Self::rev_rec(m % a, a) as i64 * m as i64) / a as i64 + m as i64) as i32
     }
 
     #[allow(dead_code)]
@@ -203,6 +203,7 @@ where
 {
     type Output = Self;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn div(self, rhs: Self) -> Self::Output {
         let rhs_inv = rhs.inv();
         self * rhs_inv
@@ -213,6 +214,7 @@ impl<M> std::ops::DivAssign for ModWithValue<M>
 where
     M: Value,
 {
+    #[allow(clippy::suspicious_op_assign_impl)]
     fn div_assign(&mut self, rhs: Self) {
         *self *= rhs.inv();
     }

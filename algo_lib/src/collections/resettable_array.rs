@@ -23,9 +23,9 @@ impl<T: Clone> ResettableArray<T> {
 
     pub fn get(&self, pos: usize) -> T {
         if self.current_time == self.values_time[pos] {
-            return self.values[pos].clone();
+            self.values[pos].clone()
         } else {
-            return self.default.clone();
+            self.default.clone()
         }
     }
 

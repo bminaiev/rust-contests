@@ -81,7 +81,7 @@ impl<T: LazySegTreeNodeSpec> PersistentSegTree<T> {
     }
 
     pub fn update(&mut self, id: NodeId, range: Range<usize>, update: &T::Update) -> NodeId {
-        assert!(range.len() > 0);
+        assert!(!range.is_empty());
         assert!(range.start < self.n);
         self.update_(self.node(id).clone(), 0..self.n, range, update)
     }
@@ -136,12 +136,12 @@ impl<T: LazySegTreeNodeSpec> PersistentSegTree<T> {
     }
 
     pub fn get(&self, id: NodeId, range: Range<usize>) -> T {
-        assert!(range.len() > 0);
+        assert!(!range.is_empty());
         self.get_(self.node(id), 0..self.n, range)
     }
 
     fn get_(&self, node: &TreeNode<T>, node_range: Range<usize>, query: Range<usize>) -> T {
-        assert!(query.len() > 0);
+        assert!(!query.is_empty());
         assert!(query.end >= node_range.start);
         assert!(query.start < node_range.end);
         if query.start <= node_range.start && node_range.end <= query.end {
@@ -166,8 +166,8 @@ impl<T: LazySegTreeNodeSpec> PersistentSegTree<T> {
         let mut left = self.node(node.left).clone();
         let mut right = self.node(node.right).clone();
         if let Some(update) = &node.update {
-            self.apply_update(&mut left, &update);
-            self.apply_update(&mut right, &update);
+            self.apply_update(&mut left, update);
+            self.apply_update(&mut right, update);
         }
         (left, right)
     }

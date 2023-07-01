@@ -22,7 +22,7 @@ impl<T1: Number, T2: Number> Copy for NumberPair<T1, T2> {}
 
 impl<T1: Number, T2: Number> Clone for NumberPair<T1, T2> {
     fn clone(&self) -> Self {
-        Self::new(self.first.clone(), self.second.clone())
+        Self::new(self.first, self.second)
     }
 }
 
@@ -141,11 +141,11 @@ impl<T1: Number, T2: Number> Default for NumberPair<T1, T2> {
 
 impl<T1: Number, T2: Number> Debug for NumberPair<T1, T2> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&"(")?;
+        f.write_str("(")?;
         self.first.fmt(f)?;
-        f.write_str(&", ")?;
+        f.write_str(", ")?;
         self.second.fmt(f)?;
-        f.write_str(&")")
+        f.write_str(")")
     }
 }
 

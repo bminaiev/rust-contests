@@ -15,7 +15,7 @@ mod tests {
                 }
                 match &mut ARENA_ {
                     None => unreachable!(),
-                    Some(arena_not_opt) => return arena_not_opt,
+                    Some(arena_not_opt) => arena_not_opt,
                 }
             }
         }

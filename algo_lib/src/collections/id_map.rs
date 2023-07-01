@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Index;
 
+#[derive(Default)]
 pub struct IdMap<T>
 where
     T: Eq + Hash + Clone,
@@ -14,16 +15,9 @@ impl<T> IdMap<T>
 where
     T: Eq + Hash + Clone,
 {
-    pub fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-            values: vec![],
-        }
-    }
-
     //noinspection RsSelfConvention
     pub fn get_or_add(&mut self, key: &T) -> usize {
-        if let Some(&res) = self.map.get(&key) {
+        if let Some(&res) = self.map.get(key) {
             return res as usize;
         }
         let res = self.values.len() as u32;
@@ -40,6 +34,7 @@ where
         self.get(key).expect("Key not found")
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.values.len()
     }

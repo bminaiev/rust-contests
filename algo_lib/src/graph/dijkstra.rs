@@ -37,7 +37,7 @@ where
     };
 
     let mut heap = MinPriorityQueue::new();
-    heap.push(vertices[source].clone());
+    heap.push(vertices[source]);
 
     while let Some(vertex) = heap.pop() {
         if vertices[vertex.v] != vertex {
@@ -52,7 +52,7 @@ where
                     dist: new_dist,
                     prev: vertex.v,
                 };
-                heap.push(vertices[e.to()].clone());
+                heap.push(vertices[e.to()]);
             }
         }
     }

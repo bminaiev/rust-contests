@@ -11,13 +11,11 @@ pub struct Frac {
 impl Frac {
     pub fn new(mut num: i64, mut denum: i64) -> Self {
         if denum == 0 {
-            if num == 0 {
-                return Self { num: 0, denum: 0 };
-            } else if num > 0 {
-                return Self { num: 1, denum: 0 };
-            } else {
-                return Self { num: -1, denum: 0 };
-            }
+            return match num.cmp(&0) {
+                Ordering::Less => Self { num: -1, denum: 0 },
+                Ordering::Equal => Self { num: 0, denum: 0 },
+                Ordering::Greater => Self { num: 1, denum: 0 },
+            };
         }
         if denum < 0 {
             num *= -1;
@@ -46,6 +44,6 @@ impl PartialOrd for Frac {
 
 impl Ord for Frac {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(&other).unwrap()
+        self.partial_cmp(other).unwrap()
     }
 }

@@ -16,12 +16,12 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        return if self.last_returned == self.till_inclusive {
+        if self.last_returned == self.till_inclusive {
             None
         } else {
             self.last_returned -= self.step_by;
             Some(self.last_returned)
-        };
+        }
     }
 }
 

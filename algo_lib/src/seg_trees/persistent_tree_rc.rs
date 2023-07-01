@@ -42,7 +42,7 @@ where
 
     pub fn join_nodes(ctx: &Node::Context, lhs: &Self, rhs: &Self) -> Self {
         Self {
-            node: Node::join(ctx, &lhs, &rhs),
+            node: Node::join(ctx, lhs, rhs),
             size: lhs.size + rhs.size,
             update_to_push: None,
         }
@@ -205,14 +205,14 @@ where
             None => Some(update.clone()),
             Some(old_update) => Some(Node::join_updates(ctx, old_update, update)),
         };
-        return Self {
+        Self {
             without_links: PersistentTreeWithoutLinks {
                 node: Node::apply_update(node, update),
                 size: node.without_links.size,
                 update_to_push,
             },
             child: node.child.clone(),
-        };
+        }
     }
 
     #[must_use]

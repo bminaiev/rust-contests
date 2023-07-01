@@ -141,11 +141,7 @@ where
         let first = self.polygon.points[self.pos as usize];
         self.pos += 1;
         let second = self.polygon.points.get(self.pos as usize);
-        if let Some(second) = second {
-            Some(SegmentT::new(first, *second))
-        } else {
-            None
-        }
+        second.map(|&second| SegmentT::new(first, second))
     }
 }
 

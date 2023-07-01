@@ -38,8 +38,8 @@ impl Dsu {
         if v1 == v2 {
             false
         } else {
-            self.p[v1 as usize] = v2 as u32;
-            self.size[v2 as usize] += self.size[v1 as usize];
+            self.p[v1] = v2 as u32;
+            self.size[v2] += self.size[v1];
             self.num_comps -= 1;
             true
         }
@@ -47,7 +47,7 @@ impl Dsu {
 
     pub fn calc_size(&mut self, mut v: usize) -> usize {
         v = self.get(v);
-        self.size[v as usize] as usize
+        self.size[v] as usize
     }
 
     pub fn is_root(&self, v: usize) -> bool {
@@ -58,7 +58,7 @@ impl Dsu {
         let n = self.p.len();
         let mut res = vec![vec![]; n];
         for v in 0..n {
-            res[self.get(v) as usize].push(v);
+            res[self.get(v)].push(v);
         }
         res.into_iter().filter(|vec| !vec.is_empty()).collect()
     }

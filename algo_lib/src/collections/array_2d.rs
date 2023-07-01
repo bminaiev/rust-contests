@@ -44,6 +44,7 @@ where
         self.rows
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.rows()
     }
@@ -96,7 +97,7 @@ where
     fn write(&self, output: &mut Output) {
         for r in 0..self.rows {
             self[r].write(output);
-            output.write(&[b'\n']).unwrap();
+            output.write_all(&[b'\n']).unwrap();
         }
     }
 }
@@ -155,7 +156,7 @@ where
             if pw & 1 == 0 {
                 half2
             } else {
-                &half2 * &self
+                &half2 * self
             }
         }
     }

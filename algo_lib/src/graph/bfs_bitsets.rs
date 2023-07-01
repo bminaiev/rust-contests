@@ -13,13 +13,9 @@ pub fn bfs_bitsets(root: usize, graph: &[BitSet]) -> Vec<u32> {
         let mut v = 0;
         let mut should_stop = true;
         let mut next_level = BitSet::new(n);
-        loop {
-            if let Some(next) = cur_level.first_set(v) {
-                v = next;
-                should_stop = false;
-            } else {
-                break;
-            }
+        while let Some(next) = cur_level.first_set(v) {
+            v = next;
+            should_stop = false;
             debug_assert!(cur_level.get(v));
             debug_assert_eq!(res[v], std::u32::MAX);
             res[v] = dist;

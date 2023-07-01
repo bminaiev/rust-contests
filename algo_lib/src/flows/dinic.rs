@@ -98,7 +98,7 @@ impl FlowDinic {
             self.edges[e_id ^ 1].flow -= add;
             return add;
         }
-        return 0;
+        0
     }
 
     #[allow(dead_code)]
