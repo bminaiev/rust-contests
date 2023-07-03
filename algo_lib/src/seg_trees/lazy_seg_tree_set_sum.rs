@@ -1,6 +1,6 @@
 use crate::misc::gen_vector::gen_vec;
 use crate::misc::num_traits::Number;
-use crate::seg_trees::lazy_seg_tree::{LazySegTree, LazySegTreeNodeSpec};
+use crate::seg_trees::lazy_seg_tree::{SegTree, SegTreeNode};
 use std::fmt::Debug;
 
 #[derive(Clone, Default, Copy, Debug)]
@@ -12,12 +12,12 @@ where
     pub len: i32,
 }
 
-impl<T> LazySegTreeNodeSpec for Node<T>
+impl<T> SegTreeNode for Node<T>
 where
     T: Number,
 {
     #[allow(unused)]
-    fn unite(l: &Self, r: &Self, context: &()) -> Self {
+    fn join_nodes(l: &Self, r: &Self, context: &()) -> Self {
         Self {
             len: l.len + r.len,
             sum: l.sum + r.sum,
@@ -37,7 +37,7 @@ where
     type Context = ();
 }
 
-pub type SegTreeSetSum<T> = LazySegTree<Node<T>>;
+pub type SegTreeSetSum<T> = SegTree<Node<T>>;
 
 impl<T: Number> SegTreeSetSum<T> {
     pub fn values(&mut self) -> Vec<T> {

@@ -1,15 +1,15 @@
 use std::cmp::max;
 
-use crate::seg_trees::lazy_seg_tree::{LazySegTree, LazySegTreeNodeSpec};
+use crate::seg_trees::lazy_seg_tree::{SegTree, SegTreeNode};
 
 #[derive(Clone, Default, Copy, Debug)]
 pub struct Node {
     pub max_val: usize,
 }
 
-impl LazySegTreeNodeSpec for Node {
+impl SegTreeNode for Node {
     #[allow(unused)]
-    fn unite(l: &Self, r: &Self, context: &()) -> Self {
+    fn join_nodes(l: &Self, r: &Self, context: &()) -> Self {
         if l.max_val > r.max_val {
             *l
         } else {
@@ -30,4 +30,4 @@ impl LazySegTreeNodeSpec for Node {
     type Context = ();
 }
 
-pub type SegTreeMaxUpdate = LazySegTree<Node>;
+pub type SegTreeMaxUpdate = SegTree<Node>;

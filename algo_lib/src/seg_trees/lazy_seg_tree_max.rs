@@ -1,4 +1,4 @@
-use crate::seg_trees::lazy_seg_tree::{LazySegTree, LazySegTreeNodeSpec};
+use crate::seg_trees::lazy_seg_tree::{SegTree, SegTreeNode};
 
 #[derive(Clone, Default, Copy, Debug)]
 pub struct MaxValNode<T> {
@@ -6,12 +6,12 @@ pub struct MaxValNode<T> {
     pub pos: usize,
 }
 
-impl<T> LazySegTreeNodeSpec for MaxValNode<T>
+impl<T> SegTreeNode for MaxValNode<T>
 where
     T: Default + Clone + Ord + Copy,
 {
     #[allow(unused)]
-    fn unite(l: &Self, r: &Self, context: &()) -> Self {
+    fn join_nodes(l: &Self, r: &Self, context: &()) -> Self {
         if l.max_val > r.max_val {
             *l
         } else {
@@ -32,4 +32,4 @@ where
     type Context = ();
 }
 
-pub type SegTreeMax<T> = LazySegTree<MaxValNode<T>>;
+pub type SegTreeMax<T> = SegTree<MaxValNode<T>>;

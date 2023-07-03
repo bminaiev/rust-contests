@@ -1,6 +1,6 @@
 use std::ops::{Index, Range};
 
-use crate::seg_trees::lazy_seg_tree::LazySegTreeNodeSpec;
+use crate::seg_trees::lazy_seg_tree::SegTreeNode;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct NodeId(u32);
@@ -10,26 +10,26 @@ impl NodeId {
 }
 
 #[derive(Clone)]
-pub struct TreeNode<T: LazySegTreeNodeSpec> {
+pub struct TreeNode<T: SegTreeNode> {
     left: NodeId,
     right: NodeId,
     node: T,
     update: Option<T::Update>,
 }
 
-impl<T: LazySegTreeNodeSpec> TreeNode<T> {
+impl<T: SegTreeNode> TreeNode<T> {
     pub fn inner(&self) -> &T {
         &self.node
     }
 }
 
-pub struct PersistentSegTree<T: LazySegTreeNodeSpec> {
+pub struct PersistentSegTree<T: SegTreeNode> {
     nodes: Vec<TreeNode<T>>,
     context: T::Context,
     n: usize,
 }
 
-impl<T: LazySegTreeNodeSpec> Index<NodeId> for PersistentSegTree<T> {
+impl<T: SegTreeNode> Index<NodeId> for PersistentSegTree<T> {
     type Output = T;
 
     fn index(&self, index: NodeId) -> &Self::Output {
@@ -37,7 +37,7 @@ impl<T: LazySegTreeNodeSpec> Index<NodeId> for PersistentSegTree<T> {
     }
 }
 
-impl<T: LazySegTreeNodeSpec> PersistentSegTree<T> {
+impl<T: SegTreeNode> PersistentSegTree<T> {
     pub fn new_f_with_context(
         n: usize,
         f: &dyn Fn(usize) -> T,
@@ -75,7 +75,7 @@ impl<T: LazySegTreeNodeSpec> PersistentSegTree<T> {
         TreeNode {
             left,
             right,
-            node: T::unite(&self.node(left).node, &self.node(right).node, &self.context),
+            node: T::join_nodes(&self.node(left).node, &self.node(right).node, &self.context),
             update: None,
         }
     }
@@ -154,7 +154,7 @@ impl<T: LazySegTreeNodeSpec> PersistentSegTree<T> {
         } else if query.end <= m {
             self.get_(&node_left, node_range.start..m, query)
         } else {
-            T::unite(
+            T::join_nodes(
                 &self.get_(&node_left, node_range.start..m, query.clone()),
                 &self.get_(&node_right, m..node_range.end, query),
                 &self.context,

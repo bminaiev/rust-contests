@@ -1,5 +1,5 @@
 use crate::math::modulo::Mod7;
-use crate::seg_trees::lazy_seg_tree::LazySegTreeNodeSpec;
+use crate::seg_trees::lazy_seg_tree::SegTreeNode;
 
 type Mod = Mod7;
 
@@ -13,8 +13,8 @@ struct Context {
     pow: Vec<Mod>,
 }
 
-impl LazySegTreeNodeSpec for HashNode {
-    fn unite(l: &Self, r: &Self, context: &Context) -> Self {
+impl SegTreeNode for HashNode {
+    fn join_nodes(l: &Self, r: &Self, context: &Context) -> Self {
         Self {
             hash: l.hash * context.pow[r.len] + r.hash,
             len: l.len + r.len,
@@ -37,7 +37,7 @@ impl LazySegTreeNodeSpec for HashNode {
 #[cfg(test)]
 mod tests {
     use crate::math::modulo::Mod7;
-    use crate::seg_trees::lazy_seg_tree::LazySegTree;
+    use crate::seg_trees::lazy_seg_tree::SegTree;
     use crate::seg_trees::lazy_seg_tree_string_hash::{Context, HashNode, Mod};
 
     #[test]
@@ -48,7 +48,7 @@ mod tests {
             powers[i] = powers[i - 1] * Mod::new(239);
         }
         let context = Context { pow: powers };
-        let mut seg_tree = LazySegTree::new_f_with_context(
+        let mut seg_tree = SegTree::new_with_context(
             s.len(),
             &|pos| HashNode {
                 hash: Mod::new(s[pos] as i32),

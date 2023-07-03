@@ -1,7 +1,7 @@
 use std::ops::Range;
 
-pub trait LazySegTreeNodeSpec: Clone + Default {
-    fn unite(l: &Self, r: &Self, context: &Self::Context) -> Self;
+pub trait SegTreeNode: Clone + Default {
+    fn join_nodes(l: &Self, r: &Self, context: &Self::Context) -> Self;
 
     fn apply_update(node: &mut Self, update: &Self::Update);
     fn join_updates(current: &mut Self::Update, add: &Self::Update);
@@ -15,7 +15,7 @@ pub trait LazySegTreeNodeSpec: Clone + Default {
 ///
 #[allow(unused)]
 #[derive(Clone)]
-pub struct LazySegTree<T: LazySegTreeNodeSpec> {
+pub struct SegTree<T: SegTreeNode> {
     n: usize,
     tree: Vec<T>,
     updates_to_push: Vec<Option<T::Update>>,
@@ -24,24 +24,9 @@ pub struct LazySegTree<T: LazySegTreeNodeSpec> {
 }
 
 #[allow(unused)]
-impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
-    pub fn new(init_val: &T, n: usize, context: T::Context) -> Self {
-        assert!(n > 0);
-        let tree = vec![T::default(); 2 * n - 1];
-        let updates_to_push = vec![None; 2 * n - 1];
-        let mut res = LazySegTree {
-            n,
-            tree,
-            updates_to_push,
-            context,
-            right_nodes: vec![],
-        };
-        res.build(0, 0, n, init_val);
-        res
-    }
-
+impl<T: SegTreeNode> SegTree<T> {
     fn pull(&mut self, v: usize, vr: usize) {
-        self.tree[v] = T::unite(&self.tree[v + 1], &self.tree[vr], &self.context);
+        self.tree[v] = T::join_nodes(&self.tree[v + 1], &self.tree[vr], &self.context);
     }
 
     fn build(&mut self, v: usize, l: usize, r: usize, init_val: &T) {
@@ -62,8 +47,9 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
         match update {
             None => {}
             Some(update) => {
-                self.apply_update(v + 1, &update);
-                self.apply_update(v + ((r - l) & !1), &update);
+                let m = (l + r) >> 1;
+                self.apply_update(v + 1, &update, m - l == 1);
+                self.apply_update(v + ((r - l) & !1), &update, r - m == 1);
             }
         }
     }
@@ -82,7 +68,7 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
         } else if qr <= m {
             self.get_(v + 1, l, m, ql, qr)
         } else {
-            T::unite(
+            T::join_nodes(
                 &self.get_(v + 1, l, m, ql, qr),
                 &self.get_(vr, m, r, ql, qr),
                 &self.context,
@@ -99,16 +85,18 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
         };
     }
 
-    fn apply_update(&mut self, v: usize, update: &T::Update) {
+    fn apply_update(&mut self, v: usize, update: &T::Update, is_leaf: bool) {
         T::apply_update(&mut self.tree[v], update);
-        Self::join_updates(&mut self.updates_to_push[v], update);
+        if !is_leaf {
+            Self::join_updates(&mut self.updates_to_push[v], update);
+        }
     }
 
     fn modify_(&mut self, v: usize, l: usize, r: usize, ql: usize, qr: usize, update: &T::Update) {
         assert!(qr >= l);
         assert!(ql < r);
         if ql <= l && r <= qr {
-            self.apply_update(v, update);
+            self.apply_update(v, update, r - l == 1);
             return;
         }
         let m = (l + r) >> 1;
@@ -134,44 +122,46 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
     }
 
     pub fn get(&mut self, range: Range<usize>) -> T {
-        assert!(!range.is_empty());
+        if range.is_empty() {
+            return T::default();
+        }
         self.get_(0, 0, self.n, range.start, range.end)
     }
 
-    pub fn new_f_with_context(n: usize, f: &dyn Fn(usize) -> T, context: T::Context) -> Self {
+    pub fn new_with_context(n: usize, f: impl Fn(usize) -> T, context: T::Context) -> Self {
         assert!(n > 0);
         let tree = vec![T::default(); 2 * n - 1];
         let updates_to_push = vec![None; 2 * n - 1];
-        let mut res = LazySegTree {
+        let mut res = SegTree {
             n,
             tree,
             updates_to_push,
             context,
             right_nodes: vec![],
         };
-        res.build_f(0, 0, n, f);
+        res.build_f(0, 0, n, &f);
         res
     }
 
-    pub fn new_f(n: usize, f: &dyn Fn(usize) -> T) -> Self
+    pub fn new(n: usize, f: impl Fn(usize) -> T) -> Self
     where
         T::Context: Default,
     {
         assert!(n > 0);
         let tree = vec![T::default(); 2 * n - 1];
         let updates_to_push = vec![None; 2 * n - 1];
-        let mut res = LazySegTree {
+        let mut res = SegTree {
             n,
             tree,
             updates_to_push,
             context: T::Context::default(),
             right_nodes: vec![],
         };
-        res.build_f(0, 0, n, f);
+        res.build_f(0, 0, n, &f);
         res
     }
 
-    fn build_f(&mut self, v: usize, l: usize, r: usize, f: &dyn Fn(usize) -> T) {
+    fn build_f(&mut self, v: usize, l: usize, r: usize, f: &impl Fn(usize) -> T) {
         if l + 1 == r {
             self.tree[v] = f(l);
         } else {
@@ -213,5 +203,38 @@ impl<T: LazySegTreeNodeSpec> LazySegTree<T> {
             self.build_right_nodes(0, 0, self.n);
         }
         self.right_nodes[node]
+    }
+
+    // Used for Kenetic Seg Tree
+    pub fn expert_rebuild_nodes(&mut self, should_rebuild: impl Fn(&T, &T::Context) -> bool) {
+        self.expert_rebuild_nodes_(0, 0, self.n, &should_rebuild);
+    }
+
+    fn expert_rebuild_nodes_(
+        &mut self,
+        v: usize,
+        l: usize,
+        r: usize,
+        should_rebuild: &impl Fn(&T, &T::Context) -> bool,
+    ) {
+        if r - l <= 1 || !should_rebuild(&self.tree[v], &self.context) {
+            return;
+        }
+        let m = (l + r) >> 1;
+        let vr = v + ((m - l) << 1);
+        self.push(v, l, r);
+
+        self.expert_rebuild_nodes_(v + 1, l, m, should_rebuild);
+        self.expert_rebuild_nodes_(vr, m, r, should_rebuild);
+
+        self.pull(v, vr);
+    }
+
+    pub fn update_context(&mut self, f: impl Fn(&mut T::Context)) {
+        f(&mut self.context);
+    }
+
+    pub fn get_context(&self) -> &T::Context {
+        &self.context
     }
 }
