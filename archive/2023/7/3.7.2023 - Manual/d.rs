@@ -31,8 +31,6 @@ struct Node {
 struct Update {
     set_all_alive_to_value: Option<i64>,
     add_x_times: i64,
-    // only pointwise
-    set_value_and_incr: Option<(i64, i64)>,
 }
 
 impl SegTreeNode for Node {
@@ -45,25 +43,13 @@ impl SegTreeNode for Node {
     }
 
     fn apply_update(node: &mut Self, update: &Self::Update) {
-        if let Some((value, incr)) = update.set_value_and_incr {
-            node.default_add = incr;
-            if incr == 0 {
-                node.cnt_alive = 0;
-            } else {
-                node.cnt_alive = 1;
-            }
-            node.sum = value;
-        } else {
-            if let Some(value) = update.set_all_alive_to_value {
-                node.sum = value * node.cnt_alive;
-            }
-            node.sum += update.add_x_times * node.default_add;
+        if let Some(value) = update.set_all_alive_to_value {
+            node.sum = value * node.cnt_alive;
         }
+        node.sum += update.add_x_times * node.default_add;
     }
 
     fn join_updates(current: &mut Self::Update, add: &Self::Update) {
-        assert!(current.set_value_and_incr.is_none());
-        assert!(add.set_value_and_incr.is_none());
         if add.set_all_alive_to_value.is_some() {
             *current = add.clone();
         } else {
@@ -110,7 +96,6 @@ fn solve_case(n: usize, a: &[i64], queries: &[Query]) -> Vec<i64> {
                         Update {
                             set_all_alive_to_value: Some(val),
                             add_x_times: 0,
-                            set_value_and_incr: None,
                         },
                     );
                 }
@@ -121,20 +106,20 @@ fn solve_case(n: usize, a: &[i64], queries: &[Query]) -> Vec<i64> {
                     }
                     let pos = max_line.pos;
                     seg_tree.update(pos, 0, -std::i64::MAX);
-                    before_mined_seg_tree.update(
-                        pos..pos + 1,
-                        Update {
-                            set_all_alive_to_value: None,
-                            add_x_times: 0,
-                            set_value_and_incr: Some((0, 0)),
+                    before_mined_seg_tree.update_point(
+                        pos,
+                        Node {
+                            cnt_alive: 0,
+                            default_add: 0,
+                            sum: 0,
                         },
                     );
-                    after_mined_seg_tree.update(
-                        pos..pos + 1,
-                        Update {
-                            set_all_alive_to_value: None,
-                            add_x_times: 0,
-                            set_value_and_incr: Some((val, (pos + 1) as i64)),
+                    after_mined_seg_tree.update_point(
+                        pos,
+                        Node {
+                            cnt_alive: 1,
+                            default_add: (pos + 1) as i64,
+                            sum: val,
                         },
                     );
                     already_mined.insert(pos);
@@ -143,22 +128,12 @@ fn solve_case(n: usize, a: &[i64], queries: &[Query]) -> Vec<i64> {
             Query::AddIndex => {
                 time += 1;
                 seg_tree.update_time(time);
-                before_mined_seg_tree.update(
-                    0..n,
-                    Update {
-                        set_all_alive_to_value: None,
-                        add_x_times: 1,
-                        set_value_and_incr: None,
-                    },
-                );
-                after_mined_seg_tree.update(
-                    0..n,
-                    Update {
-                        set_all_alive_to_value: None,
-                        add_x_times: 1,
-                        set_value_and_incr: None,
-                    },
-                );
+                let update = Update {
+                    set_all_alive_to_value: None,
+                    add_x_times: 1,
+                };
+                before_mined_seg_tree.update(0..n, update.clone());
+                after_mined_seg_tree.update(0..n, update);
             }
             &Query::Sum(l, r) => {
                 let before_mined = before_mined_seg_tree.get(l..r).sum;

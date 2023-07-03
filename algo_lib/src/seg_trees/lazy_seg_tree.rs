@@ -121,6 +121,30 @@ impl<T: SegTreeNode> SegTree<T> {
         self.modify_(0, 0, self.n, range.start, range.end, &update);
     }
 
+    pub fn update_point(&mut self, pos: usize, new_node: T) {
+        let mut l = 0;
+        let mut r = self.n;
+        let mut v: usize = 0;
+        let mut to_pull = vec![];
+        while r - l > 1 {
+            let m = (l + r) >> 1;
+            let vr = v + ((m - l) << 1);
+            self.push(v, l, r);
+            to_pull.push((v, vr));
+            if pos < m {
+                r = m;
+                v = v + 1;
+            } else {
+                l = m;
+                v = vr;
+            }
+        }
+        self.tree[v] = new_node;
+        for (v, vr) in to_pull.into_iter().rev() {
+            self.pull(v, vr);
+        }
+    }
+
     pub fn get(&mut self, range: Range<usize>) -> T {
         if range.is_empty() {
             return T::default();
