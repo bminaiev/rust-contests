@@ -229,7 +229,7 @@ impl<T: SegTreeNode> SegTree<T> {
         self.right_nodes[node]
     }
 
-    // Used for Kenetic Seg Tree
+    // Used for Kinetic Seg Tree
     pub fn expert_rebuild_nodes(&mut self, should_rebuild: impl Fn(&T, &T::Context) -> bool) {
         self.expert_rebuild_nodes_(0, 0, self.n, &should_rebuild);
     }

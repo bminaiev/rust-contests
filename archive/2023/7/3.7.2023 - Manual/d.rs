@@ -8,7 +8,7 @@ use algo_lib::io::task_runner::run_task;
 use algo_lib::io::{input::Input, task_io_settings::TaskIoSettings};
 use algo_lib::misc::binary_search::binary_search_first_true;
 use algo_lib::misc::gen_vector::gen_vec;
-use algo_lib::seg_trees::kenetic_seg_tree_max::KeneticSegTreeMax;
+use algo_lib::seg_trees::kinetic_seg_tree_max::KineticSegTreeMax;
 use algo_lib::seg_trees::lazy_seg_tree::{SegTree, SegTreeNode};
 #[allow(unused)]
 use algo_lib::{dbg, out, out_line};
@@ -62,7 +62,7 @@ impl SegTreeNode for Node {
 }
 
 fn solve_case(n: usize, a: &[i64], queries: &[Query]) -> Vec<i64> {
-    let mut seg_tree = KeneticSegTreeMax::new(n, |pos| ((pos + 1) as i64, a[pos]), 0);
+    let mut seg_tree = KineticSegTreeMax::new(n, |pos| ((pos + 1) as i64, a[pos]), 0);
 
     let mut before_mined_seg_tree = SegTree::<Node>::new(n, |pos| Node {
         cnt_alive: 1,

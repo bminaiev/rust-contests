@@ -8,18 +8,18 @@ use crate::{
 const MAX: i64 = std::i64::MAX;
 
 #[derive(Clone, Default)]
-pub struct KeneticLine {
+pub struct KineticLine {
     pub a: i64,
     pub b: i64,
     pub pos: usize,
 }
 
-struct KeneticLineCmp {
-    smaller: KeneticLine,
+struct KineticLineCmp {
+    smaller: KineticLine,
     change_at: i64,
 }
 
-impl KeneticLine {
+impl KineticLine {
     pub fn get_value(&self, time: i64) -> i64 {
         if self.b == MAX {
             return MAX;
@@ -40,16 +40,16 @@ impl KeneticLine {
         }
     }
 
-    fn cmp(&self, other: &Self, time: i64) -> KeneticLineCmp {
+    fn cmp(&self, other: &Self, time: i64) -> KineticLineCmp {
         let self_value = self.get_value(time);
         let other_value = other.get_value(time);
         if self_value <= other_value {
-            KeneticLineCmp {
+            KineticLineCmp {
                 smaller: self.clone(),
                 change_at: self.when_other_be_smaller(other),
             }
         } else {
-            KeneticLineCmp {
+            KineticLineCmp {
                 smaller: other.clone(),
                 change_at: other.when_other_be_smaller(self),
             }
@@ -58,12 +58,12 @@ impl KeneticLine {
 }
 
 #[derive(Clone, Default)]
-struct KeneticSegTreeNode {
-    min_value: KeneticLine,
+struct KineticSegTreeNode {
+    min_value: KineticLine,
     first_time_to_change: i64,
 }
 
-impl SegTreeNode for KeneticSegTreeNode {
+impl SegTreeNode for KineticSegTreeNode {
     fn join_nodes(l: &Self, r: &Self, context: &Self::Context) -> Self {
         let cmp = l.min_value.cmp(&r.min_value, *context);
         let mut res = Self {
@@ -76,7 +76,7 @@ impl SegTreeNode for KeneticSegTreeNode {
     }
 
     fn apply_update(node: &mut Self, update: &Self::Update) {
-        node.min_value = KeneticLine {
+        node.min_value = KineticLine {
             a: update.0,
             b: update.1,
             pos: node.min_value.pos,
@@ -95,19 +95,19 @@ impl SegTreeNode for KeneticSegTreeNode {
 /// Stores value[i] = a[i] * time + b[i]
 /// Allows to find min value[i]
 /// `time` could only increase.
-pub struct KeneticSegTreeMin {
-    tree: SegTree<KeneticSegTreeNode>,
+pub struct KineticSegTreeMin {
+    tree: SegTree<KineticSegTreeNode>,
 }
 
-impl KeneticSegTreeMin {
+impl KineticSegTreeMin {
     // f(i) = (a[i], b[i])
     pub fn new(n: usize, f: impl Fn(usize) -> (i64, i64), time: i64) -> Self {
         let tree = SegTree::new_with_context(
             n,
             |pos| {
                 let (a, b) = f(pos);
-                KeneticSegTreeNode {
-                    min_value: KeneticLine { a, b, pos },
+                KineticSegTreeNode {
+                    min_value: KineticLine { a, b, pos },
                     first_time_to_change: MAX,
                 }
             },
@@ -121,7 +121,7 @@ impl KeneticSegTreeMin {
         self.recalc_if_needed();
     }
 
-    pub fn get_min(&mut self, range: Range<usize>) -> KeneticLine {
+    pub fn get_min(&mut self, range: Range<usize>) -> KineticLine {
         self.recalc_if_needed();
         self.tree.get(range).min_value
     }
