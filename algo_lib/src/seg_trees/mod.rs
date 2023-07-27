@@ -13,3 +13,4 @@ pub mod lazy_seg_tree_set_sum;
 pub mod lazy_seg_tree_string_hash;
 pub mod persistent_tree;
 pub mod persistent_tree_rc;
+pub mod treap;
