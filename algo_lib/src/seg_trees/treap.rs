@@ -13,28 +13,21 @@ impl NodeRef {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct TreapNode<T: SegTreeNode> {
-    inner: T,
+    value: T,
+    tree_values: T,
     // higher priority -> higher in the tree
     priority: u32,
-    // Invariant: either both children are null or none of them is null
     child: [NodeRef; 2],
     update: Option<T::Update>,
-    cnt_leafs: u32,
-}
-
-impl<T: SegTreeNode> TreapNode<T> {
-    pub fn cnt_leafs(&self) -> usize {
-        self.cnt_leafs as usize
-    }
+    len: u32,
 }
 
 pub struct Treap<T: SegTreeNode> {
     nodes: Vec<TreapNode<T>>,
     rng: Random,
     context: T::Context,
-    free_ids: Vec<NodeRef>,
 }
 
 impl<T: SegTreeNode> Treap<T> {
@@ -46,50 +39,29 @@ impl<T: SegTreeNode> Treap<T> {
             nodes: Vec::new(),
             rng: Random::new(787788),
             context: T::Context::default(),
-            free_ids: Vec::new(),
         }
     }
 
     pub fn new_node(&mut self, inner: T) -> NodeRef {
         let node = TreapNode {
-            inner,
+            value: inner.clone(),
+            tree_values: inner,
             priority: self.rng.gen_u64() as u32,
             child: [NodeRef::NULL, NodeRef::NULL],
             update: None,
-            cnt_leafs: 1,
+            len: 1,
         };
-        if let Some(id) = self.free_ids.pop() {
-            self.nodes[id.0 as usize] = node;
-            id
-        } else {
-            self.nodes.push(node);
-            NodeRef((self.nodes.len() - 1) as u32)
-        }
-    }
-
-    fn new_inner_node(&mut self, lhs: NodeRef, rhs: NodeRef) -> NodeRef {
-        let node = TreapNode {
-            inner: T::default(),
-            priority: self.get(lhs).priority.max(self.get(rhs).priority),
-            child: [lhs, rhs],
-            update: None,
-            cnt_leafs: self.get(lhs).cnt_leafs + self.get(rhs).cnt_leafs,
-        };
-        if let Some(id) = self.free_ids.pop() {
-            self.nodes[id.0 as usize] = node;
-            id
-        } else {
-            self.nodes.push(node);
-            NodeRef((self.nodes.len() - 1) as u32)
-        }
+        self.nodes.push(node);
+        NodeRef((self.nodes.len() - 1) as u32)
     }
 
     fn apply_update(&mut self, node: NodeRef, update: &T::Update) {
         if node.is_null() {
             return;
         }
-        T::apply_update(&mut self.get_mut(node).inner, update);
-        if self.get(node).cnt_leafs > 1 {
+        T::apply_update(&mut self.get_mut(node).value, update);
+        T::apply_update(&mut self.get_mut(node).tree_values, update);
+        if self.get(node).len > 1 {
             match &mut self.get_mut(node).update {
                 Some(existing_update) => T::join_updates(existing_update, update),
                 None => self.get_mut(node).update = Some(update.clone()),
@@ -107,16 +79,23 @@ impl<T: SegTreeNode> Treap<T> {
 
     fn recalc_node(&mut self, node: NodeRef) {
         assert!(self.get(node).update.is_none());
-        if self.get(node).child[0] == NodeRef::NULL {
-            return;
+        self.get_mut(node).len =
+            (self.len(self.get(node).child[0]) + self.len(self.get(node).child[1]) + 1) as u32;
+        self.get_mut(node).tree_values = self.get(node).value.clone();
+        if self.get(node).child[0] != NodeRef::NULL {
+            self.get_mut(node).tree_values = T::join_nodes(
+                &self.get(self.get(node).child[0]).tree_values,
+                &self.get(node).tree_values,
+                &self.context,
+            );
         }
-        self.get_mut(node).cnt_leafs = self.get(self.get(node).child[0]).cnt_leafs
-            + self.get(self.get(node).child[1]).cnt_leafs;
-        self.get_mut(node).inner = T::join_nodes(
-            &self.get(self.get(node).child[0]).inner,
-            &self.get(self.get(node).child[1]).inner,
-            &self.context,
-        );
+        if self.get(node).child[1] != NodeRef::NULL {
+            self.get_mut(node).tree_values = T::join_nodes(
+                &self.get(node).tree_values,
+                &self.get(self.get(node).child[1]).tree_values,
+                &self.context,
+            );
+        }
     }
 
     pub fn merge(&mut self, lhs: NodeRef, rhs: NodeRef) -> NodeRef {
@@ -127,16 +106,10 @@ impl<T: SegTreeNode> Treap<T> {
             return lhs;
         }
         let new_node = if self.get(lhs).priority > self.get(rhs).priority {
-            if self.get(lhs).cnt_leafs == 1 {
-                self.new_inner_node(lhs, rhs)
-            } else {
-                self.push_update(lhs);
-                let new_rhs = self.merge(self.get(lhs).child[1], rhs);
-                self.get_mut(lhs).child[1] = new_rhs;
-                lhs
-            }
-        } else if self.get(rhs).cnt_leafs == 1 {
-            self.new_inner_node(lhs, rhs)
+            self.push_update(lhs);
+            let new_rhs = self.merge(self.get(lhs).child[1], rhs);
+            self.get_mut(lhs).child[1] = new_rhs;
+            lhs
         } else {
             self.push_update(rhs);
             let new_lhs = self.merge(lhs, self.get(rhs).child[0]);
@@ -152,7 +125,7 @@ impl<T: SegTreeNode> Treap<T> {
         if root.is_null() {
             return (NodeRef::NULL, NodeRef::NULL);
         }
-        assert!(pos <= self.get(root).cnt_leafs());
+        assert!(pos <= self.len(root));
         if pos == 0 {
             return (NodeRef::NULL, root);
         }
@@ -160,22 +133,19 @@ impl<T: SegTreeNode> Treap<T> {
             return (root, NodeRef::NULL);
         }
         self.push_update(root);
-        let left_cnt = self.get(self.get(root).child[0]).cnt_leafs();
+        let left_cnt = self.len(self.get(root).child[0]);
         if pos <= left_cnt {
             let (new_left, new_right) = self.split(self.get(root).child[0], pos);
-            if new_right.is_null() {
-                self.free_ids.push(root);
-                return (new_left, self.get(root).child[1]);
-            }
             self.get_mut(root).child[0] = new_right;
             self.recalc_node(root);
             (new_left, root)
+        } else if pos == left_cnt + 1 {
+            let new_right = self.get(root).child[1];
+            self.get_mut(root).child[1] = NodeRef::NULL;
+            self.recalc_node(root);
+            (root, new_right)
         } else {
-            let (new_left, new_right) = self.split(self.get(root).child[1], pos - left_cnt);
-            if new_left.is_null() {
-                self.free_ids.push(root);
-                return (self.get(root).child[0], new_right);
-            }
+            let (new_left, new_right) = self.split(self.get(root).child[1], pos - left_cnt - 1);
             self.get_mut(root).child[1] = new_left;
             self.recalc_node(root);
             (root, new_right)
@@ -188,68 +158,82 @@ impl<T: SegTreeNode> Treap<T> {
         if root.is_null() {
             return 0;
         }
-        if !f(&self.get(root).inner) {
-            return self.get(root).cnt_leafs();
+        if !f(&self.get(root).tree_values) {
+            return self.len(root);
         }
         let mut prefix: Option<T> = None;
         let mut pos = 0;
         let mut node = root;
         loop {
             self.push_update(node);
-            if self.get(node).cnt_leafs == 1 {
+            if self.get(node).len == 1 {
                 break;
             }
+            let left_child = self.get(node).child[0];
+            if !left_child.is_null() {
+                let check_node = match &prefix {
+                    Some(prefix) => {
+                        T::join_nodes(prefix, &self.get(left_child).tree_values, &self.context)
+                    }
+                    None => self.get(left_child).tree_values.clone(),
+                };
+                if f(&check_node) {
+                    node = self.get(node).child[0];
+                    continue;
+                } else {
+                    pos += self.len(left_child);
+                    prefix = Some(check_node);
+                }
+            }
             let check_node = match &prefix {
-                Some(prefix) => T::join_nodes(
-                    prefix,
-                    &self.get(self.get(node).child[0]).inner,
-                    &self.context,
-                ),
-                None => self.get(self.get(node).child[0]).inner.clone(),
+                Some(prefix) => T::join_nodes(prefix, &self.get(node).value, &self.context),
+                None => self.get(node).value.clone(),
             };
+
             if f(&check_node) {
-                node = self.get(node).child[0];
+                break;
             } else {
-                let left_cnt = self.get(self.get(node).child[0]).cnt_leafs();
                 prefix = Some(check_node);
                 node = self.get(node).child[1];
-                pos += left_cnt;
+                pos += 1;
             }
         }
         pos
     }
 
     pub fn query(&mut self, root: NodeRef, range: Range<usize>) -> Option<T> {
-        if root.is_null() || range.start >= range.end || range.start >= self.get(root).cnt_leafs() {
+        if root.is_null() || range.start >= range.end || range.start >= self.len(root) {
             return None;
         }
-        if range.start == 0 && range.end >= self.get(root).cnt_leafs() {
-            return Some(self.get(root).inner.clone());
+        if range.start == 0 && range.end >= self.len(root) {
+            return Some(self.get(root).tree_values.clone());
         }
         self.push_update(root);
-        let left_part = self.query(self.get(root).child[0], range.start..range.end);
-        let left_cnt = self.get(self.get(root).child[0]).cnt_leafs();
-        let right_part = self.query(
+        let left_len = self.len(self.get(root).child[0]);
+        if range.end <= left_len {
+            return self.query(self.get(root).child[0], range);
+        }
+        if range.start > left_len {
+            return self.query(
+                self.get(root).child[1],
+                range.start.saturating_sub(left_len + 1)..range.end.saturating_sub(left_len + 1),
+            );
+        }
+
+        let mut res = self.get(root).value.clone();
+        if let Some(left) = self.query(self.get(root).child[0], range.start..range.end) {
+            res = T::join_nodes(&left, &res, &self.context);
+        }
+        if let Some(right) = self.query(
             self.get(root).child[1],
-            range.start.saturating_sub(left_cnt)..range.end.saturating_sub(left_cnt),
-        );
-        if left_part.is_none() {
-            return right_part;
+            range.start.saturating_sub(left_len + 1)..range.end.saturating_sub(left_len + 1),
+        ) {
+            res = T::join_nodes(&res, &right, &self.context);
         }
-        if right_part.is_none() {
-            return left_part;
-        }
-        Some(T::join_nodes(
-            &left_part.unwrap(),
-            &right_part.unwrap(),
-            &self.context,
-        ))
+        Some(res)
     }
 
-    pub fn insert(&mut self, root: &mut NodeRef, pos: usize, inner: T)
-    where
-        T: std::fmt::Debug,
-    {
+    pub fn insert(&mut self, root: &mut NodeRef, pos: usize, inner: T) {
         let (left, right) = self.split(*root, pos);
         let new_node = self.new_node(inner);
         let lhs = self.merge(left, new_node);
@@ -257,12 +241,12 @@ impl<T: SegTreeNode> Treap<T> {
     }
 
     pub fn remove(&mut self, root: &mut NodeRef, pos: usize) -> &T {
-        let cnt_leafs = self.len(*root);
-        assert!(pos < cnt_leafs);
+        let len = self.len(*root);
+        assert!(pos < len);
         let (left, right) = self.split(*root, pos);
         let (mid, right) = self.split(right, 1);
         *root = self.merge(left, right);
-        &self.get(mid).inner
+        &self.get(mid).tree_values
     }
 
     pub fn update(&mut self, root: &mut NodeRef, range: Range<usize>, update: &T::Update) {
@@ -281,19 +265,21 @@ impl<T: SegTreeNode> Treap<T> {
         let mut stack = vec![];
         let mut node = root;
         loop {
-            if self.get(node).cnt_leafs == 1 {
+            stack.push(node);
+            if self.get(node).len == 1 {
                 break;
             }
-            stack.push(node);
-            let left_cnt = self.get(self.get(node).child[0]).cnt_leafs();
+            let left_cnt = self.len(self.get(node).child[0]);
             if pos < left_cnt {
                 node = self.get(node).child[0];
+            } else if pos == left_cnt {
+                break;
             } else {
-                pos -= left_cnt;
+                pos -= left_cnt + 1;
                 node = self.get(node).child[1];
             }
         }
-        self.get_mut(node).inner = inner;
+        self.get_mut(node).value = inner;
         for node in stack.into_iter().rev() {
             self.recalc_node(node);
         }
@@ -303,14 +289,14 @@ impl<T: SegTreeNode> Treap<T> {
         if root == NodeRef::NULL {
             return None;
         }
-        Some(&self.get(root).inner)
+        Some(&self.get(root).tree_values)
     }
 
     pub fn len(&self, root: NodeRef) -> usize {
         if root == NodeRef::NULL {
             return 0;
         }
-        self.get(root).cnt_leafs()
+        self.get(root).len as usize
     }
 
     fn get(&self, node: NodeRef) -> &TreapNode<T> {
@@ -324,9 +310,5 @@ impl<T: SegTreeNode> Treap<T> {
 
     pub fn num_nodes(&self) -> usize {
         self.nodes.len()
-    }
-
-    pub fn gc(&mut self, mid: NodeRef) {
-        self.free_ids.push(mid);
     }
 }
