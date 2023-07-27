@@ -276,6 +276,29 @@ impl<T: SegTreeNode> Treap<T> {
         *root = self.merge(lhs, rhs);
     }
 
+    pub fn update_point(&mut self, root: NodeRef, mut pos: usize, inner: T) {
+        assert!(self.len(root) > pos);
+        let mut stack = vec![];
+        let mut node = root;
+        loop {
+            if self.get(node).cnt_leafs == 1 {
+                break;
+            }
+            stack.push(node);
+            let left_cnt = self.get(self.get(node).child[0]).cnt_leafs();
+            if pos < left_cnt {
+                node = self.get(node).child[0];
+            } else {
+                pos -= left_cnt;
+                node = self.get(node).child[1];
+            }
+        }
+        self.get_mut(node).inner = inner;
+        for node in stack.into_iter().rev() {
+            self.recalc_node(node);
+        }
+    }
+
     pub fn get_node(&self, root: NodeRef) -> Option<&T> {
         if root == NodeRef::NULL {
             return None;
@@ -301,5 +324,9 @@ impl<T: SegTreeNode> Treap<T> {
 
     pub fn num_nodes(&self) -> usize {
         self.nodes.len()
+    }
+
+    pub fn gc(&mut self, mid: NodeRef) {
+        self.free_ids.push(mid);
     }
 }
