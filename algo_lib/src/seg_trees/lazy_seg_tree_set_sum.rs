@@ -1,6 +1,7 @@
 use crate::misc::gen_vector::gen_vec;
 use crate::misc::num_traits::Number;
-use crate::seg_trees::lazy_seg_tree::{SegTree, SegTreeNode};
+use crate::seg_trees::lazy_seg_tree::SegTree;
+use crate::seg_trees::seg_tree_trait::SegTreeNode;
 use std::fmt::Debug;
 
 #[derive(Clone, Default, Copy, Debug)]

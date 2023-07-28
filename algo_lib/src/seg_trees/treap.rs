@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::{misc::rand::Random, seg_trees::lazy_seg_tree::SegTreeNode};
+use crate::{misc::rand::Random, seg_trees::seg_tree_trait::SegTreeNode};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct NodeRef(u32);

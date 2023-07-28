@@ -1,6 +1,6 @@
 use std::ops::{Index, Range};
 
-use crate::seg_trees::lazy_seg_tree::SegTreeNode;
+use crate::seg_trees::seg_tree_trait::SegTreeNode;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct NodeId(u32);

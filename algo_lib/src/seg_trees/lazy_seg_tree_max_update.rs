@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-use crate::seg_trees::lazy_seg_tree::{SegTree, SegTreeNode};
+use crate::seg_trees::{lazy_seg_tree::SegTree, seg_tree_trait::SegTreeNode};
 
 #[derive(Clone, Default, Copy, Debug)]
 pub struct Node {

@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use crate::{
     misc::min_max::UpdateMinMax,
-    seg_trees::lazy_seg_tree::{SegTree, SegTreeNode},
+    seg_trees::{lazy_seg_tree::SegTree, seg_tree_trait::SegTreeNode},
 };
 
 const MAX: i64 = std::i64::MAX;

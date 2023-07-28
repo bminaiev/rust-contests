@@ -1,5 +1,4 @@
-use crate::math::modulo::Mod7;
-use crate::seg_trees::lazy_seg_tree::SegTreeNode;
+use crate::{math::modulo::Mod7, seg_trees::seg_tree_trait::SegTreeNode};
 
 type Mod = Mod7;
 

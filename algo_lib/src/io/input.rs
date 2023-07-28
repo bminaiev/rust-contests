@@ -1,4 +1,3 @@
-use crate::collections::array_2d::Array2D;
 use std::fmt::Debug;
 use std::io::Read;
 use std::marker::PhantomData;
@@ -135,13 +134,6 @@ impl Input {
             res.push(self.string());
         }
         res
-    }
-
-    pub fn matrix<T: Readable>(&mut self, rows: usize, cols: usize) -> Array2D<T>
-    where
-        T: Clone,
-    {
-        Array2D::new_f(rows, cols, |_, _| self.read())
     }
 
     pub fn read_line(&mut self) -> String {
@@ -296,26 +288,3 @@ read_integer!(u32);
 read_integer!(u64);
 read_integer!(u128);
 read_integer!(usize);
-
-macro_rules! tuple_readable {
-    ( $( $name:ident )+ ) => {
-        impl<$($name: Readable), +> Readable for ($($name,)+) {
-            fn read(input: &mut Input) -> Self {
-                ($($name::read(input),)+)
-            }
-        }
-    }
-}
-
-tuple_readable! {T}
-tuple_readable! {T U}
-tuple_readable! {T U V}
-tuple_readable! {T U V X}
-tuple_readable! {T U V X Y}
-tuple_readable! {T U V X Y Z}
-tuple_readable! {T U V X Y Z A}
-tuple_readable! {T U V X Y Z A B}
-tuple_readable! {T U V X Y Z A B C}
-tuple_readable! {T U V X Y Z A B C D}
-tuple_readable! {T U V X Y Z A B C D E}
-tuple_readable! {T U V X Y Z A B C D E F}
