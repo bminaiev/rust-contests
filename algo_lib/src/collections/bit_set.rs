@@ -22,6 +22,23 @@ impl BitSet {
         (self.values[pos >> 6] >> (pos & 63)) & 1 == 1
     }
 
+    // bit [i] becomes [i + shift]. Bits after [n] are almost dropped.
+    pub fn shift_higher(&self, shift: usize) -> Self {
+        let mut res = Self::new(self.bit_len());
+        let whole = shift / 64;
+        let offset = shift % 64;
+        for i in 0..self.values.len() {
+            if i + whole >= res.values.len() {
+                break;
+            }
+            res.values[i + whole] |= self.values[i] << offset;
+            if offset != 0 && i + whole + 1 < res.values.len() {
+                res.values[i + whole + 1] |= self.values[i] >> (64 - offset);
+            }
+        }
+        res
+    }
+
     #[allow(unused)]
     pub fn set(&mut self, pos: usize, val: bool) {
         if val {
