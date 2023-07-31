@@ -119,7 +119,7 @@ pub(crate) fn fft_multiply_complex(mut a: Vec<Complex>, mut b: Vec<Complex>) -> 
 }
 
 #[allow(unused)]
-pub(crate) fn fft_multiply(mut a: Vec<f64>, mut b: Vec<f64>) -> Vec<f64> {
+pub fn fft_multiply(mut a: Vec<f64>, mut b: Vec<f64>) -> Vec<f64> {
     let a: Vec<_> = a.iter().map(|&x| Complex { real: x, imag: 0.0 }).collect();
     let b: Vec<_> = b.iter().map(|&x| Complex { real: x, imag: 0.0 }).collect();
     fft_multiply_complex(a, b).iter().map(|c| c.real).collect()
