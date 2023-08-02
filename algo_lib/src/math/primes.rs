@@ -61,3 +61,17 @@ impl<'a> Iterator for PrimesIter<'a> {
         }
     }
 }
+
+pub fn is_prime(x: i64) -> bool {
+    if x <= 1 {
+        return false;
+    }
+    let mut i = 2;
+    while i * i <= x {
+        if x % i == 0 {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
