@@ -32,13 +32,13 @@ impl Line {
     }
 
     pub fn intersect(&self, other: &Self) -> Option<Point> {
-        let denum = self.b * other.a - other.b * self.a;
-        if denum.eq_with_default_eps(&OrdF64::ZERO) {
+        let denom = self.b * other.a - other.b * self.a;
+        if denom.eq_with_default_eps(&OrdF64::ZERO) {
             return None;
         }
         let y_num = other.c * self.a - self.c * other.a;
         let x_num = self.c * other.b - other.c * self.b;
-        let res = Point::new(x_num / denum, y_num / denum);
+        let res = Point::new(x_num / denom, y_num / denom);
         debug_assert!(
             self.abs_dist(&res)
                 .eq_with_eps(&OrdF64::ZERO, OrdF64::SMALL_EPS),

@@ -108,10 +108,10 @@ where
         } else if self.0 >= M::val() - MAX as i32 {
             write!(f, "-{}", M::val() - self.0)
         } else {
-            for denum in 1..MAX {
+            for denom in 1..MAX {
                 for num in 1..MAX {
-                    if Self(num as i32, PhantomData) / Self(denum as i32, PhantomData) == *self {
-                        return write!(f, "{}/{}", num, denum);
+                    if Self(num as i32, PhantomData) / Self(denom as i32, PhantomData) == *self {
+                        return write!(f, "{}/{}", num, denom);
                     }
                 }
             }

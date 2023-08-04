@@ -8,49 +8,49 @@ use crate::{
 #[derive(Clone, Copy, Default, Debug)]
 pub struct FracT<T: Number> {
     pub num: T,
-    pub denum: T,
+    pub denom: T,
 }
 
 impl<T: Number + std::ops::Rem<Output = T>> FracT<T> {
-    pub fn new(mut num: T, mut denum: T) -> Self {
-        if denum == T::ZERO {
+    pub fn new(mut num: T, mut denom: T) -> Self {
+        if denom == T::ZERO {
             return match num.cmp(&T::ZERO) {
                 Ordering::Less => Self {
                     num: T::ZERO - T::ONE,
-                    denum: T::ZERO,
+                    denom: T::ZERO,
                 },
                 Ordering::Equal => Self {
                     num: T::ZERO,
-                    denum: T::ZERO,
+                    denom: T::ZERO,
                 },
                 Ordering::Greater => Self {
                     num: T::ONE,
-                    denum: T::ZERO,
+                    denom: T::ZERO,
                 },
             };
         }
-        if denum < T::ZERO {
+        if denom < T::ZERO {
             num *= T::ZERO - T::ONE;
-            denum *= T::ZERO - T::ONE;
+            denom *= T::ZERO - T::ONE;
         }
-        let g = gcd(num, denum);
+        let g = gcd(num, denom);
         Self {
             num: num / g,
-            denum: denum / g,
+            denom: denom / g,
         }
     }
 }
 
 impl<T: Number> PartialEq for FracT<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.num == other.num && self.denum == other.denum
+        self.num == other.num && self.denom == other.denom
     }
 }
 impl<T: Number> Eq for FracT<T> {}
 
 impl<T: Number> PartialOrd for FracT<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some((self.num * other.denum).cmp(&(other.num * self.denum)))
+        Some((self.num * other.denom).cmp(&(other.num * self.denom)))
     }
 }
 
@@ -64,7 +64,7 @@ impl<T: Number + std::ops::Rem<Output = T>> std::ops::Mul for FracT<T> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Self::new(self.num * rhs.num, self.denum * rhs.denum)
+        Self::new(self.num * rhs.num, self.denom * rhs.denom)
     }
 }
 
@@ -79,8 +79,8 @@ impl<T: Number + std::ops::Rem<Output = T>> std::ops::Add for FracT<T> {
 
     fn add(self, rhs: Self) -> Self::Output {
         Self::new(
-            self.num * rhs.denum + rhs.num * self.denum,
-            self.denum * rhs.denum,
+            self.num * rhs.denom + rhs.num * self.denom,
+            self.denom * rhs.denom,
         )
     }
 }
@@ -95,7 +95,7 @@ impl<T: Number + std::ops::Rem<Output = T>> std::ops::Div for FracT<T> {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Self::new(self.num * rhs.denum, self.denum * rhs.num)
+        Self::new(self.num * rhs.denom, self.denom * rhs.num)
     }
 }
 
@@ -110,8 +110,8 @@ impl<T: Number + std::ops::Rem<Output = T>> std::ops::Sub for FracT<T> {
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self::new(
-            self.num * rhs.denum - rhs.num * self.denum,
-            self.denum * rhs.denum,
+            self.num * rhs.denom - rhs.num * self.denom,
+            self.denom * rhs.denom,
         )
     }
 }
@@ -125,27 +125,27 @@ impl<T: Number + std::ops::Rem<Output = T>> std::ops::SubAssign for FracT<T> {
 impl<T: Number + std::ops::Rem<Output = T>> HasConstants<FracT<T>> for FracT<T> {
     const MAX: Self = FracT {
         num: T::MAX,
-        denum: T::ONE,
+        denom: T::ONE,
     };
 
     const MIN: Self = FracT {
         num: T::MIN,
-        denum: T::ONE,
+        denom: T::ONE,
     };
 
     const ZERO: Self = FracT {
         num: T::ZERO,
-        denum: T::ONE,
+        denom: T::ONE,
     };
 
     const ONE: Self = FracT {
         num: T::ONE,
-        denum: T::ONE,
+        denom: T::ONE,
     };
 
     const TWO: Self = FracT {
         num: T::TWO,
-        denum: T::ONE,
+        denom: T::ONE,
     };
 }
 
@@ -155,10 +155,10 @@ impl<T: Number + std::ops::Rem<Output = T>> ConvSimple<Self> for FracT<T> {
     }
 
     fn to_i32(self) -> i32 {
-        (self.num / self.denum).to_i32()
+        (self.num / self.denom).to_i32()
     }
 
     fn to_f64(self) -> f64 {
-        self.num.to_f64() / self.denum.to_f64()
+        self.num.to_f64() / self.denom.to_f64()
     }
 }
