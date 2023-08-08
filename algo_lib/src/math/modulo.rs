@@ -102,17 +102,19 @@ where
     M: Value + Copy + Eq,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        const MAX: usize = 100;
-        if self.0 <= MAX as i32 {
+        const MAX: i32 = 100;
+
+        if self.0 <= MAX {
             write!(f, "{}", self.0)
-        } else if self.0 >= M::val() - MAX as i32 {
+        } else if self.0 >= M::val() - MAX {
             write!(f, "-{}", M::val() - self.0)
         } else {
             for denom in 1..MAX {
-                for num in 1..MAX {
-                    if Self(num as i32, PhantomData) / Self(denom as i32, PhantomData) == *self {
-                        return write!(f, "{}/{}", num, denom);
-                    }
+                let num = *self * Self(denom, PhantomData);
+                if num.0 <= MAX {
+                    return write!(f, "{}/{}", num.0, denom);
+                } else if num.0 >= M::val() - MAX {
+                    return write!(f, "-{}/{}", M::val() - num.0, denom);
                 }
             }
             write!(f, "(?? {} ??)", self.0)

@@ -49,6 +49,7 @@ pub mod tests {
         let y = Mod::new(1) / Mod::new(3);
         assert_eq!(format!("{}", x + y), "833333340");
         assert_eq!(format!("{:?}", x + y), "5/6");
+        assert_eq!(format!("{:?}", y - x), "-1/6");
     }
 
     #[test]
