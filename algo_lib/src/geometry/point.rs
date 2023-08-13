@@ -217,6 +217,12 @@ where
     }
 }
 
+impl PointWithIdT<OrdF64> {
+    pub fn dist(&self, other: &Self) -> OrdF64 {
+        self.p.dist2(&other.p).sqrt()
+    }
+}
+
 impl PointT<OrdF64> {
     pub fn rotate_ccw_angle(&self, angle: OrdF64) -> Self {
         let cos = f!(angle.0.cos());
