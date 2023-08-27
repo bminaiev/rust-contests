@@ -23,7 +23,7 @@ where
 
 impl<T> PolygonT<T>
 where
-    T: Number,
+    T: Number + Ord,
 {
     pub fn new(mut points: Vec<PointT<T>>) -> Self {
         assert_ne!(points.len(), 0);
@@ -133,7 +133,7 @@ where
 
 impl<'a, T> Iterator for PolygonEdgeIter<'a, T>
 where
-    T: Number,
+    T: Number + Ord,
 {
     type Item = SegmentT<T>;
 
@@ -147,7 +147,7 @@ where
 
 impl<T> Readable for PolygonT<T>
 where
-    T: Number + Readable,
+    T: Number + Readable + Ord,
 {
     fn read(input: &mut Input) -> Self {
         let n = input.usize();
@@ -157,7 +157,7 @@ where
 
 impl<T> Debug for PolygonT<T>
 where
-    T: Number,
+    T: Number + Ord,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "[")?;

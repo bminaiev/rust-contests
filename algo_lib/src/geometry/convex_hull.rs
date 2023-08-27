@@ -1,6 +1,6 @@
 use crate::{geometry::point::PointT, misc::num_traits::Number};
 
-pub fn convex_hull<T: Number>(a: &[PointT<T>]) -> Vec<PointT<T>> {
+pub fn convex_hull<T: Number + Ord>(a: &[PointT<T>]) -> Vec<PointT<T>> {
     if a.is_empty() {
         return vec![];
     }

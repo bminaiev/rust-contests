@@ -11,7 +11,7 @@ pub struct FracT<T: Number> {
     pub denom: T,
 }
 
-impl<T: Number + std::ops::Rem<Output = T>> FracT<T> {
+impl<T: Number + std::ops::Rem<Output = T> + Ord> FracT<T> {
     pub fn new(mut num: T, mut denom: T) -> Self {
         if denom == T::ZERO {
             return match num.cmp(&T::ZERO) {
@@ -48,19 +48,19 @@ impl<T: Number> PartialEq for FracT<T> {
 }
 impl<T: Number> Eq for FracT<T> {}
 
-impl<T: Number> PartialOrd for FracT<T> {
+impl<T: Number + Ord> PartialOrd for FracT<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some((self.num * other.denom).cmp(&(other.num * self.denom)))
     }
 }
 
-impl<T: Number> Ord for FracT<T> {
+impl<T: Number + Ord> Ord for FracT<T> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap()
     }
 }
 
-impl<T: Number + std::ops::Rem<Output = T>> std::ops::Mul for FracT<T> {
+impl<T: Number + std::ops::Rem<Output = T> + Ord> std::ops::Mul for FracT<T> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -68,13 +68,13 @@ impl<T: Number + std::ops::Rem<Output = T>> std::ops::Mul for FracT<T> {
     }
 }
 
-impl<T: Number + std::ops::Rem<Output = T>> std::ops::MulAssign for FracT<T> {
+impl<T: Number + std::ops::Rem<Output = T> + Ord> std::ops::MulAssign for FracT<T> {
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl<T: Number + std::ops::Rem<Output = T>> std::ops::Add for FracT<T> {
+impl<T: Number + std::ops::Rem<Output = T> + Ord> std::ops::Add for FracT<T> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -85,13 +85,13 @@ impl<T: Number + std::ops::Rem<Output = T>> std::ops::Add for FracT<T> {
     }
 }
 
-impl<T: Number + std::ops::Rem<Output = T>> std::ops::AddAssign for FracT<T> {
+impl<T: Number + std::ops::Rem<Output = T> + Ord> std::ops::AddAssign for FracT<T> {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
-impl<T: Number + std::ops::Rem<Output = T>> std::ops::Div for FracT<T> {
+impl<T: Number + std::ops::Rem<Output = T> + Ord> std::ops::Div for FracT<T> {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
@@ -99,13 +99,13 @@ impl<T: Number + std::ops::Rem<Output = T>> std::ops::Div for FracT<T> {
     }
 }
 
-impl<T: Number + std::ops::Rem<Output = T>> std::ops::DivAssign for FracT<T> {
+impl<T: Number + std::ops::Rem<Output = T> + Ord> std::ops::DivAssign for FracT<T> {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
 }
 
-impl<T: Number + std::ops::Rem<Output = T>> std::ops::Sub for FracT<T> {
+impl<T: Number + std::ops::Rem<Output = T> + Ord> std::ops::Sub for FracT<T> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -116,7 +116,7 @@ impl<T: Number + std::ops::Rem<Output = T>> std::ops::Sub for FracT<T> {
     }
 }
 
-impl<T: Number + std::ops::Rem<Output = T>> std::ops::SubAssign for FracT<T> {
+impl<T: Number + std::ops::Rem<Output = T> + Ord> std::ops::SubAssign for FracT<T> {
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
@@ -149,7 +149,7 @@ impl<T: Number + std::ops::Rem<Output = T>> HasConstants<FracT<T>> for FracT<T> 
     };
 }
 
-impl<T: Number + std::ops::Rem<Output = T>> ConvSimple<Self> for FracT<T> {
+impl<T: Number + std::ops::Rem<Output = T> + Ord> ConvSimple<Self> for FracT<T> {
     fn from_i32(val: i32) -> Self {
         Self::new(T::from_i32(val), T::ONE)
     }

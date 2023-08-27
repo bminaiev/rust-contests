@@ -77,7 +77,7 @@ impl SuffixArray {
 
     pub fn new<T>(mut str: Vec<T>) -> Self
     where
-        T: Number,
+        T: Number + Ord,
     {
         str.push(T::ZERO);
         let n = str.len();

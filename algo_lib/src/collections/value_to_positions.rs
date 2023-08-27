@@ -2,7 +2,7 @@ use crate::misc::num_traits::Number;
 
 pub fn calc_value_occurrences<T>(a: &[T]) -> Vec<usize>
 where
-    T: Number,
+    T: Number + Ord,
 {
     let max_val = a.iter().max().unwrap().to_i32() as usize;
     let mut res = vec![0; max_val + 1];
@@ -14,7 +14,7 @@ where
 
 pub fn calc_value_to_positions<T>(a: &[T]) -> Vec<Vec<T>>
 where
-    T: Number,
+    T: Number + Ord,
 {
     let mut res: Vec<_> = calc_value_occurrences(a)
         .into_iter()

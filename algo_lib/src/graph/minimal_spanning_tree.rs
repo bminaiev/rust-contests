@@ -6,7 +6,7 @@ use crate::graph::graph_builder::GraphBuilder;
 use crate::graph::graph_trait::GraphTrait;
 use crate::misc::num_traits::Number;
 
-pub fn minimal_spanning_tree<G, T: Number>(graph: &G) -> CompressedGraph<WeightedEdge<T>>
+pub fn minimal_spanning_tree<G, T: Number + Ord>(graph: &G) -> CompressedGraph<WeightedEdge<T>>
 where
     G: GraphTrait<WeightedEdge<T>>,
 {

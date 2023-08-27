@@ -12,7 +12,7 @@ struct Segment<T: Number> {
     polygon_id: usize,
 }
 
-impl<T: Number> Segment<T> {
+impl<T: Number + Ord> Segment<T> {
     pub fn get_lower_higher(&self) -> (PointT<T>, PointT<T>) {
         if self.fr.y < self.to.y {
             (self.fr, self.to)
@@ -30,7 +30,7 @@ impl<T: Number> Segment<T> {
     }
 }
 
-impl<T: Number> Ord for Segment<T> {
+impl<T: Number + Ord> Ord for Segment<T> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_p(other.fr)
             .then_with(|| self.cmp_p(other.to))
@@ -39,7 +39,7 @@ impl<T: Number> Ord for Segment<T> {
     }
 }
 
-impl<T: Number> PartialOrd for Segment<T> {
+impl<T: Number + Ord> PartialOrd for Segment<T> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -52,7 +52,7 @@ pub struct PointLocation<T: Number> {
     same_y: Vec<Vec<Segment<T>>>,
 }
 
-impl<T: Number> PointLocation<T> {
+impl<T: Number + Ord> PointLocation<T> {
     pub fn new(polygons: &[Vec<PointT<T>>]) -> Self {
         let mut all_y: Vec<T> = polygons
             .iter()

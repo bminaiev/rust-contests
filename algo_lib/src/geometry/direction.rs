@@ -39,18 +39,18 @@ where
 
 impl<T> PartialEq<Self> for DirectionT<T>
 where
-    T: Number,
+    T: Number + Ord,
 {
     fn eq(&self, other: &Self) -> bool {
         self.cmp(other) == Ordering::Equal
     }
 }
 
-impl<T> Eq for DirectionT<T> where T: Number {}
+impl<T> Eq for DirectionT<T> where T: Number + Ord {}
 
 impl<T> PartialOrd<Self> for DirectionT<T>
 where
-    T: Number,
+    T: Number + Ord,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(
@@ -65,7 +65,7 @@ where
 
 impl<T> Ord for DirectionT<T>
 where
-    T: Number,
+    T: Number + Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap()

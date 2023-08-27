@@ -30,9 +30,7 @@ pub trait Number:
     + MulAssign
     + Div<Output = Self>
     + DivAssign
-    + Ord
     + PartialOrd
-    + Eq
     + PartialEq
     + HasConstants<Self>
     + Default
@@ -52,9 +50,7 @@ impl<
             + MulAssign
             + Div<Output = Self>
             + DivAssign
-            + Ord
             + PartialOrd
-            + Eq
             + PartialEq
             + HasConstants<Self>
             + Default
@@ -123,7 +119,7 @@ impl HasConstants<Self> for f64 {
     const TWO: Self = 2.0;
 }
 
-impl<T: Number> Signum for T {
+impl<T: Number + Ord> Signum for T {
     fn signum(&self) -> i32 {
         match self.cmp(&T::ZERO) {
             Ordering::Greater => 1,

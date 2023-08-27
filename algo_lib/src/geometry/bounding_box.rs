@@ -11,7 +11,7 @@ pub struct BoundingBox<T: Number> {
     pub max: PointT<T>,
 }
 
-impl<T: Number> BoundingBox<T> {
+impl<T: Number + Ord> BoundingBox<T> {
     pub fn new(first: &PointT<T>, second: &PointT<T>) -> Self {
         let bottom_left = PointT::new(min(first.x, second.x), min(first.y, second.y));
         let top_right = PointT::new(max(first.x, second.x), max(first.y, second.y));

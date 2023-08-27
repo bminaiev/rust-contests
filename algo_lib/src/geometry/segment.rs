@@ -18,7 +18,7 @@ where
 
 impl<T> SegmentT<T>
 where
-    T: Number,
+    T: Number + Ord,
 {
     pub fn new(from: PointT<T>, to: PointT<T>) -> Self {
         Self { from, to }

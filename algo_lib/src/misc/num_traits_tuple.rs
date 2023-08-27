@@ -102,7 +102,7 @@ impl<T1: Number, T2: Number> PartialOrd<Self> for NumberPair<T1, T2> {
     }
 }
 
-impl<T1: Number, T2: Number> Ord for NumberPair<T1, T2> {
+impl<T1: Number + Ord, T2: Number + Ord> Ord for NumberPair<T1, T2> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.to_tuple().cmp(&other.to_tuple())
     }
