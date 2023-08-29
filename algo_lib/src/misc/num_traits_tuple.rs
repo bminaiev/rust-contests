@@ -22,7 +22,7 @@ impl<T1: Number, T2: Number> Copy for NumberPair<T1, T2> {}
 
 impl<T1: Number, T2: Number> Clone for NumberPair<T1, T2> {
     fn clone(&self) -> Self {
-        Self::new(self.first, self.second)
+        *self
     }
 }
 

@@ -25,15 +25,13 @@
 //! # fn main() { }
 //! ```
 
-extern crate std;
-
-use core::convert::TryInto;
-use core::default::Default;
-use core::hash::BuildHasherDefault;
-use core::hash::Hasher;
-use core::mem::size_of;
-use core::ops::BitXor;
-use std::collections::{HashMap, HashSet};
+use std::convert::TryInto;
+use std::{
+    collections::{HashMap, HashSet},
+    hash::{BuildHasherDefault, Hasher},
+    mem::size_of,
+    ops::BitXor,
+};
 
 /// Type alias for a hashmap using the `fx` hash algorithm.
 pub type FxHashMap<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;

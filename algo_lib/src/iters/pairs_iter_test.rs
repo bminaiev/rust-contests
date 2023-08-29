@@ -4,7 +4,7 @@ mod tests {
 
     #[test]
     fn simple() {
-        let a = vec![1, 3, 5];
+        let a = [1, 3, 5];
         let pairs: Vec<(i32, i32)> = a.iter().pairs().map(|(a, b)| (*a, *b)).collect();
         assert_eq!(pairs, vec![(1, 3), (1, 5), (3, 5)]);
     }

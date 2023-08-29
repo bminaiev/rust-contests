@@ -13,10 +13,7 @@ fn process_op(st: &mut Vec<i64>, ops: &mut Vec<u8>) {
 }
 
 fn is_op(c: u8) -> bool {
-    match c {
-        b'+' | b'-' | b'*' | b'/' => true,
-        _ => false,
-    }
+    matches!(c, b'+' | b'-' | b'*' | b'/')
 }
 
 fn priority(c: u8) -> i32 {
