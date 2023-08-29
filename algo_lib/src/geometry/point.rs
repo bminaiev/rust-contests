@@ -7,7 +7,7 @@ use crate::misc::num_traits::Number;
 use crate::misc::ord_f64::OrdF64;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 
-#[derive(Copy, Clone, PartialOrd, Eq, PartialEq, Hash, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
 pub struct PointT<T: Number> {
     pub x: T,
     pub y: T,
@@ -16,6 +16,12 @@ pub struct PointT<T: Number> {
 impl<T: Ord + Number> Ord for PointT<T> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.x.cmp(&other.x).then(self.y.cmp(&other.y))
+    }
+}
+
+impl<T: Ord + Number> PartialOrd for PointT<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.cmp(other).into()
     }
 }
 
@@ -204,7 +210,7 @@ where
     }
 }
 
-#[derive(Copy, Clone, PartialOrd, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct PointWithIdT<T: Number> {
     pub p: PointT<T>,
     id: u32,

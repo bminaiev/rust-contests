@@ -3,7 +3,7 @@ use crate::{
     misc::{min_max::FindMinMaxPos, num_traits::Number},
 };
 
-pub fn make_ccw<T: Number>(mut poly: Vec<PointT<T>>) -> Vec<PointT<T>> {
+pub fn make_ccw<T: Number + Ord>(mut poly: Vec<PointT<T>>) -> Vec<PointT<T>> {
     let first = poly.index_of_min();
     let cur = poly[first];
     let next = poly[(first + 1) % poly.len()];
@@ -14,7 +14,7 @@ pub fn make_ccw<T: Number>(mut poly: Vec<PointT<T>>) -> Vec<PointT<T>> {
     poly
 }
 
-pub fn remove_three_on_line<T: Number>(mut poly: Vec<PointT<T>>) -> Vec<PointT<T>> {
+pub fn remove_three_on_line<T: Number + Ord>(mut poly: Vec<PointT<T>>) -> Vec<PointT<T>> {
     let first = poly.index_of_min();
     poly.rotate_left(first);
     let mut result = vec![];
