@@ -12,7 +12,7 @@ const EPS: f64 = 1e-9;
 
 fn is_equal_floats(f_actual: f64, f_expected: f64) -> bool {
     let abs_diff = (f_actual - f_expected).abs();
-    return abs_diff <= EPS || abs_diff <= f_expected.abs() * EPS;
+    abs_diff <= EPS || abs_diff <= f_expected.abs() * EPS
 }
 
 fn is_equal_float_tokens(token_actual: Vec<u8>, token_expected: Vec<u8>) -> bool {
@@ -21,7 +21,7 @@ fn is_equal_float_tokens(token_actual: Vec<u8>, token_expected: Vec<u8>) -> bool
             return is_equal_floats(f_actual, f_expected);
         }
     }
-    return false;
+    false
 }
 
 fn check(expected: &mut &[u8], actual: &mut &[u8]) -> Result<(), String> {
@@ -36,18 +36,16 @@ fn check(expected: &mut &[u8], actual: &mut &[u8]) -> Result<(), String> {
                 return Err(format!("Expected has only {} tokens", token_num));
             } else if actual_token.is_none() {
                 return Err(format!("Actual has only {} tokens", token_num));
-            } else {
-                if !is_equal_float_tokens(
-                    actual_token.clone().unwrap(),
-                    expected_token.clone().unwrap(),
-                ) {
-                    return Err(format!(
-                        "Token #{} differs, expected {}, actual {}",
-                        token_num,
-                        String::from_utf8(expected_token.unwrap()).unwrap(),
-                        String::from_utf8(actual_token.unwrap()).unwrap()
-                    ));
-                }
+            } else if !is_equal_float_tokens(
+                actual_token.clone().unwrap(),
+                expected_token.clone().unwrap(),
+            ) {
+                return Err(format!(
+                    "Token #{} differs, expected {}, actual {}",
+                    token_num,
+                    String::from_utf8(expected_token.unwrap()).unwrap(),
+                    String::from_utf8(actual_token.unwrap()).unwrap()
+                ));
             }
         }
         token_num += 1;
@@ -86,11 +84,9 @@ pub(crate) fn run_single_test(name: &str) -> bool {
     let out_path = format!("./$TASK/tests/{}.out", name);
     println!("{}Test {}{}", BLUE, name, DEF);
     println!("{}Input:{}", BLUE, DEF);
-    println!(
-        "{}",
-        std::fs::read_to_string(&path)
-            .expect(&format!("Can't open file with test input: {}", path))
-    );
+    let input = std::fs::read_to_string(&path)
+        .unwrap_or_else(|_| panic!("Can't open file with test input: {}", path));
+    println!("{input}");
     let expected = match std::fs::read_to_string(out_path) {
         Ok(res) => Some(res),
         Err(_) => None,
@@ -156,10 +152,7 @@ pub(crate) fn run_single_test(name: &str) -> bool {
                     "{}Verdict: {}RuntimeError ({:?}){}",
                     BLUE, RED, as_string, DEF
                 ),
-                Err(err) => println!(
-                    "{}Verdict: {}RuntimeError ({:?}){}",
-                    BLUE, RED, err, DEF
-                ),
+                Err(err) => println!("{}Verdict: {}RuntimeError ({:?}){}", BLUE, RED, err, DEF),
             }
             return false;
         }
@@ -179,7 +172,7 @@ pub(crate) fn run_tests() -> bool {
         .unwrap()
         .map(|res| res.unwrap())
         .collect::<Vec<_>>();
-    paths.sort_by(|a, b| a.path().cmp(&b.path()));
+    paths.sort_by_key(|a| a.path());
     let mut test_failed = 0usize;
     let mut test_total = 0usize;
     for path in paths {
@@ -234,7 +227,7 @@ pub fn run_with_specific_file<P: AsRef<Path>>(input_file: P) {
 #[allow(unused)]
 pub fn run_with_last_downloaded_file() {
     let dir = "/home/borys/Downloads";
-    let input_file = match find_last_changed_file(&dir) {
+    let input_file = match find_last_changed_file(dir) {
         Some(file) => {
             eprintln!(
                 "Found last modified file: {}, will use it as input.",
