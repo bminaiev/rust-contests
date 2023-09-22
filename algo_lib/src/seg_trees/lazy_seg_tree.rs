@@ -137,6 +137,40 @@ impl<T: SegTreeNode> SegTree<T> {
         }
     }
 
+    fn find_last_true_(
+        &mut self,
+        v: usize,
+        l: usize,
+        r: usize,
+        range: Range<usize>,
+        f: &impl Fn(&T) -> bool,
+    ) -> Option<usize> {
+        if range.start >= r || l >= range.end {
+            return None;
+        }
+        let m = (l + r) >> 1;
+        let vr = v + ((m - l) << 1);
+        if range.start <= l && r <= range.end {
+            if !f(&self.tree[v]) {
+                return None;
+            }
+            if r - l == 1 {
+                return Some(l);
+            }
+        }
+        self.push(v, l, r);
+        if let Some(res) = self.find_last_true_(vr, m, r, range.clone(), f) {
+            Some(res)
+        } else {
+            self.find_last_true_(v + 1, l, m, range, f)
+        }
+    }
+
+    // returns position
+    pub fn find_last_true(&mut self, range: Range<usize>, f: impl Fn(&T) -> bool) -> Option<usize> {
+        self.find_last_true_(0, 0, self.n, range, &f)
+    }
+
     pub fn get(&mut self, range: Range<usize>) -> T {
         if range.is_empty() {
             return T::default();
