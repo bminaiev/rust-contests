@@ -3,6 +3,7 @@ pub mod bfs_bitsets;
 pub mod bfs_bitsets_fixed_size;
 pub mod compressed_graph;
 pub mod dfs_builder;
+pub mod dfs_order;
 pub mod dijkstra;
 pub mod dijkstra_with_potentials;
 pub mod dsu;

@@ -74,4 +74,17 @@ impl Hld {
         segs.push(self.pos_in_order[v]..self.pos_in_order[v] + 1);
         segs
     }
+
+    pub fn lca(&self, mut v: usize, mut u: usize) -> usize {
+        while v != u {
+            if self.pos_in_order[v] < self.pos_in_order[u] {
+                std::mem::swap(&mut v, &mut u);
+            }
+            if self.block_start[self.pos_in_order[v]] <= self.pos_in_order[u] {
+                return u;
+            }
+            v = self.parent[self.order[self.block_start[self.pos_in_order[v]]]];
+        }
+        v
+    }
 }
