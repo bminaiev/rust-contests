@@ -6,7 +6,7 @@ pub struct Hld {
     parent: Vec<usize>,
     pub order: Vec<usize>,
     block_start: Vec<usize>,
-    pos_in_order: Vec<usize>,
+    pub pos_in_order: Vec<usize>,
 }
 
 impl Hld {
