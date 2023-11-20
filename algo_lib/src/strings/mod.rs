@@ -1,8 +1,10 @@
 pub mod aho_corasick;
 pub mod english_dictionary;
 pub mod hash_string_context;
+pub mod prefix_function;
 pub mod suffix_array;
 pub mod suffix_array_test;
+pub mod z_function;
 pub mod tree_hash_string;
 pub mod trie;
 pub mod utils;
