@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TwoMin<IdType: Eq, ValueType: Ord> {
     cnt: usize,
     values: [(IdType, ValueType); 2],
@@ -54,6 +54,12 @@ impl<IdType: Eq + Copy, ValueType: Ord + Copy> TwoMin<IdType, ValueType> {
             return true;
         }
         unreachable!("cnt is greater than 2?");
+    }
+
+    pub fn merge(&mut self, another: &Self) {
+        for i in 0..another.cnt {
+            self.add(another.values[i].0, another.values[i].1);
+        }
     }
 
     pub fn get_value_by_id(&self, id: IdType) -> Option<ValueType> {
