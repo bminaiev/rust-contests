@@ -67,6 +67,14 @@ where
         self.points.iter().map(|p| p.y).max().unwrap()
     }
 
+    pub fn area_signed(&self) -> T {
+        let mut res = T::ZERO;
+        for edge in self.edges() {
+            res += edge.from.x * edge.to.y - edge.to.x * edge.from.y;
+        }
+        res / T::TWO
+    }
+
     pub fn area_x2(&self) -> T {
         let mut res = T::ZERO;
         for edge in self.edges() {

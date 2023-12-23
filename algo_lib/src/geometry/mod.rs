@@ -3,6 +3,7 @@ pub mod canonical_line;
 pub mod convex_hull;
 pub mod convex_hull_tests;
 pub mod convex_polygon_intersection;
+pub mod dcel;
 pub mod direction;
 pub mod half_plane_intersection;
 pub mod half_plane_intersection_test;
