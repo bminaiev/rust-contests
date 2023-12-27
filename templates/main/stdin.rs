@@ -1,0 +1,1 @@
+let input = algo_lib::io::input::Input::new(Box::new(std::io::stdin()));

@@ -1,0 +1,1 @@
+let input = algo_lib::io::input::Input::new_file("$IN_FILE");
