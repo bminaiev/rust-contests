@@ -43,6 +43,11 @@ impl Input {
         }
     }
 
+    pub fn new_stdin() -> Self {
+        let stdin = std::io::stdin();
+        Self::new(Box::new(stdin))
+    }
+
     pub fn new_file<P: AsRef<Path>>(path: P) -> Self {
         let file = std::fs::File::open(&path)
             .unwrap_or_else(|_| panic!("Can't open file: {:?}", path.as_ref().as_os_str()));

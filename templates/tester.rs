@@ -1,12 +1,11 @@
-use std::io::Cursor;
+use std::io::{Cursor, Write};
 use std::path::Path;
+use std::sync::mpsc::Sender;
 use std::time::Instant;
 
 use algo_lib::io::input::Input;
 use algo_lib::io::last_changed_file::find_last_changed_file;
-use algo_lib::io::output::{
-    set_global_output_to_file, set_global_output_to_stdout, Output, OUTPUT,
-};
+use algo_lib::io::output::Output;
 
 const EPS: f64 = 1e-9;
 
@@ -56,15 +55,13 @@ fn check(expected: &mut &[u8], actual: &mut &[u8]) -> Result<(), String> {
     Ok(())
 }
 
-static mut OUT: Vec<u8> = Vec::new();
-
-struct WriteDelegate {}
+struct WriteDelegate {
+    snd: Sender<Vec<u8>>,
+}
 
 impl std::io::Write for WriteDelegate {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        unsafe {
-            OUT.append(&mut Vec::from(buf));
-        }
+        self.snd.send(buf.to_vec()).unwrap();
         Ok(buf.len())
     }
 
@@ -102,22 +99,21 @@ pub(crate) fn run_single_test(name: &str) -> bool {
     }
     println!("{}Output:{}", BLUE, DEF);
     match std::panic::catch_unwind(|| {
-        unsafe {
-            OUT.clear();
-        }
         let input = Input::new_file(path);
+        let (snd, rcv) = std::sync::mpsc::channel();
+        let out: Box<dyn Write> = Box::new(WriteDelegate { snd });
+
+        let mut output = Output::new(out);
         let started = std::time::Instant::now();
-        unsafe {
-            OUTPUT = Some(Output::new(Box::new(WriteDelegate {})));
+        let is_exhausted = crate::run(input, &mut output);
+        drop(output);
+        let mut out_vec = Vec::new();
+        while let Ok(buf) = rcv.recv() {
+            out_vec.extend(buf);
         }
-        let is_exhausted = crate::run(input);
         let res = started.elapsed();
-        let output;
-        unsafe {
-            output = OUT.clone();
-        }
-        println!("{}", String::from_utf8_lossy(&output));
-        (output, res, is_exhausted)
+        println!("{}", String::from_utf8_lossy(&out_vec));
+        (out_vec, res, is_exhausted)
     }) {
         Ok((output, duration, is_exhausted)) => {
             println!(
@@ -211,17 +207,16 @@ pub(crate) fn run_tests() -> bool {
 
 #[allow(unused)]
 pub fn run_locally() {
-    let sin = std::io::stdin();
-    let input = Input::new(Box::new(sin));
-    set_global_output_to_stdout();
-    crate::run(input);
+    let input = Input::new_stdin();
+    let mut output = Output::new_stdout();
+    crate::run(input, &mut output);
 }
 
 #[allow(unused)]
 pub fn run_with_specific_file<P: AsRef<Path>>(input_file: P) {
     let input = Input::new_file(input_file);
-    set_global_output_to_file("output.txt");
-    crate::run(input);
+    let mut output = Output::new_file("output.txt");
+    crate::run(input, &mut output);
 }
 
 #[allow(unused)]
@@ -245,7 +240,6 @@ pub fn run_with_last_downloaded_file() {
 
 #[allow(unused)]
 pub fn run_stress(stress: fn() -> ()) {
-    set_global_output_to_stdout();
     let start = Instant::now();
     stress();
     eprintln!("Finished in {}ms", start.elapsed().as_millis());

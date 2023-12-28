@@ -19,6 +19,16 @@ impl Output {
         }
     }
 
+    pub fn new_stdout() -> Self {
+        let stdout = std::io::stdout();
+        Self::new(Box::new(stdout))
+    }
+
+    pub fn new_file(path: impl AsRef<std::path::Path>) -> Self {
+        let file = std::fs::File::create(path).unwrap();
+        Self::new(Box::new(file))
+    }
+
     pub fn new_with_auto_flush(output: Box<dyn Write>) -> Self {
         Self {
             output,
@@ -36,8 +46,13 @@ impl Output {
         }
     }
 
-    pub fn print<T: Writable>(&mut self, s: &T) {
+    pub fn print<T: Writable>(&mut self, s: T) {
         s.write(self);
+    }
+
+    pub fn println<T: Writable>(&mut self, s: T) {
+        s.write(self);
+        self.put(b'\n');
     }
 
     pub fn put(&mut self, b: u8) {
@@ -187,69 +202,4 @@ impl<T: Writable, U: Writable, V: Writable> Writable for (T, U, V) {
         output.put(b' ');
         self.2.write(output);
     }
-}
-
-pub static mut OUTPUT: Option<Output> = None;
-
-pub fn set_global_output_to_stdout() {
-    unsafe {
-        OUTPUT = Some(Output::new(Box::new(std::io::stdout())));
-    }
-}
-
-pub fn set_global_output_to_file(path: &str) {
-    unsafe {
-        let out_file =
-            std::fs::File::create(path).unwrap_or_else(|_| panic!("Can't create file {}", path));
-        OUTPUT = Some(Output::new(Box::new(out_file)));
-    }
-}
-
-pub fn set_global_output_to_none() {
-    unsafe {
-        match &mut OUTPUT {
-            None => {}
-            Some(output) => output.flush(),
-        }
-        OUTPUT = None;
-    }
-}
-
-pub fn output() -> &'static mut Output {
-    unsafe {
-        match &mut OUTPUT {
-            None => {
-                panic!("Global output wasn't initialized");
-            }
-            Some(output) => output,
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! out {
-    ($first: expr $(,$args:expr )*) => {
-        output().print(&$first);
-        $(output().put(b' ');
-        output().print(&$args);
-        )*
-        output().maybe_flush();
-    }
-}
-
-#[macro_export]
-macro_rules! out_line {
-    ($first: expr $(, $args:expr )* ) => {
-        {
-            out!($first $(,$args)*);
-            output().put(b'\n');
-            output().maybe_flush();
-        }
-    };
-    () => {
-        {
-            output().put(b'\n');
-            output().maybe_flush();
-        }
-    };
 }

@@ -2,11 +2,11 @@ use std::io::Write;
 
 use super::{
     input::Input,
-    output::{Output, OUTPUT},
+    output::Output,
     task_io_settings::{TaskIoSettings, TaskIoType},
 };
 
-pub fn run_task<Res>(io: TaskIoSettings, run: impl FnOnce(Input) -> Res) -> Res {
+pub fn run_task<Res>(io: TaskIoSettings, run: impl FnOnce(Input, Output) -> Res) -> Res {
     let output: Box<dyn Write> = match io.output {
         TaskIoType::Std => Box::new(std::io::stdout()),
         TaskIoType::File(file) => {
@@ -15,9 +15,7 @@ pub fn run_task<Res>(io: TaskIoSettings, run: impl FnOnce(Input) -> Res) -> Res 
         }
     };
 
-    unsafe {
-        OUTPUT = Some(Output::new(output));
-    }
+    let output = Output::new(output);
 
     let input = match io.input {
         TaskIoType::Std => {
@@ -27,5 +25,5 @@ pub fn run_task<Res>(io: TaskIoSettings, run: impl FnOnce(Input) -> Res) -> Res 
         TaskIoType::File(file) => Input::new_file(file),
     };
 
-    run(input)
+    run(input, output)
 }

@@ -1,5 +1,5 @@
 fn main() {
     $INPUT
     $OUTPUT
-    crate::solution::run(input);
+    crate::solution::run(input, &mut output);
 }

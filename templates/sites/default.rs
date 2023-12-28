@@ -1,9 +1,9 @@
-fn solve(input: &mut Input, _test_case: usize) {
+fn solve(input: &mut Input, output: &mut Output, _test_case: usize) {
     $CARET
 }
 
-pub(crate) fn run(mut input: Input) -> bool {
+pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
     $INVOKE
-    output().flush();
+    output.flush();
     true
 }
