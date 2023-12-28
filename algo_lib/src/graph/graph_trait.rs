@@ -11,3 +11,39 @@ where
 
     fn adj(&self, v: usize) -> &[E];
 }
+
+impl GraphTrait<usize> for [Vec<usize>] {
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn num_vertices(&self) -> usize {
+        self.len()
+    }
+
+    fn num_edges(&self) -> usize {
+        self.iter().map(|v| v.len()).sum()
+    }
+
+    fn adj(&self, v: usize) -> &[usize] {
+        &self[v]
+    }
+}
+
+impl GraphTrait<usize> for Vec<Vec<usize>> {
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn num_vertices(&self) -> usize {
+        self.len()
+    }
+
+    fn num_edges(&self) -> usize {
+        self.iter().map(|v| v.len()).sum()
+    }
+
+    fn adj(&self, v: usize) -> &[usize] {
+        &self[v]
+    }
+}

@@ -4,6 +4,7 @@ use crate::graph::edges::edge_trait::EdgeTrait;
 use crate::graph::edges::weighted_edge::WeightedEdge;
 use crate::graph::graph_trait::GraphTrait;
 
+#[derive(Debug)]
 pub struct BfsState {
     queue: VecDeque<usize>,
     pub dist: Vec<u32>,
