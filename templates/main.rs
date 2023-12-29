@@ -11,7 +11,7 @@ $SOLVE
 
 fn main() {
     const PROBLEM_NAME: &str = "$TASK";
-    use algo_lib::tester::*;
+    use algo_lib::tester::helper::*;
 
     run_tests(PROBLEM_NAME, run);
     // run_single_test(PROBLEM_NAME, run, "1");
