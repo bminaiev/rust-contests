@@ -1,4 +1,4 @@
-fn solve(input: &mut Input, output: &mut Output, _test_case: usize) {
+fn solve(input: &mut Input, out: &mut Output, _test_case: usize) {
     $CARET
 }
 

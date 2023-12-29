@@ -1,11 +1,10 @@
 use std::io::{Cursor, Write};
-use std::path::Path;
+use std::panic::UnwindSafe;
 use std::sync::mpsc::Sender;
 use std::time::Instant;
 
-use algo_lib::io::input::Input;
-use algo_lib::io::last_changed_file::find_last_changed_file;
-use algo_lib::io::output::Output;
+use crate::io::input::Input;
+use crate::io::output::Output;
 
 const EPS: f64 = 1e-9;
 
@@ -75,11 +74,15 @@ impl std::io::Write for WriteDelegate {
 Returns [true] in case of successes
 
  */
-pub(crate) fn run_single_test(name: &str) -> bool {
-    let time_limit = std::time::Duration::from_millis($TIME_LIMIT);
-    let path = format!("./$TASK/tests/{}.in", name);
-    let out_path = format!("./$TASK/tests/{}.out", name);
-    println!("{}Test {}{}", BLUE, name, DEF);
+pub fn run_single_test(
+    problem_name: &str,
+    run: impl FnOnce(Input, Output) -> bool + UnwindSafe,
+    test_name: &str,
+) -> bool {
+    let time_limit = std::time::Duration::from_millis(1000);
+    let path = format!("./{problem_name}/tests/{test_name}.in");
+    let out_path = format!("./{problem_name}/tests/{test_name}.out");
+    println!("{}Test {}{}", BLUE, test_name, DEF);
     println!("{}Input:{}", BLUE, DEF);
     let input = std::fs::read_to_string(&path)
         .unwrap_or_else(|_| panic!("Can't open file with test input: {}", path));
@@ -103,10 +106,9 @@ pub(crate) fn run_single_test(name: &str) -> bool {
         let (snd, rcv) = std::sync::mpsc::channel();
         let out: Box<dyn Write> = Box::new(WriteDelegate { snd });
 
-        let mut output = Output::new(out);
+        let output = Output::new(out);
         let started = std::time::Instant::now();
-        let is_exhausted = crate::run(input, &mut output);
-        drop(output);
+        let is_exhausted = run(input, output);
         let mut out_vec = Vec::new();
         while let Ok(buf) = rcv.recv() {
             out_vec.extend(buf);
@@ -162,9 +164,11 @@ const GREEN: &str = "\x1B[32m";
 const YELLOW: &str = "\x1B[33m";
 const DEF: &str = "\x1B[0m";
 
-#[allow(unused)]
-pub(crate) fn run_tests() -> bool {
-    let mut paths = std::fs::read_dir("./$TASK/tests/")
+pub fn run_tests(
+    problem_name: &str,
+    run: impl FnOnce(Input, Output) -> bool + UnwindSafe + Clone,
+) -> bool {
+    let mut paths = std::fs::read_dir(format!("./{problem_name}/tests/"))
         .unwrap()
         .map(|res| res.unwrap())
         .collect::<Vec<_>>();
@@ -182,8 +186,8 @@ pub(crate) fn run_tests() -> bool {
                         println!("=====================================================");
                         test_total += 1;
                         let name = path.file_name().unwrap().to_str().unwrap();
-                        let name = &name[..name.len() - 3];
-                        if !run_single_test(name) {
+                        let test_name = &name[..name.len() - 3];
+                        if !run_single_test(problem_name, run.clone(), test_name) {
                             test_failed += 1;
                         }
                     }
@@ -205,40 +209,12 @@ pub(crate) fn run_tests() -> bool {
     test_failed == 0
 }
 
-#[allow(unused)]
-pub fn run_locally() {
+pub fn run_locally(run: impl FnOnce(Input, Output) -> bool) {
     let input = Input::new_stdin();
-    let mut output = Output::new_stdout();
-    crate::run(input, &mut output);
+    let output = Output::new_stdout();
+    run(input, output);
 }
 
-#[allow(unused)]
-pub fn run_with_specific_file<P: AsRef<Path>>(input_file: P) {
-    let input = Input::new_file(input_file);
-    let mut output = Output::new_file("output.txt");
-    crate::run(input, &mut output);
-}
-
-#[allow(unused)]
-pub fn run_with_last_downloaded_file() {
-    let dir = "/home/borys/Downloads";
-    let input_file = match find_last_changed_file(dir) {
-        Some(file) => {
-            eprintln!(
-                "Found last modified file: {}, will use it as input.",
-                file.as_path().display()
-            );
-            file
-        }
-        None => {
-            eprintln!("No files found in {} :(", dir);
-            unreachable!();
-        }
-    };
-    run_with_specific_file(input_file);
-}
-
-#[allow(unused)]
 pub fn run_stress(stress: fn() -> ()) {
     let start = Instant::now();
     stress();

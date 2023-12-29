@@ -13,3 +13,4 @@ pub mod misc;
 pub mod seg_trees;
 pub mod simd;
 pub mod strings;
+pub mod tester;
