@@ -1,3 +1,4 @@
+pub mod bottom_up_seg_tree;
 pub mod fenwick;
 pub mod fenwick_max;
 pub mod fenwick_min;
