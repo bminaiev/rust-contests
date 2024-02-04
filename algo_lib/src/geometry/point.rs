@@ -1,4 +1,3 @@
-use crate::collections::array_2d::Array2D;
 use crate::f;
 use crate::io::input::{Input, Readable};
 use crate::io::output::{Output, Writable};
@@ -98,37 +97,6 @@ impl<T: Number> PointT<T> {
         Self {
             x: self.x * coef,
             y: self.y * coef,
-        }
-    }
-
-    pub fn index_vec2d<'a, Elem>(&self, arr: &'a [Vec<Elem>]) -> Option<&'a Elem> {
-        if self.x >= T::ZERO
-            && self.x < T::from_i32(arr.len() as i32)
-            && self.y >= T::ZERO
-            && self.y < T::from_i32(arr[T::to_i32(self.x) as usize].len() as i32)
-        {
-            let x = T::to_i32(self.x) as usize;
-            let y = T::to_i32(self.y) as usize;
-            Some(&arr[x][y])
-        } else {
-            None
-        }
-    }
-
-    pub fn index_arr2d<'a, Elem>(&self, arr: &'a Array2D<Elem>) -> Option<&'a Elem>
-    where
-        Elem: Clone,
-    {
-        if self.x >= T::ZERO
-            && self.x < T::from_i32(arr.len() as i32)
-            && self.y >= T::ZERO
-            && self.y < T::from_i32(arr[T::to_i32(self.x) as usize].len() as i32)
-        {
-            let x = T::to_i32(self.x) as usize;
-            let y = T::to_i32(self.y) as usize;
-            Some(&arr[x][y])
-        } else {
-            None
         }
     }
 
