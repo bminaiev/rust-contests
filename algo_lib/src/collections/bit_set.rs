@@ -1,4 +1,4 @@
-use std::ops::{BitAndAssign, BitOrAssign, Not};
+use std::ops::{BitAndAssign, BitOrAssign, BitXorAssign, Not};
 
 #[derive(Hash, Clone, Eq, PartialOrd, PartialEq, Debug)]
 pub struct BitSet {
@@ -34,6 +34,24 @@ impl BitSet {
             res.values[i + whole] |= self.values[i] << offset;
             if offset != 0 && i + whole + 1 < res.values.len() {
                 res.values[i + whole + 1] |= self.values[i] >> (64 - offset);
+            }
+        }
+        res
+    }
+
+    // bit [i] becomes [i - shift]. Bits before [0] are dropped.
+    pub fn shift_lower(&self, shift: usize) -> Self {
+        let mut res = Self::new(self.bit_len());
+        let whole = shift / 64;
+        let offset = shift % 64;
+        for i in 0..self.values.len() {
+            if i < whole {
+                continue;
+            }
+            // TODO: test
+            res.values[i - whole] |= self.values[i] >> offset;
+            if offset != 0 && i - whole != 0 {
+                res.values[i - whole - 1] |= self.values[i] << (64 - offset);
             }
         }
         res
@@ -160,6 +178,19 @@ impl BitAndAssign<&BitSet> for BitSet {
             .zip(rhs.values[0..len].iter())
         {
             *x &= *y;
+        }
+    }
+}
+
+impl BitXorAssign<&BitSet> for BitSet {
+    fn bitxor_assign(&mut self, rhs: &BitSet) {
+        self.ensure_length(rhs.bit_len());
+        let len = rhs.values.len();
+        for (x, y) in self.values[0..len]
+            .iter_mut()
+            .zip(rhs.values[0..len].iter())
+        {
+            *x ^= *y;
         }
     }
 }
