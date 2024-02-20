@@ -4,7 +4,7 @@ use std::io::Write;
 use std::ops::{Index, IndexMut, Mul};
 
 // TODO: implement good Debug
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Array2D<T> {
     rows: usize,
     cols: usize,
