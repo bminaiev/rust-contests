@@ -153,8 +153,12 @@ pub fn run_single_test(
     let out_path = format!("./{problem_name}/tests/{test_name}.out");
     println!("{}Test {}{}", BLUE, test_name, DEF);
     println!("{}Input:{}", BLUE, DEF);
-    let input = std::fs::read_to_string(&path)
+    let mut input = std::fs::read_to_string(&path)
         .unwrap_or_else(|_| panic!("Can't open file with test input: {}", path));
+    if input.len() > 1000 {
+        input.truncate(1000);
+        input.push_str("...");
+    }
     println!("{input}");
     let expected = match std::fs::read_to_string(out_path) {
         Ok(res) => Some(res),

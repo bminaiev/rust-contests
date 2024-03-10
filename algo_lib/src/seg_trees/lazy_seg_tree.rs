@@ -70,6 +70,35 @@ impl<T: SegTreeNode> SegTree<T> {
         res
     }
 
+    fn visit_(
+        &mut self,
+        v: usize,
+        l: usize,
+        r: usize,
+        ql: usize,
+        qr: usize,
+        f: &mut impl FnMut(&T),
+    ) {
+        assert!(qr >= l);
+        assert!(ql < r);
+        if ql <= l && r <= qr {
+            f(&self.tree[v]);
+            return;
+        }
+        let m = (l + r) >> 1;
+        let vr = v + ((m - l) << 1);
+        self.push(v, l, r);
+        if ql >= m {
+            self.visit_(vr, m, r, ql, qr, f);
+        } else if qr <= m {
+            self.visit_(v + 1, l, m, ql, qr, f)
+        } else {
+            self.visit_(v + 1, l, m, ql, qr, f);
+            self.visit_(vr, m, r, ql, qr, f);
+        };
+        self.pull(v, vr);
+    }
+
     fn join_updates(current: &mut Option<T::Update>, add: &T::Update) {
         match current {
             None => *current = Some(add.clone()),
@@ -176,6 +205,13 @@ impl<T: SegTreeNode> SegTree<T> {
             return T::default();
         }
         self.get_(0, 0, self.n, range.start, range.end)
+    }
+
+    pub fn visit(&mut self, range: Range<usize>, f: &mut impl FnMut(&T)) {
+        if range.is_empty() {
+            return;
+        }
+        self.visit_(0, 0, self.n, range.start, range.end, f);
     }
 
     pub fn new_with_context(n: usize, f: impl Fn(usize) -> T, context: T::Context) -> Self {
