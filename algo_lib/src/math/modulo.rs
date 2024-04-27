@@ -43,6 +43,10 @@ where
         self.0
     }
 
+    pub fn i64(&self) -> i64 {
+        self.0 as i64
+    }
+
     #[allow(dead_code)]
     pub fn new<T: Number>(x: T) -> Self {
         let mut x = x.to_i32();

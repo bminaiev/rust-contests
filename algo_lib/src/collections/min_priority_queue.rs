@@ -1,7 +1,7 @@
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct MinPriorityQueue<T>(BinaryHeap<Reverse<T>>)
 where
     T: Ord;
@@ -38,5 +38,13 @@ where
             None => None,
             Some(elem) => Some(elem.0),
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.0.iter().map(|elem| &elem.0)
     }
 }

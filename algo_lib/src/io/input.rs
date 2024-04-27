@@ -166,7 +166,7 @@ impl Input {
         }
     }
 
-    fn read_integer<T: FromStr>(&mut self) -> T
+    fn read_integer<T: FromStr + Debug>(&mut self) -> T
     where
         <T as FromStr>::Err: Debug,
     {

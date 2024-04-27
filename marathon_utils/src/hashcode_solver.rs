@@ -6,7 +6,7 @@ use crate::sa_report::SaReport;
 #[allow(unused)]
 use algo_lib::dbg;
 use algo_lib::io::input::Input;
-use algo_lib::io::output::{set_global_output_to_file, set_global_output_to_none};
+use algo_lib::io::output::Output;
 use std::fmt::Display;
 use std::fs;
 use std::fs::create_dir_all;
@@ -108,9 +108,11 @@ impl<'a> OneTest<'a> {
     }
 
     // TODO: make this atomic.. (or we can lose result)
-    pub fn save_result(&mut self, f: &mut dyn FnMut()) {
-        set_global_output_to_file(&self.output_path.to_str().unwrap());
-        f();
+    pub fn save_result(&mut self, f: &mut dyn FnMut(&mut Output)) {
+        let mut output = Output::new_file(&self.output_path.to_str().unwrap());
+        // set_global_output_to_file(&self.output_path.to_str().unwrap());
+        f(&mut output);
+        output.flush();
         let symlink_path = &format!("/home/borys/{}.out", self.name);
         let should_remove = Path::new(symlink_path).exists() || fs::read_link(symlink_path).is_ok();
         if should_remove {
@@ -118,7 +120,6 @@ impl<'a> OneTest<'a> {
         }
         std::os::unix::fs::symlink(&self.output_path, symlink_path)
             .expect("Can't create symbolic link");
-        set_global_output_to_none();
         self.report
             .html
             .save()
@@ -180,13 +181,14 @@ pub fn hashcode_solver(
         create_dir_all(&full_output_dir)
             .expect(&format!("Can't create outputs dir: {}", &full_output_dir));
     }
-    set_global_output_to_none();
+    // set_global_output_to_none();
 
     let html_merger = HtmlMerger::new(format!("{}/{}", &base_dir, &output_dir));
     for test_name in all_tests.iter() {
         println!("Running test {}", test_name);
 
         let input_file = &format!("{}/{}/{}", base_dir, input_dir, test_name);
+        eprintln!("Input file: {input_file}");
         let mut input = Input::new_file(input_file);
 
         let mut test = OneTest::new(
