@@ -1,156 +1,83 @@
-// 
+// https://codeforces.com/contest/2035/problem/F
 pub mod solution {
-//{"name":"i","group":"Manual","url":"","interactive":false,"timeLimit":2000,"tests":[{"input":"","output":""}],"testType":"single","input":{"type":"stdin","fileName":null,"pattern":null},"output":{"type":"stdout","fileName":null,"pattern":null},"languages":{"java":{"taskClass":"i"}}}
-
-use std::time::Instant;
+//{"name":"F. Операции с деревом","group":"Codeforces - Codeforces Global Round 27","url":"https://codeforces.com/contest/2035/problem/F","interactive":false,"timeLimit":4000,"tests":[{"input":"5\n2 1\n1 2\n1 2\n3 2\n2 1 3\n2 1\n3 2\n4 1\n1 1 0 1\n1 2\n2 3\n1 4\n12 6\n14 4 5 6 12 9 5 11 6 2 1 12\n3 9\n10 6\n6 12\n4 3\n3 1\n5 11\n9 7\n5 6\n1 8\n2 8\n5 1\n1 1\n0\n","output":"3\n6\n5\n145\n0\n"}],"testType":"multiNumber","input":{"type":"stdin","fileName":null,"pattern":null},"output":{"type":"stdout","fileName":null,"pattern":null},"languages":{"java":{"taskClass":"FOperatsiiSDerevom"}}}
 
 #[allow(unused)]
 use crate::dbg;
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
 use crate::algo_lib::misc::binary_search::binary_search_first_true;
-use crate::algo_lib::misc::rand::Random;
-use crate::algo_lib::seg_trees::bottom_up_seg_tree::BottomUpSegTree;
-use crate::algo_lib::seg_trees::lazy_seg_tree_max::MaxValNode;
-use crate::algo_lib::seg_trees::lazy_seg_tree_max::SegTreeMax;
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
-struct Query {
-    r: usize,
-    l: usize,
-    id: usize,
-}
-
-// type ST = SegTreeMax<Query>;
-type ST = BottomUpSegTree<MaxValNode<i32>>;
-
-fn stress() {
-    for tc in 1.. {
-        dbg!(tc);
-        let start = Instant::now();
-        let mut rnd = Random::new(tc);
-        let n = 150000; //rnd.gen(1..10);
-        const MAX: usize = 1000000;
-        let mut a = vec![720720; n]; //rnd.gen_vec(n, 1..MAX);
-        let mut queries = vec![];
-        let queries_n = 100000; //rnd.gen(1..10);
-        for id in 0..queries_n {
-            let l = rnd.gen(0..n);
-            let r = rnd.gen(l..n.min(l + 10));
-            queries.push(Query { l, r, id: id + 1 });
-        }
-        let res1 = solve_case(&a, &queries);
-        dbg!(start.elapsed());
-    }
-}
 
 fn solve(input: &mut Input, out: &mut Output, _test_case: usize) {
     let n = input.usize();
-    let q = input.usize();
-    let a = input.vec::<usize>(n);
-
-    let mut queries = Vec::with_capacity(q);
-    for i in 0..q {
-        let l = input.usize();
-        let r = input.usize();
-        queries.push(Query {
-            l: l - 1,
-            r: r - 1,
-            id: i + 1,
-        });
+    let root = input.usize() - 1;
+    let mut g = vec![vec![]; n];
+    let start = input.vec::<i64>(n);
+    for _ in 0..n - 1 {
+        let fr = input.usize() - 1;
+        let to = input.usize() - 1;
+        g[fr].push(to);
+        g[to].push(fr);
     }
-
-    let results = solve_case(&a, &queries);
-
-    for x in results {
-        out.println(x);
-    }
-}
-
-fn solve_case(a: &[usize], queries: &[Query]) -> Vec<usize> {
-    let n = a.len();
-    let max_a = *a.iter().max().unwrap();
-    let mut positions = vec![vec![]; max_a + 1];
-    for i in 0..n {
-        positions[a[i]].push(i);
-    }
-    let mut queries_by_l = vec![vec![]; n];
-    for q in queries.iter() {
-        queries_by_l[q.l].push(*q);
-    }
-    for i in 0..n {
-        queries_by_l[i].sort_by_key(|q| q.r);
-    }
-    let empty_query = Query { l: 0, r: 0, id: 0 };
-    let mut seg_tree = ST::new(n.next_power_of_two(), |pos| {
-        let query = if pos >= n || queries_by_l[pos].is_empty() {
-            empty_query
-        } else {
-            *queries_by_l[pos].last().unwrap()
-        };
-        MaxValNode {
-            max_val: query.r as i32,
-            pos: pos as i32,
-        }
-    });
-    let mut results = vec![0; queries.len()];
-    let mut seen_r = vec![n; n];
-    for gcd in (1..=max_a).rev() {
-        let mut cur_pos = vec![];
-        for mult in 1.. {
-            let value = mult * gcd;
-            if value > max_a {
-                break;
-            }
-            cur_pos.extend_from_slice(&positions[value]);
-        }
-        cur_pos.sort_unstable();
-        for i in 1..cur_pos.len() {
-            let mid = cur_pos[i];
-            let prev = cur_pos[i - 1];
-            let right_bound = mid + (mid - prev);
-            let right_pos =
-                binary_search_first_true(i + 1..cur_pos.len(), |i| cur_pos[i] >= right_bound);
-            if right_pos == cur_pos.len() {
-                continue;
-            }
-            let right_bound = cur_pos[right_pos];
-            if seen_r[prev] <= right_bound {
-                continue;
-            }
-            seen_r[prev] = right_bound;
-            loop {
-                let node = seg_tree.get(0..prev + 1);
-                if node.max_val >= right_bound as i32 {
-                    let l_pos = node.pos as usize;
-                    let query = *queries_by_l[l_pos].last().unwrap();
-                    results[query.id - 1] = gcd;
-                    queries_by_l[query.l].pop();
-                    {
-                        let next_query = if queries_by_l[query.l].is_empty() {
-                            empty_query
-                        } else {
-                            *queries_by_l[query.l].last().unwrap()
-                        };
-                        seg_tree.update_point(
-                            query.l,
-                            MaxValNode {
-                                max_val: next_query.r as i32,
-                                pos: query.l as i32,
-                            },
-                        );
-                    }
-                } else {
-                    break;
-                }
+    let mut queue = vec![root];
+    let mut it = 0;
+    let mut seen = vec![false; n];
+    let mut children = vec![vec![]; n];
+    while it < queue.len() {
+        let v = queue[it];
+        it += 1;
+        seen[v] = true;
+        for &to in &g[v] {
+            if !seen[to] {
+                children[v].push(to);
+                queue.push(to);
             }
         }
     }
-    results
+    let mut left = vec![0; n];
+    let mut can = |tot_ops: i64| -> bool {
+        let every_v_ops = tot_ops / n as i64;
+        let remainder = tot_ops % n as i64;
+        for &v in queue.iter().rev() {
+            let mut ops_here = every_v_ops + if v < remainder as usize { 1 } else { 0 };
+            let mut sum_needed = start[v];
+            for &ch in children[v].iter() {
+                sum_needed += left[ch];
+            }
+
+            let use_here = sum_needed.min(ops_here);
+            ops_here -= use_here;
+            sum_needed -= use_here;
+            if sum_needed == 0 {
+                left[v] = ops_here % 2;
+            } else {
+                left[v] = sum_needed;
+            }
+        }
+        left[root] == 0
+    };
+    let max_start = *start.iter().max().unwrap();
+    let definitely_can = (max_start + 10) * ((n + 5) as i64);
+    let roughly_can = |ops: i64| -> bool {
+        for shift in 0..2 * n as i64 {
+            if can(ops + shift) {
+                return true;
+            }
+        }
+        false
+    };
+    let mut start_search = binary_search_first_true(0..definitely_can, roughly_can);
+    while !can(start_search) {
+        start_search += 1;
+    }
+    out.println(start_search);
 }
 
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
-    solve(&mut input, &mut output, 1);
+    let t = input.read();
+    for i in 0usize..t {
+        solve(&mut input, &mut output, i + 1);
+    }
     output.flush();
     true
 }
@@ -733,11 +660,6 @@ macro_rules! dbg {
     };
 }
 }
-pub mod gen_vector {
-pub fn gen_vec<T>(n: usize, f: impl FnMut(usize) -> T) -> Vec<T> {
-    (0..n).map(f).collect()
-}
-}
 pub mod num_traits {
 use std::cmp::Ordering;
 use std::fmt::Debug;
@@ -875,554 +797,6 @@ impl<T: Number + Ord> Signum for T {
             Ordering::Equal => 0,
         }
     }
-}
-}
-pub mod rand {
-use crate::algo_lib::misc::gen_vector::gen_vec;
-use crate::algo_lib::misc::num_traits::Number;
-use std::ops::Range;
-use std::time::SystemTime;
-use std::time::UNIX_EPOCH;
-
-#[allow(dead_code)]
-pub struct Random {
-    state: u64,
-}
-
-impl Random {
-    pub fn gen_u64(&mut self) -> u64 {
-        let mut x = self.state;
-        x ^= x << 13;
-        x ^= x >> 7;
-        x ^= x << 17;
-        self.state = x;
-        x
-    }
-
-    #[allow(dead_code)]
-    pub fn next_in_range(&mut self, from: usize, to: usize) -> usize {
-        assert!(from < to);
-        (from as u64 + self.gen_u64() % ((to - from) as u64)) as usize
-    }
-
-    pub fn gen_index<T>(&mut self, a: &[T]) -> usize {
-        self.gen(0..a.len())
-    }
-
-    #[allow(dead_code)]
-    #[inline(always)]
-    pub fn gen_double(&mut self) -> f64 {
-        (self.gen_u64() as f64) / (std::usize::MAX as f64)
-    }
-
-    #[allow(dead_code)]
-    pub fn new(seed: u64) -> Self {
-        let state = if seed == 0 { 787788 } else { seed };
-        Self { state }
-    }
-
-    pub fn new_time_seed() -> Self {
-        let time = SystemTime::now();
-        let seed = (time.duration_since(UNIX_EPOCH).unwrap().as_nanos() % 1_000_000_000) as u64;
-        if seed == 0 {
-            Self::new(787788)
-        } else {
-            Self::new(seed)
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn gen_permutation(&mut self, n: usize) -> Vec<usize> {
-        let mut result: Vec<_> = (0..n).collect();
-        for i in 0..n {
-            let idx = self.next_in_range(0, i + 1);
-            result.swap(i, idx);
-        }
-        result
-    }
-
-    pub fn shuffle<T>(&mut self, a: &mut [T]) {
-        for i in 1..a.len() {
-            a.swap(i, self.gen(0..i + 1));
-        }
-    }
-
-    pub fn gen<T>(&mut self, range: Range<T>) -> T
-    where
-        T: Number,
-    {
-        let from = T::to_i32(range.start);
-        let to = T::to_i32(range.end);
-        assert!(from < to);
-        let len = (to - from) as usize;
-        T::from_i32(self.next_in_range(0, len) as i32 + from)
-    }
-
-    pub fn gen_vec<T>(&mut self, n: usize, range: Range<T>) -> Vec<T>
-    where
-        T: Number,
-    {
-        gen_vec(n, |_| self.gen(range.clone()))
-    }
-
-    pub fn gen_nonempty_range(&mut self, n: usize) -> Range<usize> {
-        let x = self.gen(0..n);
-        let y = self.gen(0..n);
-        if x <= y {
-            x..y + 1
-        } else {
-            y..x + 1
-        }
-    }
-
-    pub fn gen_bool(&mut self) -> bool {
-        self.gen(0..2) == 0
-    }
-}
-}
-}
-pub mod seg_trees {
-pub mod bottom_up_seg_tree {
-use std::ops::Range;
-
-use crate::algo_lib::seg_trees::seg_tree_trait::SegTreeNode;
-
-pub struct BottomUpSegTree<Node: SegTreeNode> {
-    n: usize,
-    nodes: Vec<Node>,
-    context: Node::Context,
-}
-
-impl<Node: SegTreeNode> BottomUpSegTree<Node> {
-    pub fn new(start_n: usize, f: impl Fn(usize) -> Node) -> Self
-    where
-        Node::Context: Default,
-    {
-        let n = start_n.next_power_of_two();
-        let mut res = Self {
-            n,
-            nodes: vec![Node::default(); 2 * n],
-            context: Default::default(),
-        };
-        for i in 0..start_n {
-            res.nodes[n + i] = f(i);
-        }
-        for i in (1..n).rev() {
-            res.nodes[i] = Node::join_nodes(&res.nodes[2 * i], &res.nodes[2 * i + 1], &res.context);
-        }
-        res
-    }
-
-    pub fn update_point(&mut self, pos: usize, v: Node) {
-        let mut i = pos + self.n;
-        self.nodes[i] = v;
-        while i > 1 {
-            i /= 2;
-            self.nodes[i] =
-                Node::join_nodes(&self.nodes[2 * i], &self.nodes[2 * i + 1], &self.context);
-        }
-    }
-
-    pub fn get_root(&self) -> &Node {
-        &self.nodes[1]
-    }
-
-    pub fn get(&self, range: Range<usize>) -> Node {
-        let mut l = range.start + self.n;
-        let mut r = range.end + self.n;
-        let mut res_l = Node::default();
-        let mut res_r = Node::default();
-        while l < r {
-            if l & 1 != 0 {
-                res_l = Node::join_nodes(&res_l, &self.nodes[l], &self.context);
-                l += 1;
-            }
-            if r & 1 != 0 {
-                r -= 1;
-                res_r = Node::join_nodes(&self.nodes[r], &res_r, &self.context);
-            }
-            l /= 2;
-            r /= 2;
-        }
-        Node::join_nodes(&res_l, &res_r, &self.context)
-    }
-}
-}
-pub mod lazy_seg_tree {
-use std::ops::Range;
-
-use crate::algo_lib::seg_trees::seg_tree_trait::SegTreeNode;
-
-///
-/// Segment Tree
-///
-#[allow(unused)]
-#[derive(Clone)]
-pub struct SegTree<T: SegTreeNode> {
-    n: usize,
-    tree: Vec<T>,
-    updates_to_push: Vec<Option<T::Update>>,
-    context: T::Context,
-    right_nodes: Vec<usize>,
-}
-
-#[allow(unused)]
-impl<T: SegTreeNode> SegTree<T> {
-    fn pull(&mut self, v: usize, vr: usize) {
-        self.tree[v] = T::join_nodes(&self.tree[v + 1], &self.tree[vr], &self.context);
-    }
-
-    fn build(&mut self, v: usize, l: usize, r: usize, init_val: &T) {
-        if l + 1 == r {
-            self.tree[v] = init_val.clone();
-        } else {
-            let m = (l + r) >> 1;
-            let vr = v + ((m - l) << 1);
-            self.build(v + 1, l, m, init_val);
-            self.build(vr, m, r, init_val);
-            self.pull(v, vr);
-        }
-    }
-
-    fn push(&mut self, v: usize, l: usize, r: usize) {
-        let update = self.updates_to_push[v].clone();
-        self.updates_to_push[v] = None;
-        match update {
-            None => {}
-            Some(update) => {
-                let m = (l + r) >> 1;
-                self.apply_update(v + 1, &update, m - l == 1);
-                self.apply_update(v + ((r - l) & !1), &update, r - m == 1);
-            }
-        }
-    }
-
-    fn get_(&mut self, v: usize, l: usize, r: usize, ql: usize, qr: usize) -> T {
-        assert!(qr >= l);
-        assert!(ql < r);
-        if ql <= l && r <= qr {
-            return self.tree[v].clone();
-        }
-        let m = (l + r) >> 1;
-        let vr = v + ((m - l) << 1);
-        self.push(v, l, r);
-        let res = if ql >= m {
-            self.get_(vr, m, r, ql, qr)
-        } else if qr <= m {
-            self.get_(v + 1, l, m, ql, qr)
-        } else {
-            T::join_nodes(
-                &self.get_(v + 1, l, m, ql, qr),
-                &self.get_(vr, m, r, ql, qr),
-                &self.context,
-            )
-        };
-        self.pull(v, vr);
-        res
-    }
-
-    fn visit_(
-        &mut self,
-        v: usize,
-        l: usize,
-        r: usize,
-        ql: usize,
-        qr: usize,
-        f: &mut impl FnMut(&T),
-    ) {
-        assert!(qr >= l);
-        assert!(ql < r);
-        if ql <= l && r <= qr {
-            f(&self.tree[v]);
-            return;
-        }
-        let m = (l + r) >> 1;
-        let vr = v + ((m - l) << 1);
-        self.push(v, l, r);
-        if ql >= m {
-            self.visit_(vr, m, r, ql, qr, f);
-        } else if qr <= m {
-            self.visit_(v + 1, l, m, ql, qr, f)
-        } else {
-            self.visit_(v + 1, l, m, ql, qr, f);
-            self.visit_(vr, m, r, ql, qr, f);
-        };
-        self.pull(v, vr);
-    }
-
-    fn join_updates(current: &mut Option<T::Update>, add: &T::Update) {
-        match current {
-            None => *current = Some(add.clone()),
-            Some(current) => T::join_updates(current, add),
-        };
-    }
-
-    fn apply_update(&mut self, v: usize, update: &T::Update, is_leaf: bool) {
-        T::apply_update(&mut self.tree[v], update);
-        if !is_leaf {
-            Self::join_updates(&mut self.updates_to_push[v], update);
-        }
-    }
-
-    fn modify_(&mut self, v: usize, l: usize, r: usize, ql: usize, qr: usize, update: &T::Update) {
-        assert!(qr >= l);
-        assert!(ql < r);
-        if ql <= l && r <= qr {
-            self.apply_update(v, update, r - l == 1);
-            return;
-        }
-        let m = (l + r) >> 1;
-        let vr = v + ((m - l) << 1);
-        self.push(v, l, r);
-        if ql >= m {
-            self.modify_(vr, m, r, ql, qr, update);
-        } else if qr <= m {
-            self.modify_(v + 1, l, m, ql, qr, update);
-        } else {
-            self.modify_(v + 1, l, m, ql, qr, update);
-            self.modify_(vr, m, r, ql, qr, update);
-        };
-        self.pull(v, vr);
-    }
-
-    pub fn update(&mut self, range: Range<usize>, update: T::Update) {
-        if range.is_empty() {
-            return;
-        }
-        assert!(!range.is_empty());
-        self.modify_(0, 0, self.n, range.start, range.end, &update);
-    }
-
-    pub fn update_point(&mut self, pos: usize, new_node: T) {
-        let mut l = 0;
-        let mut r = self.n;
-        let mut v: usize = 0;
-        let mut to_pull = vec![];
-        while r - l > 1 {
-            let m = (l + r) >> 1;
-            let vr = v + ((m - l) << 1);
-            self.push(v, l, r);
-            to_pull.push((v, vr));
-            if pos < m {
-                r = m;
-                v = v + 1;
-            } else {
-                l = m;
-                v = vr;
-            }
-        }
-        self.tree[v] = new_node;
-        for (v, vr) in to_pull.into_iter().rev() {
-            self.pull(v, vr);
-        }
-    }
-
-    fn find_last_true_(
-        &mut self,
-        v: usize,
-        l: usize,
-        r: usize,
-        range: Range<usize>,
-        f: &impl Fn(&T) -> bool,
-    ) -> Option<usize> {
-        if range.start >= r || l >= range.end {
-            return None;
-        }
-        let m = (l + r) >> 1;
-        let vr = v + ((m - l) << 1);
-        if range.start <= l && r <= range.end {
-            if !f(&self.tree[v]) {
-                return None;
-            }
-            if r - l == 1 {
-                return Some(l);
-            }
-        }
-        self.push(v, l, r);
-        if let Some(res) = self.find_last_true_(vr, m, r, range.clone(), f) {
-            Some(res)
-        } else {
-            self.find_last_true_(v + 1, l, m, range, f)
-        }
-    }
-
-    // returns position
-    pub fn find_last_true(&mut self, range: Range<usize>, f: impl Fn(&T) -> bool) -> Option<usize> {
-        self.find_last_true_(0, 0, self.n, range, &f)
-    }
-
-    pub fn get(&mut self, range: Range<usize>) -> T {
-        if range.is_empty() {
-            return T::default();
-        }
-        self.get_(0, 0, self.n, range.start, range.end)
-    }
-
-    pub fn visit(&mut self, range: Range<usize>, f: &mut impl FnMut(&T)) {
-        if range.is_empty() {
-            return;
-        }
-        self.visit_(0, 0, self.n, range.start, range.end, f);
-    }
-
-    pub fn new_with_context(n: usize, f: impl Fn(usize) -> T, context: T::Context) -> Self {
-        assert!(n > 0);
-        let tree = vec![T::default(); 2 * n - 1];
-        let updates_to_push = vec![None; 2 * n - 1];
-        let mut res = SegTree {
-            n,
-            tree,
-            updates_to_push,
-            context,
-            right_nodes: vec![],
-        };
-        res.build_f(0, 0, n, &f);
-        res
-    }
-
-    pub fn new(n: usize, f: impl Fn(usize) -> T) -> Self
-    where
-        T::Context: Default,
-    {
-        assert!(n > 0);
-        let tree = vec![T::default(); 2 * n - 1];
-        let updates_to_push = vec![None; 2 * n - 1];
-        let mut res = SegTree {
-            n,
-            tree,
-            updates_to_push,
-            context: T::Context::default(),
-            right_nodes: vec![],
-        };
-        res.build_f(0, 0, n, &f);
-        res
-    }
-
-    fn build_f(&mut self, v: usize, l: usize, r: usize, f: &impl Fn(usize) -> T) {
-        if l + 1 == r {
-            self.tree[v] = f(l);
-        } else {
-            let m = (l + r) >> 1;
-            let vr = v + ((m - l) << 1);
-            self.build_f(v + 1, l, m, f);
-            self.build_f(vr, m, r, f);
-            self.pull(v, vr);
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.n
-    }
-
-    pub fn expert_get_node(&self, node: usize) -> &T {
-        &self.tree[node]
-    }
-
-    pub fn expert_get_left_node(&self, node: usize) -> usize {
-        node + 1
-    }
-
-    fn build_right_nodes(&mut self, v: usize, l: usize, r: usize) {
-        if l + 1 == r {
-            self.right_nodes.push(0);
-        } else {
-            let m = (l + r) >> 1;
-            let vr = v + ((m - l) << 1);
-            self.right_nodes.push(vr);
-            self.build_right_nodes(v + 1, l, m);
-            self.build_right_nodes(vr, m, r);
-        }
-    }
-
-    // TODO: shouldn't be mut
-    pub fn expert_get_right_node(&mut self, node: usize) -> usize {
-        if self.right_nodes.is_empty() {
-            self.build_right_nodes(0, 0, self.n);
-        }
-        self.right_nodes[node]
-    }
-
-    // Used for Kinetic Seg Tree
-    pub fn expert_rebuild_nodes(&mut self, should_rebuild: impl Fn(&T, &T::Context) -> bool) {
-        self.expert_rebuild_nodes_(0, 0, self.n, &should_rebuild);
-    }
-
-    fn expert_rebuild_nodes_(
-        &mut self,
-        v: usize,
-        l: usize,
-        r: usize,
-        should_rebuild: &impl Fn(&T, &T::Context) -> bool,
-    ) {
-        if r - l <= 1 || !should_rebuild(&self.tree[v], &self.context) {
-            return;
-        }
-        let m = (l + r) >> 1;
-        let vr = v + ((m - l) << 1);
-        self.push(v, l, r);
-
-        self.expert_rebuild_nodes_(v + 1, l, m, should_rebuild);
-        self.expert_rebuild_nodes_(vr, m, r, should_rebuild);
-
-        self.pull(v, vr);
-    }
-
-    pub fn update_context(&mut self, f: impl Fn(&mut T::Context)) {
-        f(&mut self.context);
-    }
-
-    pub fn get_context(&self) -> &T::Context {
-        &self.context
-    }
-}
-}
-pub mod lazy_seg_tree_max {
-use crate::algo_lib::seg_trees::lazy_seg_tree::SegTree;
-use crate::algo_lib::seg_trees::seg_tree_trait::SegTreeNode;
-
-#[derive(Clone, Default, Copy, Debug)]
-pub struct MaxValNode<T> {
-    pub max_val: T,
-    pub pos: i32,
-}
-
-impl<T> SegTreeNode for MaxValNode<T>
-where
-    T: Default + Clone + Ord + Copy,
-{
-    #[allow(unused)]
-    fn join_nodes(l: &Self, r: &Self, context: &()) -> Self {
-        if l.max_val > r.max_val {
-            *l
-        } else {
-            *r
-        }
-    }
-
-    fn apply_update(node: &mut Self, update: &Self::Update) {
-        node.max_val = *update;
-    }
-
-    #[allow(unused)]
-    fn join_updates(current: &mut Self::Update, add: &Self::Update) {
-        *current = *add;
-    }
-
-    type Update = T;
-    type Context = ();
-}
-
-pub type SegTreeMax<T> = SegTree<MaxValNode<T>>;
-}
-pub mod seg_tree_trait {
-pub trait SegTreeNode: Clone + Default {
-    fn join_nodes(l: &Self, r: &Self, context: &Self::Context) -> Self;
-
-    fn apply_update(node: &mut Self, update: &Self::Update);
-    fn join_updates(current: &mut Self::Update, add: &Self::Update);
-
-    type Update: Clone;
-    type Context;
 }
 }
 }
