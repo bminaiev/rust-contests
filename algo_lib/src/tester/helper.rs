@@ -149,8 +149,8 @@ pub fn run_single_test(
     test_name: &str,
 ) -> bool {
     let time_limit = std::time::Duration::from_millis(1000);
-    let path = format!("./{problem_name}/tests/{test_name}.in");
-    let out_path = format!("./{problem_name}/tests/{test_name}.out");
+    let path = format!("./tasks/{problem_name}/tests/{test_name}.in");
+    let out_path = format!("./tasks/{problem_name}/tests/{test_name}.out");
     println!("{}Test {}{}", BLUE, test_name, DEF);
     println!("{}Input:{}", BLUE, DEF);
     let mut input = std::fs::read_to_string(&path)
@@ -204,7 +204,7 @@ pub fn run_single_test(
                 println!("{}Input not exhausted{}", RED, DEF);
             }
             if let Some(expected) = expected {
-                let mut expected_bytes = expected.as_bytes().clone();
+                let mut expected_bytes = expected.as_bytes();
                 match check(&mut expected_bytes, &mut &output[..]) {
                     Ok(_) => {}
                     Err(err) => {
@@ -244,7 +244,7 @@ pub fn run_tests(
     problem_name: &str,
     run: impl FnOnce(Input, Output) -> bool + UnwindSafe + Clone,
 ) -> bool {
-    let mut paths = std::fs::read_dir(format!("./{problem_name}/tests/"))
+    let mut paths = std::fs::read_dir(format!("./tasks/{problem_name}/tests/"))
         .unwrap()
         .map(|res| res.unwrap())
         .collect::<Vec<_>>();

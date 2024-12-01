@@ -25,8 +25,11 @@ impl<T: Ord + Number> PartialOrd for PointT<T> {
 }
 
 impl<T: Number> PointT<T> {
-    pub fn new(x: T, y: T) -> Self {
-        Self { x, y }
+    pub fn new<U: Into<T>>(x: U, y: U) -> Self {
+        Self {
+            x: x.into(),
+            y: y.into(),
+        }
     }
 
     pub fn dist2(&self, p2: &PointT<T>) -> T {

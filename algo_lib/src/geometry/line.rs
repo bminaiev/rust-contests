@@ -124,4 +124,19 @@ impl Line {
         let den = self.a * self.a + self.b * self.b;
         Point::new(-self.a * self.c / den, -self.b * self.c / den)
     }
+
+    pub fn closest_on_line(&self, p: Point) -> Point {
+        let den = self.a * self.a + self.b * self.b;
+        let num = self.a * p.x + self.b * p.y + self.c;
+        Point::new(p.x - self.a * num / den, p.y - self.b * num / den)
+    }
+
+    pub fn mirror(&self, p: Point) -> Point {
+        let closest = self.closest_on_line(p);
+        Point::new(OrdF64::TWO * closest.x - p.x, OrdF64::TWO * closest.y - p.y)
+    }
+
+    pub fn project(&self, p: Point) -> OrdF64 {
+        (-self.b * p.x + self.a * p.y) / (self.a * self.a + self.b * self.b).sqrt()
+    }
 }
