@@ -90,4 +90,43 @@ where
             );
         }
     }
+
+    pub fn iter_mut_only_full<F>(&mut self, range: Range<usize>, mut f: F)
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        let first_block = range.start / self.block_size;
+        let last_block = (range.end + self.block_size - 1) / self.block_size;
+        let block_size = self.block_size;
+
+        let handle_side_block =
+            |id: usize, f: &mut F, block: &mut T, raw_values: &mut [T::Value]| {
+                let n = raw_values.len();
+                let cur_block = block_size * id..min(n, block_size * (id + 1));
+                let range = range_intersect(cur_block.clone(), range.clone());
+                if range == cur_block {
+                    f(block);
+                }
+            };
+
+        handle_side_block(
+            first_block,
+            &mut f,
+            &mut self.blocks[first_block],
+            &mut self.raw_values,
+        );
+        if first_block + 1 < last_block {
+            for block_id in first_block + 1..last_block - 1 {
+                if f(&mut self.blocks[block_id]) {
+                    return;
+                }
+            }
+            handle_side_block(
+                last_block - 1,
+                &mut f,
+                &mut self.blocks[last_block - 1],
+                &mut self.raw_values,
+            );
+        }
+    }
 }

@@ -22,6 +22,21 @@ impl BitSet {
         (self.values[pos >> 6] >> (pos & 63)) & 1 == 1
     }
 
+    pub fn get_u64(&self, from_pos: usize) -> u64 {
+        if from_pos >= self.bit_len() {
+            return 0;
+        }
+        if from_pos & 63 == 0 {
+            self.values[from_pos >> 6]
+        } else {
+            let mut res = self.values[from_pos >> 6] >> (from_pos & 63);
+            if from_pos + 64 < self.bit_len() {
+                res |= self.values[(from_pos >> 6) + 1] << (64 - (from_pos & 63))
+            }
+            res
+        }
+    }
+
     // bit [i] becomes [i + shift]. Bits after [n] are almost dropped.
     pub fn shift_higher(&self, shift: usize) -> Self {
         let mut res = Self::new(self.bit_len());
@@ -64,6 +79,10 @@ impl BitSet {
         } else {
             self.values[pos >> 6] &= (1u64 << (pos & 63)).not();
         }
+    }
+
+    pub fn set_true(&mut self, pos: usize) {
+        self.values[pos >> 6] |= 1u64 << (pos & 63);
     }
 
     #[allow(unused)]
