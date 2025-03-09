@@ -30,16 +30,15 @@ impl DynamicPlot {
         }
     }
 
-    pub fn add_point_scecific_graph<T, U>(&mut self, x: T, y: U, graph: usize)
+    pub fn add_point_scecific_graph<T>(&mut self, x: T, y: T, graph: usize)
     where
         OrdF64: From<T>,
-        OrdF64: From<U>,
     {
         while graph >= self.points.len() {
             self.points.push(vec![]);
             self.cur_stay_prob.push(1.0);
         }
-        let p = Point::new(x.into(), y.into());
+        let p = Point::new(x, y);
         if self.rnd.gen_double() < self.cur_stay_prob[graph] {
             self.points[graph].push(p);
         }
@@ -55,10 +54,9 @@ impl DynamicPlot {
         }
     }
 
-    pub fn add_point<T, U>(&mut self, x: T, y: U)
+    pub fn add_point<T>(&mut self, x: T, y: T)
     where
         OrdF64: From<T>,
-        OrdF64: From<U>,
     {
         self.add_point_scecific_graph(x, y, 0);
     }

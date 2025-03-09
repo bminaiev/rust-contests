@@ -1,5 +1,4 @@
 use algo_lib::{
-    f,
     geometry::{bounding_box::BoundingBox, point::PointT},
     misc::{num_traits::HasConstants, ord_f64::OrdF64},
 };
@@ -16,10 +15,10 @@ pub fn save_plot(
     let should_add_fake_points = if data.len() <= 1 {
         true
     } else {
-        let first_point = PointT::new(f!(data[0].0), f!(data[0].1));
+        let first_point: PointT<OrdF64> = PointT::new(data[0].0, data[0].1);
         let mut bbox = BoundingBox::new(&first_point, &first_point);
         for &(x, y) in data.iter() {
-            bbox.add(&PointT::new(f!(x), f!(y)));
+            bbox.add(&PointT::new(x, y));
         }
         bbox.dx() == OrdF64::ZERO || bbox.dy() == OrdF64::ZERO
     };

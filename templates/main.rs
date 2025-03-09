@@ -7,8 +7,8 @@ use algo_lib::io::output::Output;
 
 $SOLVE
 
-//START MAIN
 
+#[cfg(feature = "local")]
 fn main() {
     const PROBLEM_NAME: &str = "$TASK";
     use algo_lib::tester::helper::*;
@@ -19,3 +19,10 @@ fn main() {
     // run_locally(run);
 }
 //END MAIN
+
+#[cfg(not(feature = "local"))]
+fn main() {
+$INPUT
+$OUTPUT
+    run(input, output);
+}

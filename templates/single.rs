@@ -1,1 +1,1 @@
-solve(&mut input, &mut output, 1);
+solve(&mut input, &mut output);

@@ -45,10 +45,9 @@ pub struct HtmlReport {
 pub struct DynamicPlotId(usize);
 
 impl DynamicPlotId {
-    pub fn add_point<T, U>(&self, test: &mut OneTest, x: T, y: U)
+    pub fn add_point<T>(&self, test: &mut OneTest, x: T, y: T)
     where
         OrdF64: From<T>,
-        OrdF64: From<U>,
     {
         test.report.get_dynamic_plot(*self).add_point(x, y);
     }
