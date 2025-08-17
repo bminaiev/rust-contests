@@ -44,7 +44,7 @@ where
         &self.points[0..self.points.len() - 1]
     }
 
-    pub fn edges(&self) -> PolygonEdgeIter<T> {
+    pub fn edges(&self) -> PolygonEdgeIter<'_, T> {
         PolygonEdgeIter {
             polygon: self,
             pos: 0,

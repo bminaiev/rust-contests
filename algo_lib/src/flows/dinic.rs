@@ -50,7 +50,7 @@ impl FlowDinic {
     fn bfs(&self, source: usize, height: &mut [usize], queue: &mut VecDeque<usize>) {
         queue.clear();
         for x in height.iter_mut() {
-            *x = std::usize::MAX;
+            *x = usize::MAX;
         }
         height[source] = 0;
         queue.push_back(source);
@@ -60,7 +60,7 @@ impl FlowDinic {
                 if edge.flow == edge.cap {
                     continue;
                 }
-                if height[edge.to] != std::usize::MAX {
+                if height[edge.to] != usize::MAX {
                     continue;
                 }
                 height[edge.to] = height[edge.fr] + 1;
@@ -111,14 +111,14 @@ impl FlowDinic {
         let mut iter = vec![0; self.n];
         loop {
             self.bfs(source, &mut height, &mut queue);
-            if height[target] == std::usize::MAX {
+            if height[target] == usize::MAX {
                 break;
             }
             for x in iter.iter_mut() {
                 *x = 0;
             }
             loop {
-                let pushed = self.dfs(&height, source, target, std::i64::MAX, &mut iter);
+                let pushed = self.dfs(&height, source, target, i64::MAX, &mut iter);
                 if pushed == 0 {
                     break;
                 }

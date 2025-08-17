@@ -114,7 +114,6 @@ impl<T: Number + Ord> PointLocation<T> {
         if lower.y <= min_y && higher.y >= max_y {
             self.tree_nodes[tree_v].push(*segment);
         } else if lower.y >= max_y || higher.y <= min_y {
-            return;
         } else {
             let m = (l + r) >> 1;
             self.add_segment(tree_v * 2 + 1, l, m, segment);

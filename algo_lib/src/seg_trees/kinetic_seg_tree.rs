@@ -5,7 +5,7 @@ use crate::{
     seg_trees::{lazy_seg_tree::SegTree, seg_tree_trait::SegTreeNode},
 };
 
-const MAX: i64 = std::i64::MAX;
+const MAX: i64 = i64::MAX;
 
 #[derive(Clone, Default)]
 pub struct KineticLine {

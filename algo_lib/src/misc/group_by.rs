@@ -3,13 +3,13 @@ pub struct GroupBy<'a, T, P> {
     predicate: P,
 }
 pub trait GroupByTrait<T> {
-    fn group_by_<P>(&self, p: P) -> GroupBy<T, P>
+    fn group_by_<P>(&self, p: P) -> GroupBy<'_, T, P>
     where
         P: FnMut(&T, &T) -> bool;
 }
 
 impl<T> GroupByTrait<T> for [T] {
-    fn group_by_<P>(&self, p: P) -> GroupBy<T, P>
+    fn group_by_<P>(&self, p: P) -> GroupBy<'_, T, P>
     where
         P: FnMut(&T, &T) -> bool,
     {

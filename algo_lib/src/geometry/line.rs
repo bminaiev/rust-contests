@@ -52,7 +52,6 @@ impl Line {
             self.b = -self.b;
             self.c = -self.c;
         } else if self.b > OrdF64::EPS {
-            return;
         } else if self.b < -OrdF64::EPS {
             self.b = -self.b;
             self.c = -self.c;

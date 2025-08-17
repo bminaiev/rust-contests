@@ -67,7 +67,7 @@ where
         Self::new_f(self.cols, self.rows, |r, c| self[c][r].clone())
     }
 
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         Iter {
             array: self,
             row: 0,
@@ -97,7 +97,7 @@ where
     fn write(&self, output: &mut Output) {
         for r in 0..self.rows {
             self[r].write(output);
-            output.write_all(&[b'\n']).unwrap();
+            output.write_all(b"\n").unwrap();
         }
     }
 }

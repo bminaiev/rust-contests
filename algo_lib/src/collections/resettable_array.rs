@@ -18,7 +18,7 @@ impl<T: Clone> ResettableArray<T> {
 
     pub fn reset(&mut self) {
         self.current_time += 1;
-        assert_ne!(self.current_time, std::i32::MAX);
+        assert_ne!(self.current_time, i32::MAX);
     }
 
     pub fn get(&self, pos: usize) -> T {

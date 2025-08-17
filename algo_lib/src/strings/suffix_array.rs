@@ -25,7 +25,7 @@ impl SuffixArray {
         self.sorted_suffixes.len()
     }
 
-    fn lcp_sparse_table(&self) -> Ref<SparseTableMin<u32>> {
+    fn lcp_sparse_table(&self) -> Ref<'_, SparseTableMin<u32>> {
         self.lcp_sparse_table
             .borrow_mut()
             .get_or_insert_with(|| SparseTableMin::new(&self.lcp));

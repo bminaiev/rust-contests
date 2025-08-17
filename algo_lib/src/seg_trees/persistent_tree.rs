@@ -6,7 +6,7 @@ use crate::seg_trees::seg_tree_trait::SegTreeNode;
 pub struct NodeId(u32);
 
 impl NodeId {
-    pub const NONE: Self = NodeId(std::u32::MAX);
+    pub const NONE: Self = NodeId(u32::MAX);
 }
 
 #[derive(Clone)]

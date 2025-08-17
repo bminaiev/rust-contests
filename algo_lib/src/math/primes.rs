@@ -34,7 +34,7 @@ pub struct Prime {
     pub power: usize,
 }
 
-pub fn factorize(largest_primes: &[usize], value: usize) -> PrimesIter {
+pub fn factorize(largest_primes: &[usize], value: usize) -> PrimesIter<'_> {
     PrimesIter {
         largest_primes,
         value,

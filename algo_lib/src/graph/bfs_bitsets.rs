@@ -2,7 +2,7 @@ use crate::collections::bit_set::BitSet;
 
 pub fn bfs_bitsets(root: usize, graph: &[BitSet]) -> Vec<u32> {
     let n = graph.len();
-    let mut res = vec![std::u32::MAX; n];
+    let mut res = vec![u32::MAX; n];
     let mut not_seen = BitSet::new(n);
     for v in 0..n {
         not_seen.set(v, true);
@@ -17,7 +17,7 @@ pub fn bfs_bitsets(root: usize, graph: &[BitSet]) -> Vec<u32> {
             v = next;
             should_stop = false;
             debug_assert!(cur_level.get(v));
-            debug_assert_eq!(res[v], std::u32::MAX);
+            debug_assert_eq!(res[v], u32::MAX);
             res[v] = dist;
             debug_assert!(not_seen.get(v));
             not_seen.set(v, false);

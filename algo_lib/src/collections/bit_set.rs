@@ -7,7 +7,7 @@ pub struct BitSet {
 
 impl BitSet {
     pub fn calc_len(n: usize) -> usize {
-        (n + 127) / 128 * 2
+        n.div_ceil(128) * 2
     }
 
     #[allow(unused)]
@@ -113,10 +113,7 @@ impl BitSet {
             }
             pos += 1;
         }
-        match self.values[pos >> 6..]
-            .iter()
-            .position(|x| *x != std::u64::MAX)
-        {
+        match self.values[pos >> 6..].iter().position(|x| *x != u64::MAX) {
             None => self.values.len() << 6,
             Some(idx) => {
                 pos += idx * 64;

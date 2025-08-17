@@ -29,7 +29,7 @@ struct Vertex {
 }
 
 impl MinCostMaxFlow {
-    const INF: i64 = std::i64::MAX;
+    const INF: i64 = i64::MAX;
 
     #[allow(dead_code)]
     pub fn new(n: usize) -> Self {

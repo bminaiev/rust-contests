@@ -32,7 +32,7 @@ impl AcceptRate {
         if self.accepted_on.is_empty() {
             return 0.0;
         }
-        let first = *self.accepted_on.get(0).unwrap();
+        let first = *self.accepted_on.front().unwrap();
         let cnt_iters = iter - first + 1;
         let accepted = self.accepted_on.len();
         (accepted as f64) / (cnt_iters as f64) * 100.0
@@ -242,7 +242,7 @@ impl SimulatedAnnealing {
 
     pub fn should_save(&mut self, last_time: bool) -> bool {
         let time = if last_time {
-            std::f64::MAX
+            f64::MAX
         } else {
             self.elapsed_ms()
         };

@@ -61,7 +61,7 @@ where
         Self { powers, multiplier }
     }
 
-    pub fn make_string<S>(&self, s: &[S]) -> HashString<Hash, S>
+    pub fn make_string<S>(&self, s: &[S]) -> HashString<'_, Hash, S>
     where
         S: Number,
     {

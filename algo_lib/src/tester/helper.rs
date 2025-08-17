@@ -160,10 +160,7 @@ pub fn run_single_test(
         input.push_str("...");
     }
     println!("{input}");
-    let expected = match std::fs::read_to_string(out_path) {
-        Ok(res) => Some(res),
-        Err(_) => None,
-    };
+    let expected = std::fs::read_to_string(out_path).ok();
     println!("{}Expected:{}", BLUE, DEF);
     match &expected {
         None => {

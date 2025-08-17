@@ -36,7 +36,7 @@ pub fn hungarian_algorithm(a: &Array2D<i64>) -> Option<MatchingResult> {
     for i in 1..=n {
         row_per_column[0] = i;
         let mut last_path_col = 0;
-        const MAX: i64 = std::i64::MAX;
+        const MAX: i64 = i64::MAX;
         let mut minv = vec![MAX; m + 1];
         let mut used_column = vec![false; m + 1];
 
@@ -47,7 +47,7 @@ pub fn hungarian_algorithm(a: &Array2D<i64>) -> Option<MatchingResult> {
             let mut next_column = 0;
             for j in 1..=m {
                 if !used_column[j] {
-                    if a[cur_row][j] != std::i64::MAX {
+                    if a[cur_row][j] != i64::MAX {
                         let cur = a[cur_row][j] - row_potential[cur_row] - col_potential[j];
                         if cur < minv[j] {
                             minv[j] = cur;
@@ -95,7 +95,7 @@ pub fn hungarian_algorithm(a: &Array2D<i64>) -> Option<MatchingResult> {
     for j in 1..=m {
         if row_per_column[j] != 0 {
             column_per_row[row_per_column[j] - 1] = j - 1;
-            assert_ne!(a[row_per_column[j]][j], std::i64::MAX);
+            assert_ne!(a[row_per_column[j]][j], i64::MAX);
         }
     }
 

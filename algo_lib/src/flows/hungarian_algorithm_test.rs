@@ -13,7 +13,7 @@ pub mod tests {
             flow.add_edge(0, 1 + i, 1, 0);
             flow.add_edge(1 + n + i, 1 + n + n, 1, 0);
             for j in 0..n {
-                if a[i][j] != std::i64::MAX {
+                if a[i][j] != i64::MAX {
                     flow.add_edge(1 + i, 1 + n + j, 1, a[i][j]);
                 }
             }
@@ -31,7 +31,7 @@ pub mod tests {
             let mut sum_cost = 0;
             for i in 0..a.len() {
                 let col = res.column_per_row[i];
-                assert_ne!(a[i][col], std::i64::MAX);
+                assert_ne!(a[i][col], i64::MAX);
                 sum_cost += a[i][col];
             }
             assert_eq!(res.min_cost, sum_cost);
@@ -47,7 +47,7 @@ pub mod tests {
             dbg!(it);
             let mut rnd = Random::new(787788 + it);
             let n = rnd.gen(1..50usize);
-            const MAX: i64 = std::i64::MAX;
+            const MAX: i64 = i64::MAX;
             let max_cost = 1 + rnd.gen(1..1000i64);
             let mut a = Array2D::new(MAX, n, n);
             let thresh = rnd.gen_double();

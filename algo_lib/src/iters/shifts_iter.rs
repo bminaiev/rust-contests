@@ -23,7 +23,7 @@ impl ShiftsIterator {
         }
     }
 
-    pub fn iter(&self, row: usize, col: usize) -> Iter {
+    pub fn iter(&self, row: usize, col: usize) -> Iter<'_> {
         Iter {
             info: self,
             pos: 0,
