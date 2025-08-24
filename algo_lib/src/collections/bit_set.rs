@@ -7,7 +7,7 @@ pub struct BitSet {
 
 impl BitSet {
     pub fn calc_len(n: usize) -> usize {
-        n.div_ceil(128) * 2
+        (n + 63) / 64
     }
 
     #[allow(unused)]

@@ -35,7 +35,7 @@ where
     pub fn new(raw_values: Vec<T::Value>, block_size: usize, empty_block: T) -> Self {
         assert!(block_size > 0);
         let n = raw_values.len();
-        let blocks_num = n.div_ceil(block_size);
+        let blocks_num = (n + block_size - 1) / block_size;
         let blocks = gen_vec(blocks_num, |id| {
             let mut block = empty_block.clone();
             block.rebuild(&raw_values[id * block_size..min((id + 1) * block_size, n)]);
@@ -53,7 +53,7 @@ where
         F: FnMut(Part<T>),
     {
         let first_block = range.start / self.block_size;
-        let last_block = range.end.div_ceil(self.block_size);
+        let last_block = (range.end + self.block_size - 1) / self.block_size;
         let block_size = self.block_size;
 
         let handle_side_block =
@@ -96,7 +96,7 @@ where
         F: FnMut(&mut T) -> bool,
     {
         let first_block = range.start / self.block_size;
-        let last_block = range.end.div_ceil(self.block_size);
+        let last_block = (range.end + self.block_size - 1) / self.block_size;
         let block_size = self.block_size;
 
         let handle_side_block =

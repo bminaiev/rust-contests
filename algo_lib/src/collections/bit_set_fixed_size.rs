@@ -2,12 +2,12 @@ use std::ops::{BitAndAssign, BitOrAssign, Not};
 
 #[derive(Hash, Clone, Eq, PartialOrd, PartialEq, Debug, Default)]
 pub struct BitSetFixedSize {
-    values: [u64; 1600_usize.div_ceil(64)],
+    values: [u64; (1600 + 63) / 64],
 }
 
 impl BitSetFixedSize {
     pub fn calc_len(n: usize) -> usize {
-        n.div_ceil(128) * 2
+        (n + 63) / 64
     }
 
     #[allow(unused)]
