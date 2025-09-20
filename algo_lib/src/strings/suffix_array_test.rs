@@ -8,8 +8,8 @@ mod tests {
         const MAX: usize = 30;
         for test in 0..100 {
             let mut rnd = Random::new(787788 + test);
-            let n = rnd.gen(1..MAX);
-            let alph_size = rnd.gen(1..10);
+            let n = rnd.gen_range(1..MAX);
+            let alph_size = rnd.gen_range(1..10);
             let str = rnd.gen_vec(n, b'a'..b'a' + alph_size);
             let _suf_array = SuffixArray::new(str);
         }

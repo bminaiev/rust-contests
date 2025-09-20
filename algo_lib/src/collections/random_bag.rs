@@ -41,7 +41,7 @@ impl<T: Eq + Hash + Clone> RandomBag<T> {
         if self.is_empty() {
             return None;
         }
-        let pos = self.rnd.gen(0..self.items.len());
+        let pos = self.rnd.gen_range(0..self.items.len());
         Some(&self.items[pos])
     }
 
@@ -49,7 +49,7 @@ impl<T: Eq + Hash + Clone> RandomBag<T> {
         if self.is_empty() {
             return None;
         }
-        let pos = self.rnd.gen(0..self.items.len());
+        let pos = self.rnd.gen_range(0..self.items.len());
         self.swap_remove(pos)
     }
 

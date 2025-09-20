@@ -46,15 +46,15 @@ pub mod tests {
         for it in 10..100 {
             dbg!(it);
             let mut rnd = Random::new(787788 + it);
-            let n = rnd.gen(1..50usize);
+            let n = rnd.gen_range(1..50usize);
             const MAX: i64 = i64::MAX;
-            let max_cost = 1 + rnd.gen(1..1000i64);
+            let max_cost = 1 + rnd.gen_range(1..1000i64);
             let mut a = Array2D::new(MAX, n, n);
             let thresh = rnd.gen_double();
             for i in 0..n {
                 for j in 0..n {
                     if rnd.gen_double() < thresh {
-                        a[i][j] = rnd.gen(0..max_cost);
+                        a[i][j] = rnd.gen_range(0..max_cost);
                     }
                 }
             }
