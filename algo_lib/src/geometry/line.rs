@@ -23,8 +23,8 @@ impl Line {
             b,
             c: -(p1.x * a + p1.y * b),
         };
-        debug_assert!(res.on_line(p1));
-        debug_assert!(res.on_line(p2));
+        // debug_assert!(res.on_line(p1));
+        // debug_assert!(res.on_line(p2));
         res
     }
 

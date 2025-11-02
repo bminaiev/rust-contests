@@ -1,6 +1,7 @@
 use std::{cmp::max, collections::VecDeque, time::Instant};
 
-use crate::{f, misc::human_readable_usize::HumanReadableUsize};
+use crate::f;
+use crate::misc::human_readable_usize::HumanReadableUsize;
 
 use super::{num_traits::HasConstants, ord_f64::OrdF64, rand::Random};
 
