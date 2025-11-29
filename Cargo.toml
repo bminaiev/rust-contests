@@ -1,5 +1,11 @@
 [workspace]
 members = [
+    "tasks/e",
+    "tasks/a",
+    "tasks/i",
+    "tasks/g",
+    "tasks/m",
+    "tasks/c",
   # "main",
   # DO not format this file.
   "algo_lib",
