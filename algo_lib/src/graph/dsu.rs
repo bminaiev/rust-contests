@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct Dsu {
     p: Vec<u32>,
     size: Vec<u32>,
