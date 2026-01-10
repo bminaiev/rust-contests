@@ -1,24 +1,179 @@
 // 
+use crate::algo_lib::collections::min_priority_queue::MinPriorityQueue;
 
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
-use crate::algo_lib::math::combinations::CombinationsFact;
-use crate::algo_lib::math::modulo::Mod_998_244_353;
-type Mod = Mod_998_244_353;
+#[derive(Clone, Copy)]
+struct Remote {
+    to: usize,
+    dist: i64,
+}
+struct CentroidDecomposition {
+    alive: Vec<bool>,
+    size: Vec<usize>,
+    ups: Vec<Vec<Remote>>,
+    children: Vec<Vec<Remote>>,
+}
+impl CentroidDecomposition {
+    fn new(g: &[Vec<usize>]) -> Self {
+        let n = g.len();
+        let mut res = Self {
+            alive: vec![true; n],
+            size: vec![0; n],
+            ups: vec![vec![]; n],
+            children: vec![vec![]; n],
+        };
+        res.rec(g, 0);
+        res
+    }
+    fn rec(&mut self, g: &[Vec<usize>], mut root: usize) {
+        self.calc_sizes(g, root, root);
+        let full_size = self.size[root];
+        let mut prev = root;
+        loop {
+            let mut found = false;
+            for &to in &g[root] {
+                if to != prev && self.alive[to] && self.size[to] * 2 > full_size {
+                    prev = root;
+                    root = to;
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                break;
+            }
+        }
+        self.alive[root] = false;
+        self.build_paths(g, root, root, 0, root);
+        for &to in &g[root] {
+            if self.alive[to] {
+                self.rec(g, to);
+            }
+        }
+    }
+    fn calc_sizes(&mut self, g: &[Vec<usize>], v: usize, p: usize) {
+        self.size[v] = 1;
+        for &to in &g[v] {
+            if to != p && self.alive[to] {
+                self.calc_sizes(g, to, v);
+                self.size[v] += self.size[to];
+            }
+        }
+    }
+    fn build_paths(
+        &mut self,
+        g: &[Vec<usize>],
+        v: usize,
+        p: usize,
+        dist: i64,
+        centroid: usize,
+    ) {
+        self.ups[v].push(Remote { to: centroid, dist });
+        self.children[centroid].push(Remote { to: v, dist });
+        for &to in &g[v] {
+            if to != p && self.alive[to] {
+                self.build_paths(g, to, v, dist + 1, centroid);
+            }
+        }
+    }
+}
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+struct Event {
+    time: i64,
+    v: usize,
+    lang: i64,
+    visit: bool,
+}
 fn solve(input: &mut Input, out: &mut Output) {
     let n = input.usize();
-    let mut xx = vec![];
-    let mut yy = vec![];
-    const MD: i64 = 998_244_353;
-    for _ in 0..n {
-        let x = (input.i64() + MD) % MD;
-        let y = (input.i64() + MD) % MD;
-        xx.push(Mod::new(x));
-        yy.push(Mod::new(y));
+    let mut g = vec![vec![]; n];
+    for _ in 0..n - 1 {
+        let u = input.usize() - 1;
+        let v = input.usize() - 1;
+        g[u].push(v);
+        g[v].push(u);
     }
-    let cnk = CombinationsFact::<Mod>::new(n + 1);
-    let mult = vec![Mod::ZERO; n + 1];
-    for d in 1..n {}
+    let mut from = vec![];
+    let mut to = vec![];
+    for _ in 0..n {
+        from.push(input.i64());
+        to.push(input.i64());
+    }
+    if to[n - 1] < from[0] {
+        for i in 0..n {
+            let nfr = -to[i];
+            let nto = -from[i];
+            from[i] = nfr;
+            to[i] = nto;
+        }
+    }
+    let start = from[0];
+    const INF: i64 = 1e18 as i64;
+    for i in 0..n {
+        if to[i] < start {
+            from[i] = INF;
+            to[i] = INF;
+        } else {
+            from[i] = (from[i] - start).max(0);
+            to[i] = to[i] - start;
+            assert!(to[i] >= from[i]);
+        }
+    }
+    assert!(from[n - 1] != INF);
+    let mut cd = CentroidDecomposition::new(&g);
+    for v in 0..n {
+        cd.children[v].sort_by_key(|u| from[u.to]);
+    }
+    let mut pq = MinPriorityQueue::new();
+    pq.push(Event {
+        time: 0,
+        v: 0,
+        lang: to[0],
+        visit: true,
+    });
+    let mut child_iter = vec![0; n];
+    let mut max_seen_lang = vec![- 1; n];
+    let mut seen = vec![false; n];
+    while let Some(Event { time, v, lang, visit }) = pq.pop() {
+        if visit {
+            if seen[v] {
+                continue;
+            }
+            if v == n - 1 {
+                out.println(time - 1);
+                return;
+            }
+            seen[v] = true;
+            for tos in &cd.ups[v] {
+                pq.push(Event {
+                    time: time + tos.dist,
+                    v: tos.to,
+                    lang,
+                    visit: false,
+                });
+            }
+        } else {
+            if max_seen_lang[v] >= lang {
+                continue;
+            }
+            max_seen_lang[v] = lang;
+            while child_iter[v] < cd.children[v].len()
+                && from[cd.children[v][child_iter[v]].to] <= lang
+            {
+                let child = &cd.children[v][child_iter[v]];
+                let arrive_at = time + child.dist + 1;
+                pq.push(Event {
+                    time: arrive_at,
+                    v: child.to,
+                    lang: to[child.to],
+                    visit: true,
+                });
+                child_iter[v] += 1;
+            }
+        }
+    }
+    unreachable!();
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
     solve(&mut input, &mut output);
@@ -33,24 +188,48 @@ fn main() {
 }
 pub mod algo_lib {
 pub mod collections {
-pub mod last_exn {
-use std::collections::BTreeSet;
-pub trait LastExn<T> {
-    fn last_exn(&self) -> &T;
-}
-impl<T> LastExn<T> for &[T] {
-    fn last_exn(&self) -> &T {
-        self.last().unwrap()
+pub mod min_priority_queue {
+use std::cmp::Reverse;
+use std::collections::BinaryHeap;
+#[derive(Default, Clone)]
+pub struct MinPriorityQueue<T>(
+    BinaryHeap<Reverse<T>>,
+)
+where
+    T: Ord;
+impl<T> MinPriorityQueue<T>
+where
+    T: Ord,
+{
+    pub fn new() -> Self {
+        Self(BinaryHeap::new())
     }
-}
-impl<T> LastExn<T> for Vec<T> {
-    fn last_exn(&self) -> &T {
-        self.last().unwrap()
+    pub fn with_capacity(n: usize) -> Self {
+        Self(BinaryHeap::with_capacity(n))
     }
-}
-impl<T> LastExn<T> for BTreeSet<T> {
-    fn last_exn(&self) -> &T {
-        self.iter().next_back().unwrap()
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    pub fn peek(&self) -> Option<&T> {
+        match self.0.peek() {
+            None => None,
+            Some(elem) => Some(&elem.0),
+        }
+    }
+    pub fn push(&mut self, elem: T) {
+        self.0.push(Reverse(elem))
+    }
+    pub fn pop(&mut self) -> Option<T> {
+        match self.0.pop() {
+            None => None,
+            Some(elem) => Some(elem.0),
+        }
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.0.iter().map(|elem| &elem.0)
     }
 }
 }
@@ -485,347 +664,6 @@ impl<T: Writable, U: Writable, V: Writable> Writable for (T, U, V) {
 }
 }
 }
-pub mod math {
-pub mod combinations {
-use crate::algo_lib::math::factorials::gen_facts;
-use crate::algo_lib::misc::num_traits::Number;
-pub trait Combinations<T> {
-    fn c(&self, n: usize, k: usize) -> T;
-}
-pub struct CombinationsFact<T> {
-    fact: Vec<T>,
-    fact_inv: Vec<T>,
-}
-impl<T> CombinationsFact<T>
-where
-    T: Number,
-{
-    #[allow(unused)]
-    pub fn new(n: usize) -> Self {
-        let fact = gen_facts(n);
-        let mut fact_inv = fact.clone();
-        assert_eq!(fact_inv.len(), n + 1);
-        fact_inv[n] = T::ONE / fact_inv[n];
-        for i in (1..n).rev() {
-            fact_inv[i] = fact_inv[i + 1] * T::from_i32((i + 1) as i32);
-        }
-        Self { fact, fact_inv }
-    }
-    pub fn fact(&self, n: usize) -> T {
-        self.fact[n]
-    }
-}
-impl<T> Combinations<T> for CombinationsFact<T>
-where
-    T: Number,
-{
-    fn c(&self, n: usize, k: usize) -> T {
-        if k > n {
-            return T::ZERO;
-        }
-        self.fact[n] * self.fact_inv[k] * self.fact_inv[n - k]
-    }
-}
-}
-pub mod factorials {
-use crate::algo_lib::misc::num_traits::Number;
-///
-/// Generate factorials of all numbers up to `n`
-///
-pub fn gen_facts<T>(n: usize) -> Vec<T>
-where
-    T: Number,
-{
-    let mut res = Vec::with_capacity(n);
-    res.push(T::ONE);
-    for x in 1..=n {
-        let num = T::from_i32(x as i32);
-        res.push(*res.last().unwrap() * num);
-    }
-    res
-}
-}
-pub mod modulo {
-use crate::algo_lib::collections::last_exn::LastExn;
-use crate::algo_lib::io::input::{Input, Readable};
-use crate::algo_lib::io::output::{Output, Writable};
-use crate::algo_lib::misc::num_traits::{ConvSimple, HasConstants, Number};
-use std::io::Write;
-use std::marker::PhantomData;
-pub trait Value: Clone + Copy + Eq + Default + Ord {
-    fn val() -> i32;
-}
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
-pub struct ModWithValue<M>(
-    i32,
-    PhantomData<M>,
-)
-where
-    M: Value;
-impl<M> ModWithValue<M>
-where
-    M: Value,
-{
-    #[allow(unused)]
-    pub const ZERO: Self = Self(0, PhantomData);
-    #[allow(unused)]
-    pub const ONE: Self = Self(1, PhantomData);
-    #[allow(unused)]
-    pub const TWO: Self = Self(2, PhantomData);
-    fn rev_rec(a: i32, m: i32) -> i32 {
-        if a == 1 {
-            return a;
-        }
-        ((1 - Self::rev_rec(m % a, a) as i64 * m as i64) / a as i64 + m as i64) as i32
-    }
-    #[allow(dead_code)]
-    pub fn inv(self) -> Self {
-        ModWithValue(Self::rev_rec(self.0, M::val()), PhantomData)
-    }
-    pub fn value(&self) -> i32 {
-        self.0
-    }
-    pub fn i64(&self) -> i64 {
-        self.0 as i64
-    }
-    #[allow(dead_code)]
-    pub fn new<T: Number>(x: T) -> Self {
-        let mut x = x.to_i32();
-        if x < 0 {
-            x += M::val();
-            if x < 0 {
-                x %= M::val();
-                x += M::val();
-            }
-        } else if x >= M::val() {
-            x -= M::val();
-            if x >= M::val() {
-                x %= M::val();
-            }
-        }
-        assert!(0 <= x && x < M::val());
-        Self(x, PhantomData)
-    }
-    pub fn pown(self, pw: usize) -> Self {
-        if pw == 0 {
-            Self::ONE
-        } else if pw == 1 {
-            self
-        } else {
-            let half = self.pown(pw / 2);
-            let res = half * half;
-            if pw % 2 == 0 { res } else { res * self }
-        }
-    }
-    pub fn gen_powers(base: Self, n: usize) -> Vec<Self> {
-        let mut res = Vec::with_capacity(n);
-        res.push(Self::ONE);
-        for _ in 1..n {
-            res.push(*res.last_exn() * base);
-        }
-        res
-    }
-}
-impl<M> std::fmt::Display for ModWithValue<M>
-where
-    M: Value,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-impl<M> std::fmt::Debug for ModWithValue<M>
-where
-    M: Value + Copy + Eq,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        const MAX: i32 = 100;
-        if self.0 <= MAX {
-            write!(f, "{}", self.0)
-        } else if self.0 >= M::val() - MAX {
-            write!(f, "-{}", M::val() - self.0)
-        } else {
-            for denom in 1..MAX {
-                let num = *self * Self(denom, PhantomData);
-                if num.0 <= MAX {
-                    return write!(f, "{}/{}", num.0, denom);
-                } else if num.0 >= M::val() - MAX {
-                    return write!(f, "-{}/{}", M::val() - num.0, denom);
-                }
-            }
-            write!(f, "(?? {} ??)", self.0)
-        }
-    }
-}
-impl<M> std::ops::Add for ModWithValue<M>
-where
-    M: Value,
-{
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        let res = self.0 + rhs.0;
-        if res >= M::val() {
-            ModWithValue(res - M::val(), PhantomData)
-        } else {
-            ModWithValue(res, PhantomData)
-        }
-    }
-}
-impl<M> std::ops::AddAssign for ModWithValue<M>
-where
-    M: Value,
-{
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
-        if self.0 >= M::val() {
-            self.0 -= M::val();
-        }
-    }
-}
-impl<M> std::ops::Sub for ModWithValue<M>
-where
-    M: Value,
-{
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self::Output {
-        let res = self.0 - rhs.0;
-        if res < 0 {
-            ModWithValue(res + M::val(), PhantomData)
-        } else {
-            ModWithValue(res, PhantomData)
-        }
-    }
-}
-impl<M> std::ops::SubAssign for ModWithValue<M>
-where
-    M: Value,
-{
-    fn sub_assign(&mut self, rhs: Self) {
-        self.0 -= rhs.0;
-        if self.0 < 0 {
-            self.0 += M::val();
-        }
-    }
-}
-impl<M> std::ops::Mul for ModWithValue<M>
-where
-    M: Value,
-{
-    type Output = Self;
-    fn mul(self, rhs: Self) -> Self::Output {
-        let res = (self.0 as i64) * (rhs.0 as i64) % (M::val() as i64);
-        ModWithValue(res as i32, PhantomData)
-    }
-}
-impl<M> std::ops::MulAssign for ModWithValue<M>
-where
-    M: Value,
-{
-    fn mul_assign(&mut self, rhs: Self) {
-        self.0 = ((self.0 as i64) * (rhs.0 as i64) % (M::val() as i64)) as i32;
-    }
-}
-impl<M> std::ops::Div for ModWithValue<M>
-where
-    M: Value,
-{
-    type Output = Self;
-    #[allow(clippy::suspicious_arithmetic_impl)]
-    fn div(self, rhs: Self) -> Self::Output {
-        let rhs_inv = rhs.inv();
-        self * rhs_inv
-    }
-}
-impl<M> std::ops::DivAssign for ModWithValue<M>
-where
-    M: Value,
-{
-    #[allow(clippy::suspicious_op_assign_impl)]
-    fn div_assign(&mut self, rhs: Self) {
-        *self *= rhs.inv();
-    }
-}
-impl<M> Writable for ModWithValue<M>
-where
-    M: Value,
-{
-    fn write(&self, output: &mut Output) {
-        output.write_fmt(format_args!("{}", self.0)).unwrap();
-    }
-}
-impl<M> Readable for ModWithValue<M>
-where
-    M: Value,
-{
-    fn read(input: &mut Input) -> Self {
-        let i32 = input.i32();
-        Self::new(i32)
-    }
-}
-impl<M> HasConstants<ModWithValue<M>> for ModWithValue<M>
-where
-    M: Value,
-{
-    const MAX: ModWithValue<M> = ModWithValue::ZERO;
-    const MIN: ModWithValue<M> = ModWithValue::ZERO;
-    const ZERO: ModWithValue<M> = ModWithValue::ZERO;
-    const ONE: ModWithValue<M> = ModWithValue::ONE;
-    const TWO: ModWithValue<M> = ModWithValue::TWO;
-}
-impl<M> ConvSimple<ModWithValue<M>> for ModWithValue<M>
-where
-    M: Value,
-{
-    fn from_i32(val: i32) -> ModWithValue<M> {
-        ModWithValue::new(val)
-    }
-    fn to_i32(self) -> i32 {
-        self.0
-    }
-    fn to_f64(self) -> f64 {
-        self.0 as f64
-    }
-}
-pub trait ConstValue: Value + Copy {
-    const VAL: i32;
-}
-impl<V: ConstValue> Value for V {
-    fn val() -> i32 {
-        Self::VAL
-    }
-}
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
-pub struct Value7();
-impl ConstValue for Value7 {
-    const VAL: i32 = 1_000_000_007;
-}
-pub type Mod7 = ModWithValue<Value7>;
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
-pub struct Value9();
-impl ConstValue for Value9 {
-    const VAL: i32 = 1_000_000_009;
-}
-pub type Mod9 = ModWithValue<Value9>;
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
-pub struct Value_998_244_353();
-impl ConstValue for Value_998_244_353 {
-    const VAL: i32 = 998_244_353;
-}
-pub type Mod_998_244_353 = ModWithValue<Value_998_244_353>;
-pub trait ModuloTrait: Number {
-    fn mod_value() -> i32;
-    fn pown(self, n: usize) -> Self;
-}
-impl<V: Value> ModuloTrait for ModWithValue<V> {
-    fn mod_value() -> i32 {
-        V::val()
-    }
-    fn pown(self, n: usize) -> Self {
-        self.pown(n)
-    }
-}
-}
-}
 pub mod misc {
 pub mod dbg_macro {
 #[macro_export]
@@ -839,85 +677,6 @@ macro_rules! dbg {
         eprintln!("[{}:{}] {} = {:?}", file!(), line!(), stringify!($first_val),
         &$first_val)
     };
-}
-}
-pub mod num_traits {
-use std::cmp::Ordering;
-use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-pub trait HasConstants<T> {
-    const MAX: T;
-    const MIN: T;
-    const ZERO: T;
-    const ONE: T;
-    const TWO: T;
-}
-pub trait ConvSimple<T> {
-    fn from_i32(val: i32) -> T;
-    fn to_i32(self) -> i32;
-    fn to_f64(self) -> f64;
-}
-pub trait Signum {
-    fn signum(&self) -> i32;
-}
-pub trait Number: Copy + Add<
-        Output = Self,
-    > + AddAssign + Sub<
-        Output = Self,
-    > + SubAssign + Mul<
-        Output = Self,
-    > + MulAssign + Div<
-        Output = Self,
-    > + DivAssign + PartialOrd + PartialEq + HasConstants<
-        Self,
-    > + Default + Debug + Sized + ConvSimple<Self> {}
-impl<
-    T: Copy + Add<Output = Self> + AddAssign + Sub<Output = Self> + SubAssign
-        + Mul<Output = Self> + MulAssign + Div<Output = Self> + DivAssign + PartialOrd
-        + PartialEq + HasConstants<Self> + Default + Debug + Sized + ConvSimple<Self>,
-> Number for T {}
-macro_rules! has_constants_impl {
-    ($t:ident) => {
-        impl HasConstants <$t > for $t { const MAX : $t = $t ::MAX; const MIN : $t = $t
-        ::MIN; const ZERO : $t = 0; const ONE : $t = 1; const TWO : $t = 2; } impl
-        ConvSimple <$t > for $t { fn from_i32(val : i32) -> $t { val as $t } fn
-        to_i32(self) -> i32 { self as i32 } fn to_f64(self) -> f64 { self as f64 } }
-    };
-}
-has_constants_impl!(i32);
-has_constants_impl!(i64);
-has_constants_impl!(i128);
-has_constants_impl!(u32);
-has_constants_impl!(u64);
-has_constants_impl!(u128);
-has_constants_impl!(usize);
-has_constants_impl!(u8);
-impl ConvSimple<Self> for f64 {
-    fn from_i32(val: i32) -> Self {
-        val as f64
-    }
-    fn to_i32(self) -> i32 {
-        self as i32
-    }
-    fn to_f64(self) -> f64 {
-        self
-    }
-}
-impl HasConstants<Self> for f64 {
-    const MAX: Self = Self::MAX;
-    const MIN: Self = -Self::MAX;
-    const ZERO: Self = 0.0;
-    const ONE: Self = 1.0;
-    const TWO: Self = 2.0;
-}
-impl<T: Number + Ord> Signum for T {
-    fn signum(&self) -> i32 {
-        match self.cmp(&T::ZERO) {
-            Ordering::Greater => 1,
-            Ordering::Less => -1,
-            Ordering::Equal => 0,
-        }
-    }
 }
 }
 }
