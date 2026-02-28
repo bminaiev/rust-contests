@@ -18,6 +18,10 @@ impl<IdType: Eq + Copy, ValueType: Ord + Copy> TwoMin<IdType, ValueType> {
         }
     }
 
+    pub fn get_values(&self) -> &[(IdType, ValueType)] {
+        &self.values[..self.cnt]
+    }
+
     pub fn add(&mut self, id: IdType, value: ValueType) -> bool {
         if self.cnt >= 1 && self.values[0].0 == id {
             if self.values[0].1 <= value {

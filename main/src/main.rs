@@ -1,305 +1,260 @@
 // 
-use crate::algo_lib::collections::sqrt_decomposition::{SqrtDecomposition, SqrtNode};
+use std::collections::{BTreeMap, BTreeSet};
+use std::vec;
 
+use crate::algo_lib::graph::trees::centroid_decomposition::CentroidDecomposition;
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
-use crate::algo_lib::misc::binary_search::binary_search_first_true;
 use crate::algo_lib::misc::rand::Random;
-#[target_feature(enable = "avx2")]
-fn add(a: &mut [i32], delta: i32) {
-    for x in a.iter_mut() {
-        *x += delta;
+use crate::algo_lib::misc::two_min::TwoMin;
+fn conv_colors(c: u8) -> usize {
+    match c {
+        b'R' => 0,
+        b'G' => 1,
+        b'Y' => 2,
+        _ => unreachable!(),
     }
 }
-#[target_feature(enable = "avx2")]
-fn assign(a: &mut [i32], val: i32) {
-    for x in a.iter_mut() {
-        *x = val;
-    }
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Copy, Debug)]
+struct Idx {
+    dist: usize,
+    repr: usize,
 }
-#[derive(Clone, Default)]
-struct Block {
-    mins: Vec<i32>,
-    maxs: Vec<i32>,
-    set_to: Option<i32>,
-    add: i32,
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+struct Value {
+    dist: usize,
+    v: usize,
 }
-impl Block {
-    fn len(&self) -> usize {
-        self.mins.len()
-    }
+#[derive(Clone, Debug)]
+struct Paths {
+    for_repr: BTreeMap<usize, BTreeSet<Value>>,
+    all_repr: BTreeSet<Idx>,
 }
-#[target_feature(enable = "avx2")]
-fn calc_one_set(a: &[i32], set_value: i32) -> u64 {
-    let mut res = 0u64;
-    for &x in a {
-        let tmp = (x as u64) * (set_value as u64);
-        res = res.overflowing_add(tmp).0;
-    }
-    res
-}
-#[target_feature(enable = "avx2")]
-unsafe fn calc_avx2(a: &[i32], b: &[i32]) -> u64 {
-    use core::arch::x86_64::*;
-    let len = a.len();
-    let mut i = 0usize;
-    let mut acc0 = _mm256_setzero_si256();
-    let mut acc1 = _mm256_setzero_si256();
-    let mut acc2 = _mm256_setzero_si256();
-    let mut acc3 = _mm256_setzero_si256();
-    while i + 16 <= len {
-        let va0 = _mm256_loadu_si256(a.as_ptr().add(i) as *const __m256i);
-        let vb0 = _mm256_loadu_si256(b.as_ptr().add(i) as *const __m256i);
-        let prod0_even = _mm256_mul_epi32(va0, vb0);
-        let prod0_odd = _mm256_mul_epi32(
-            _mm256_srli_epi64(va0, 32),
-            _mm256_srli_epi64(vb0, 32),
-        );
-        acc0 = _mm256_add_epi64(acc0, prod0_even);
-        acc1 = _mm256_add_epi64(acc1, prod0_odd);
-        let va1 = _mm256_loadu_si256(a.as_ptr().add(i + 8) as *const __m256i);
-        let vb1 = _mm256_loadu_si256(b.as_ptr().add(i + 8) as *const __m256i);
-        let prod1_even = _mm256_mul_epi32(va1, vb1);
-        let prod1_odd = _mm256_mul_epi32(
-            _mm256_srli_epi64(va1, 32),
-            _mm256_srli_epi64(vb1, 32),
-        );
-        acc2 = _mm256_add_epi64(acc2, prod1_even);
-        acc3 = _mm256_add_epi64(acc3, prod1_odd);
-        i += 16;
-    }
-    let sum01 = _mm256_add_epi64(acc0, acc1);
-    let sum23 = _mm256_add_epi64(acc2, acc3);
-    let sum = _mm256_add_epi64(sum01, sum23);
-    let mut lanes = [0i64; 4];
-    _mm256_storeu_si256(lanes.as_mut_ptr() as *mut __m256i, sum);
-    let mut res = 0u64;
-    res = res.wrapping_add(lanes[0] as u64);
-    res = res.wrapping_add(lanes[1] as u64);
-    res = res.wrapping_add(lanes[2] as u64);
-    res = res.wrapping_add(lanes[3] as u64);
-    while i < len {
-        let prod = (*a.get_unchecked(i) as i64) * (*b.get_unchecked(i) as i64);
-        res = res.wrapping_add(prod as u64);
-        i += 1;
-    }
-    res
-}
-#[target_feature(enable = "avx2")]
-pub fn calc(a: &[i32], b: &[i32]) -> u64 {
-    unsafe { calc_avx2(a, b) }
-}
-impl SqrtNode for Block {
-    type Value = i32;
-    fn relax(&mut self, raw_values: &mut [Self::Value]) {
-        if let Some(set_to) = self.set_to {
-            unsafe {
-                assign(raw_values, set_to);
-            }
-            self.set_to = None;
-        }
-        if self.add != 0 {
-            unsafe {
-                add(raw_values, self.add);
-            }
-            self.add = 0;
-        }
-    }
-    fn rebuild(&mut self, raw_values: &[Self::Value]) {
-        let mut cur_min = i32::MAX;
-        let mut cur_max = i32::MIN;
-        self.mins.resize(raw_values.len(), 0);
-        self.maxs.resize(raw_values.len(), 0);
-        for i in 0..raw_values.len() {
-            cur_min = cur_min.min(raw_values[i]);
-            cur_max = cur_max.max(raw_values[i]);
-            self.mins[i] = cur_min;
-            self.maxs[i] = cur_max;
-        }
-    }
-}
-struct Solver {
-    sqrt: SqrtDecomposition<Block>,
-    sum_ops: usize,
-}
-impl Solver {
-    pub fn new(a: Vec<i32>, block_size: usize) -> Self {
+impl Paths {
+    fn new() -> Self {
         Self {
-            sqrt: SqrtDecomposition::new(a, block_size, Block::default()),
-            sum_ops: 0,
+            for_repr: BTreeMap::new(),
+            all_repr: BTreeSet::new(),
         }
     }
-    pub fn add(&mut self, l: usize, r: usize, delta: i32) {
-        self.sqrt
-            .iter_mut(
-                l..r,
-                |part| match part {
-                    crate::algo_lib::collections::sqrt_decomposition::Part::Full(
-                        block,
-                    ) => {
-                        for x in block.mins.iter_mut() {
-                            *x += delta;
-                        }
-                        for x in block.maxs.iter_mut() {
-                            *x += delta;
-                        }
-                        block.add += delta;
-                    }
-                    crate::algo_lib::collections::sqrt_decomposition::Part::Single(
-                        _,
-                        value,
-                    ) => {
-                        *value += delta;
-                    }
-                },
-            );
+    fn add(&mut self, idx: Idx, v: usize) {
+        let repr = idx.repr;
+        if let Some(set) = self.for_repr.get(&repr) {
+            let best = set.iter().next().unwrap();
+            self.all_repr.remove(&Idx { dist: best.dist, repr });
+        }
+        self.for_repr.entry(repr).or_default().insert(Value { dist: idx.dist, v });
+        let best = self.for_repr[&repr].iter().next().unwrap();
+        self.all_repr.insert(Idx { dist: best.dist, repr });
     }
-    pub fn assign(&mut self, l: usize, r: usize, val: i32) {
-        self.sqrt
-            .iter_mut(
-                l..r,
-                |part| match part {
-                    crate::algo_lib::collections::sqrt_decomposition::Part::Full(
-                        block,
-                    ) => {
-                        for x in block.mins.iter_mut() {
-                            *x = val;
-                        }
-                        for x in block.maxs.iter_mut() {
-                            *x = val;
-                        }
-                        block.set_to = Some(val);
-                        block.add = 0;
-                    }
-                    crate::algo_lib::collections::sqrt_decomposition::Part::Single(
-                        _,
-                        value,
-                    ) => {
-                        *value = val;
-                    }
-                },
-            );
+    fn remove(&mut self, idx: Idx, v: usize) {
+        let repr = idx.repr;
+        let set = self.for_repr.get_mut(&repr).unwrap();
+        set.remove(&Value { dist: idx.dist, v });
+        self.all_repr.remove(&Idx { dist: idx.dist, repr });
+        if let Some(best) = set.iter().next() {
+            self.all_repr.insert(Idx { dist: best.dist, repr });
+        } else {
+            self.for_repr.remove(&repr);
+        }
     }
-    pub fn query(&mut self, l: usize, r: usize) -> u64 {
-        let mut cur_min = i32::MAX;
-        let mut cur_max = i32::MIN;
-        let mut res = 0u64;
-        self.sqrt
-            .iter_mut(
-                l..r,
-                |part| match part {
-                    crate::algo_lib::collections::sqrt_decomposition::Part::Full(
-                        block,
-                    ) => {
-                        let len = block.len() as u64;
-                        let my_min_start = binary_search_first_true(
-                            0..len as usize,
-                            |pos| block.mins[pos] < cur_min,
-                        );
-                        let my_max_start = binary_search_first_true(
-                            0..len as usize,
-                            |pos| block.maxs[pos] > cur_max,
-                        );
-                        unsafe {
-                            let len_global_min_max = my_min_start.min(my_max_start)
-                                as u64;
-                            res = res
-                                .overflowing_add(
-                                    len_global_min_max * (cur_min as u64) * (cur_max as u64),
-                                )
-                                .0;
-                            if my_min_start < my_max_start {
-                                let tmp = calc_one_set(
-                                    &block.mins[my_min_start..my_max_start],
-                                    cur_max,
-                                );
-                                res = res.overflowing_add(tmp).0;
-                            } else {
-                                let tmp = calc_one_set(
-                                    &block.maxs[my_max_start..my_min_start],
-                                    cur_min,
-                                );
-                                res = res.overflowing_add(tmp).0;
-                            }
-                            {
-                                let offset_my = my_min_start.max(my_max_start);
-                                let tmp = calc(
-                                    &block.mins[offset_my..],
-                                    &block.maxs[offset_my..],
-                                );
-                                res = res.overflowing_add(tmp).0;
-                                self.sum_ops += block.len() - offset_my;
-                            }
-                        }
-                        let pos = block.len() - 1;
-                        cur_min = cur_min.min(block.mins[pos]);
-                        cur_max = cur_max.max(block.maxs[pos]);
-                    }
-                    crate::algo_lib::collections::sqrt_decomposition::Part::Single(
-                        _,
-                        value,
-                    ) => {
-                        let now_min = cur_min.min(*value);
-                        let now_max = cur_max.max(*value);
-                        res = res.overflowing_add((now_min as u64) * (now_max as u64)).0;
-                        cur_min = now_min;
-                        cur_max = now_max;
-                    }
-                },
-            );
+    fn get_two_min(&self) -> TwoMin<usize, usize> {
+        let mut res = TwoMin::new(usize::MAX, usize::MAX / 3);
+        for idx in self.all_repr.iter().take(2) {
+            res.add(idx.repr, idx.dist);
+        }
         res
     }
 }
-fn test_speed3() {
-    let n = 200_000;
-    let mut rnd = Random::new(123);
-    let mut a = rnd.gen_vec(n, 0..10000000);
-    for i in 0..a.len() {
-        if i % 2 == 0 {
-            a[i] = 10000000 + i as i32;
-        } else {
-            a[i] = 10000000 - i as i32;
-        }
-    }
-    let mut full_res = 0;
-    for _ in 0..n {
-        let res = unsafe { calc(&a, &a) };
-        full_res += res;
-    }
-    dbg!(full_res);
+struct Solver {
+    centroid: CentroidDecomposition,
+    paths: Vec<Vec<Paths>>,
+    color: Vec<usize>,
 }
-fn test_speed() {
-    let n = 200_000;
-    let mut rnd = Random::new(123);
-    let mut a = rnd.gen_vec(n, 0..10000000);
-    for i in 0..a.len() {
-        if i % 2 == 0 {
-            a[i] = 10000000 + i as i32;
-        } else {
-            a[i] = 10000000 - i as i32;
+impl Solver {
+    fn new(g: &[Vec<usize>], color: &[usize]) -> Self {
+        let mut centroid = CentroidDecomposition::new(g);
+        let mut paths = vec![vec![Paths::new(); g.len()]; 2];
+        for v in 0..g.len() {
+            let my_color = color[v];
+            if color[v] == 2 {
+                continue;
+            }
+            for remote in &centroid.ups[v] {
+                paths[my_color][remote.to]
+                    .add(
+                        Idx {
+                            dist: remote.dist as usize,
+                            repr: remote.last_on_path,
+                        },
+                        v,
+                    );
+            }
+        }
+        Self {
+            centroid,
+            paths,
+            color: color.to_vec(),
         }
     }
-    let mut solver1 = Solver::new(a.clone(), 4096);
-    let mut full_res = 0;
-    for _ in 0..n {
-        let q_type = rnd.gen_range(3..4);
-        let l = rnd.gen_range(0..50);
-        let r = rnd.gen_range(n - 50..n + 1);
-        if q_type == 1 {
-            let v = rnd.gen_range(-1000..1000);
-            solver1.add(l, r, v);
-        } else if q_type == 2 {
-            let v = rnd.gen_range(0..10000000);
-            solver1.assign(l, r, v);
-        } else {
-            let res = solver1.query(l, r);
-            full_res ^= res;
+    fn update_color(&mut self, v: usize, c: usize) {
+        if self.color[v] != 2 {
+            for remote in &self.centroid.ups[v] {
+                self.paths[self.color[v]][remote.to]
+                    .remove(
+                        Idx {
+                            dist: remote.dist as usize,
+                            repr: remote.last_on_path,
+                        },
+                        v,
+                    );
+            }
+        }
+        self.color[v] = c;
+        if self.color[v] != 2 {
+            for remote in &self.centroid.ups[v] {
+                self.paths[self.color[v]][remote.to]
+                    .add(
+                        Idx {
+                            dist: remote.dist as usize,
+                            repr: remote.last_on_path,
+                        },
+                        v,
+                    );
+            }
         }
     }
-    dbg!(full_res, solver1.sum_ops);
+    fn query(&self, v: usize) -> i64 {
+        let mut mins = [self.paths[0][v].get_two_min(), self.paths[1][v].get_two_min()];
+        for remote in &self.centroid.ups[v] {
+            if remote.to == v {
+                continue;
+            }
+            for color in 0..2 {
+                let remote_two_mins = self.paths[color][remote.to].get_two_min();
+                if let Some(dist) = remote_two_mins
+                    .get_value_by_not_id(remote.last_on_path)
+                {
+                    mins[color].add(remote.first_on_path, dist + remote.dist as usize);
+                }
+            }
+        }
+        let mut res = usize::MAX;
+        for min0 in mins[0].get_values() {
+            for min1 in mins[1].get_values() {
+                if min0.0 != min1.0 {
+                    res = res.min(min0.1 + min1.1);
+                }
+            }
+        }
+        if res >= usize::MAX / 5 { -1 } else { res as i64 }
+    }
+}
+struct SolverSimple {
+    g: Vec<Vec<usize>>,
+    color: Vec<usize>,
+}
+impl SolverSimple {
+    fn new(g: &[Vec<usize>], color: &[usize]) -> Self {
+        Self {
+            g: g.to_vec(),
+            color: color.to_vec(),
+        }
+    }
+    fn update_color(&mut self, v: usize, c: usize) {
+        self.color[v] = c;
+    }
+    fn query(&self, v: usize) -> i64 {
+        assert_eq!(self.color[v], 2);
+        let mut res = i64::MAX;
+        for start in 0..self.g.len() {
+            if self.color[start] == 0 {
+                let dist = self.dfs(start, start, v, false);
+                res = res.min(dist);
+            }
+        }
+        if res >= i64::MAX / 10 {
+            res = -1;
+        }
+        res
+    }
+    fn dfs(&self, v: usize, p: usize, mid: usize, seen_mid: bool) -> i64 {
+        let mut res = i64::MAX / 2;
+        if seen_mid && self.color[v] == 1 {
+            return 0;
+        }
+        for &to in &self.g[v] {
+            if to != p {
+                res = res.min(self.dfs(to, v, mid, seen_mid || to == mid) + 1);
+            }
+        }
+        res
+    }
 }
 fn solve(input: &mut Input, out: &mut Output) {
-    test_speed();
+    let tc = input.usize();
+    for _ in 0..tc {
+        let n = input.usize();
+        let q = input.usize();
+        let mut g = vec![vec![]; n];
+        for _ in 0..(n - 1) {
+            let u = input.usize() - 1;
+            let v = input.usize() - 1;
+            g[u].push(v);
+            g[v].push(u);
+        }
+        let start_colors = input.string();
+        let mut color = vec![0; n];
+        for i in 0..n {
+            color[i] = conv_colors(start_colors[i]);
+        }
+        let mut solver = Solver::new(&g, &color);
+        for _ in 0..q {
+            let q_type = input.usize();
+            if q_type == 1 {
+                let v = input.usize() - 1;
+                let c = conv_colors(input.string()[0]);
+                solver.update_color(v, c);
+            } else {
+                assert_eq!(q_type, 2);
+                let v = input.usize() - 1;
+                let res = solver.query(v);
+                out.println(res);
+            }
+        }
+    }
+}
+fn stress() {
+    for it in 13470.. {
+        dbg!(it);
+        let mut rnd = Random::new(it);
+        let n = rnd.gen_range(1..129);
+        let mut g = vec![vec![]; n];
+        for i in 1..n {
+            let v = rnd.gen_range(0..i);
+            g[v].push(i);
+            g[i].push(v);
+        }
+        let mut color = vec![0; n];
+        for i in 0..n {
+            color[i] = rnd.gen_range(0..3);
+        }
+        let mut solver = Solver::new(&g, &color);
+        let mut solver_simple = SolverSimple::new(&g, &color);
+        for _ in 0..100 {
+            let v = rnd.gen_range(0..n);
+            if rnd.gen_bool() && color[v] == 2 {
+                let res = solver.query(v);
+                let res_simple = solver_simple.query(v);
+                assert_eq!(res, res_simple);
+            } else {
+                let c = rnd.gen_range(0..3);
+                solver.update_color(v, c);
+                solver_simple.update_color(v, c);
+                color[v] = c;
+            }
+        }
+    }
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
     solve(&mut input, &mut output);
@@ -313,141 +268,95 @@ fn main() {
     run(input, output);
 }
 pub mod algo_lib {
-pub mod collections {
-pub mod sqrt_decomposition {
-use crate::algo_lib::misc::gen_vector::gen_vec;
-use crate::algo_lib::misc::range_intersect::range_intersect;
-use std::cmp::min;
-use std::ops::Range;
-pub trait SqrtNode: Clone {
-    type Value: Clone;
-    fn relax(&mut self, raw_values: &mut [Self::Value]);
-    fn rebuild(&mut self, raw_values: &[Self::Value]);
+pub mod graph {
+pub mod trees {
+pub mod centroid_decomposition {
+#[derive(Clone, Copy, Debug)]
+pub struct Remote {
+    pub to: usize,
+    pub dist: i64,
+    pub first_on_path: usize,
+    pub last_on_path: usize,
 }
-pub struct SqrtDecomposition<T>
-where
-    T: SqrtNode,
-{
-    raw_values: Vec<T::Value>,
-    block_size: usize,
-    blocks: Vec<T>,
+pub struct CentroidDecomposition {
+    alive: Vec<bool>,
+    size: Vec<usize>,
+    pub ups: Vec<Vec<Remote>>,
 }
-pub enum Part<'a, T>
-where
-    T: SqrtNode,
-{
-    Full(&'a mut T),
-    Single(&'a mut T, &'a mut T::Value),
-}
-impl<T> SqrtDecomposition<T>
-where
-    T: SqrtNode,
-{
-    pub fn new(raw_values: Vec<T::Value>, block_size: usize, empty_block: T) -> Self {
-        assert!(block_size > 0);
-        let n = raw_values.len();
-        let blocks_num = (n + block_size - 1) / block_size;
-        let blocks = gen_vec(
-            blocks_num,
-            |id| {
-                let mut block = empty_block.clone();
-                block
-                    .rebuild(
-                        &raw_values[id * block_size..min((id + 1) * block_size, n)],
-                    );
-                block
-            },
-        );
-        Self {
-            raw_values,
-            block_size,
-            blocks,
-        }
-    }
-    pub fn iter_mut<F>(&mut self, range: Range<usize>, mut f: F)
-    where
-        F: FnMut(Part<T>),
-    {
-        let first_block = range.start / self.block_size;
-        let last_block = (range.end + self.block_size - 1) / self.block_size;
-        let block_size = self.block_size;
-        let handle_side_block = |
-            id: usize,
-            f: &mut F,
-            block: &mut T,
-            raw_values: &mut [T::Value]|
-        {
-            let n = raw_values.len();
-            let cur_block = block_size * id..min(n, block_size * (id + 1));
-            let range = range_intersect(cur_block.clone(), range.clone());
-            if range == cur_block {
-                f(Part::Full(block));
-            } else {
-                block.relax(&mut raw_values[cur_block.clone()]);
-                for single in raw_values[range].iter_mut() {
-                    f(Part::Single(block, single));
-                }
-                block.rebuild(&raw_values[cur_block]);
-            }
+impl CentroidDecomposition {
+    pub fn new(g: &[Vec<usize>]) -> Self {
+        let n = g.len();
+        let mut res = Self {
+            alive: vec![true; n],
+            size: vec![0; n],
+            ups: vec![vec![]; n],
         };
-        handle_side_block(
-            first_block,
-            &mut f,
-            &mut self.blocks[first_block],
-            &mut self.raw_values,
-        );
-        if first_block + 1 < last_block {
-            for block_id in first_block + 1..last_block - 1 {
-                f(Part::Full(&mut self.blocks[block_id]))
-            }
-            handle_side_block(
-                last_block - 1,
-                &mut f,
-                &mut self.blocks[last_block - 1],
-                &mut self.raw_values,
-            );
-        }
+        res.rec(g, 0);
+        res
     }
-    pub fn iter_mut_only_full<F>(&mut self, range: Range<usize>, mut f: F)
-    where
-        F: FnMut(&mut T) -> bool,
-    {
-        let first_block = range.start / self.block_size;
-        let last_block = (range.end + self.block_size - 1) / self.block_size;
-        let block_size = self.block_size;
-        let handle_side_block = |
-            id: usize,
-            f: &mut F,
-            block: &mut T,
-            raw_values: &mut [T::Value]|
-        {
-            let n = raw_values.len();
-            let cur_block = block_size * id..min(n, block_size * (id + 1));
-            let range = range_intersect(cur_block.clone(), range.clone());
-            if range == cur_block {
-                f(block);
-            }
-        };
-        handle_side_block(
-            first_block,
-            &mut f,
-            &mut self.blocks[first_block],
-            &mut self.raw_values,
-        );
-        if first_block + 1 < last_block {
-            for block_id in first_block + 1..last_block - 1 {
-                if f(&mut self.blocks[block_id]) {
-                    return;
+    fn rec(&mut self, g: &[Vec<usize>], mut root: usize) {
+        self.calc_sizes(g, root, root);
+        let full_size = self.size[root];
+        let mut prev = root;
+        loop {
+            let mut found = false;
+            for &to in &g[root] {
+                if to != prev && self.alive[to] && self.size[to] * 2 > full_size {
+                    prev = root;
+                    root = to;
+                    found = true;
+                    break;
                 }
             }
-            handle_side_block(
-                last_block - 1,
-                &mut f,
-                &mut self.blocks[last_block - 1],
-                &mut self.raw_values,
-            );
+            if !found {
+                break;
+            }
+        }
+        self.alive[root] = false;
+        self.build_paths(g, root, root, 0, root, root, root);
+        for &to in &g[root] {
+            if self.alive[to] {
+                self.rec(g, to);
+            }
         }
     }
+    fn calc_sizes(&mut self, g: &[Vec<usize>], v: usize, p: usize) {
+        self.size[v] = 1;
+        for &to in &g[v] {
+            if to != p && self.alive[to] {
+                self.calc_sizes(g, to, v);
+                self.size[v] += self.size[to];
+            }
+        }
+    }
+    fn build_paths(
+        &mut self,
+        g: &[Vec<usize>],
+        v: usize,
+        p: usize,
+        dist: i64,
+        centroid: usize,
+        first_on_path: usize,
+        last_on_path: usize,
+    ) {
+        self.ups[v]
+            .push(Remote {
+                to: centroid,
+                dist,
+                first_on_path: last_on_path,
+                last_on_path: first_on_path,
+            });
+        for &to in &g[v] {
+            if to != p && self.alive[to] {
+                let mut next_first_on_path = first_on_path;
+                if first_on_path == centroid {
+                    next_first_on_path = to;
+                }
+                self.build_paths(g, to, v, dist + 1, centroid, next_first_on_path, v);
+            }
+        }
+    }
+}
 }
 }
 }
@@ -882,37 +791,6 @@ impl<T: Writable, U: Writable, V: Writable> Writable for (T, U, V) {
 }
 }
 pub mod misc {
-pub mod binary_search {
-use crate::algo_lib::misc::num_traits::Number;
-use std::ops::Range;
-pub fn binary_search_first_true<T>(range: Range<T>, mut f: impl FnMut(T) -> bool) -> T
-where
-    T: Number,
-{
-    let mut left_plus_one = range.start;
-    let mut right = range.end;
-    while right > left_plus_one {
-        let mid = left_plus_one + (right - left_plus_one) / T::TWO;
-        if f(mid) {
-            right = mid;
-        } else {
-            left_plus_one = mid + T::ONE;
-        }
-    }
-    right
-}
-pub fn binary_search_last_true<T>(
-    range: Range<T>,
-    mut f: impl FnMut(T) -> bool,
-) -> Option<T>
-where
-    T: Number,
-{
-    let first_false = binary_search_first_true(range.clone(), |x| !f(x));
-    if first_false == range.start { None } else { Some(first_false - T::ONE) }
-}
-
-}
 pub mod dbg_macro {
 #[macro_export]
 macro_rules! dbg {
@@ -1092,38 +970,95 @@ impl Random {
     }
 }
 }
-pub mod range_intersect {
-use crate::algo_lib::misc::num_traits::Number;
-use std::cmp::{max, min};
-use std::ops::Range;
-pub fn range_intersect<T>(r1: Range<T>, r2: Range<T>) -> Range<T>
-where
-    T: Number + Ord,
-{
-    max(r1.start, r2.start)..min(r1.end, r2.end)
+pub mod two_min {
+#[derive(Clone, Debug)]
+pub struct TwoMin<IdType: Eq, ValueType: Ord> {
+    cnt: usize,
+    values: [(IdType, ValueType); 2],
 }
-pub trait Shift {
-    fn shift<T>(self, delta: T) -> Self
-    where
-        T: Number;
-    fn shift_left<T>(self, delta: T) -> Self
-    where
-        T: Number;
-}
-impl Shift for Range<usize> {
-    fn shift<T>(self, delta: T) -> Self
-    where
-        T: Number,
-    {
-        let start = (self.start as i32 + delta.to_i32()) as usize;
-        let end = (self.end as i32 + delta.to_i32()) as usize;
-        start..end
+impl<IdType: Eq + Copy, ValueType: Ord + Copy> TwoMin<IdType, ValueType> {
+    pub fn new(zero_id: IdType, zero_value: ValueType) -> Self {
+        Self {
+            cnt: 0,
+            values: [(zero_id, zero_value), (zero_id, zero_value)],
+        }
     }
-    fn shift_left<T>(self, delta: T) -> Self
-    where
-        T: Number,
-    {
-        self.shift(-delta.to_i32())
+    fn make_sorted(&mut self) {
+        if self.cnt == 2 && self.values[0].1 > self.values[1].1 {
+            self.values.swap(0, 1);
+        }
+    }
+    pub fn get_values(&self) -> &[(IdType, ValueType)] {
+        &self.values[..self.cnt]
+    }
+    pub fn add(&mut self, id: IdType, value: ValueType) -> bool {
+        if self.cnt >= 1 && self.values[0].0 == id {
+            if self.values[0].1 <= value {
+                return false;
+            }
+            self.values[0].1 = value;
+            return true;
+        }
+        if self.cnt >= 2 && self.values[1].0 == id {
+            if self.values[1].1 <= value {
+                return false;
+            }
+            self.values[1].1 = value;
+            self.make_sorted();
+            return true;
+        }
+        if self.cnt == 0 {
+            self.cnt = 1;
+            self.values[0] = (id, value);
+            return true;
+        }
+        if self.cnt == 1 {
+            self.cnt += 1;
+            self.values[1] = (id, value);
+            self.make_sorted();
+            return true;
+        }
+        if self.cnt == 2 {
+            if self.values[1].1 <= value {
+                return false;
+            }
+            self.values[1] = (id, value);
+            self.make_sorted();
+            return true;
+        }
+        unreachable!("cnt is greater than 2?");
+    }
+    pub fn merge(&mut self, another: &Self) {
+        for i in 0..another.cnt {
+            self.add(another.values[i].0, another.values[i].1);
+        }
+    }
+    pub fn get_value_by_id(&self, id: IdType) -> Option<ValueType> {
+        if self.cnt >= 1 && self.values[0].0 == id {
+            return Some(self.values[0].1);
+        }
+        if self.cnt >= 2 && self.values[1].0 == id {
+            return Some(self.values[1].1);
+        }
+        None
+    }
+    pub fn get_value_by_not_id(&self, not_id: IdType) -> Option<ValueType> {
+        if self.cnt >= 1 && self.values[0].0 != not_id {
+            return Some(self.values[0].1);
+        }
+        if self.cnt >= 2 && self.values[1].0 != not_id {
+            return Some(self.values[1].1);
+        }
+        None
+    }
+    pub fn get_by_not_id(&self, not_id: IdType) -> Option<(IdType, ValueType)> {
+        if self.cnt >= 1 && self.values[0].0 != not_id {
+            return Some((self.values[0].0, self.values[0].1));
+        }
+        if self.cnt >= 2 && self.values[1].0 != not_id {
+            return Some((self.values[1].0, self.values[1].1));
+        }
+        None
     }
 }
 }
