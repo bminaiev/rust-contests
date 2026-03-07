@@ -1,260 +1,102 @@
 // 
-use std::collections::{BTreeMap, BTreeSet};
-use std::vec;
+use crate::algo_lib::collections::array_2d::Array2D;
 
-use crate::algo_lib::graph::trees::centroid_decomposition::CentroidDecomposition;
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
-use crate::algo_lib::misc::rand::Random;
-use crate::algo_lib::misc::two_min::TwoMin;
-fn conv_colors(c: u8) -> usize {
-    match c {
-        b'R' => 0,
-        b'G' => 1,
-        b'Y' => 2,
-        _ => unreachable!(),
-    }
-}
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Copy, Debug)]
-struct Idx {
-    dist: usize,
-    repr: usize,
-}
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-struct Value {
-    dist: usize,
-    v: usize,
-}
-#[derive(Clone, Debug)]
-struct Paths {
-    for_repr: BTreeMap<usize, BTreeSet<Value>>,
-    all_repr: BTreeSet<Idx>,
-}
-impl Paths {
-    fn new() -> Self {
-        Self {
-            for_repr: BTreeMap::new(),
-            all_repr: BTreeSet::new(),
-        }
-    }
-    fn add(&mut self, idx: Idx, v: usize) {
-        let repr = idx.repr;
-        if let Some(set) = self.for_repr.get(&repr) {
-            let best = set.iter().next().unwrap();
-            self.all_repr.remove(&Idx { dist: best.dist, repr });
-        }
-        self.for_repr.entry(repr).or_default().insert(Value { dist: idx.dist, v });
-        let best = self.for_repr[&repr].iter().next().unwrap();
-        self.all_repr.insert(Idx { dist: best.dist, repr });
-    }
-    fn remove(&mut self, idx: Idx, v: usize) {
-        let repr = idx.repr;
-        let set = self.for_repr.get_mut(&repr).unwrap();
-        set.remove(&Value { dist: idx.dist, v });
-        self.all_repr.remove(&Idx { dist: idx.dist, repr });
-        if let Some(best) = set.iter().next() {
-            self.all_repr.insert(Idx { dist: best.dist, repr });
-        } else {
-            self.for_repr.remove(&repr);
-        }
-    }
-    fn get_two_min(&self) -> TwoMin<usize, usize> {
-        let mut res = TwoMin::new(usize::MAX, usize::MAX / 3);
-        for idx in self.all_repr.iter().take(2) {
-            res.add(idx.repr, idx.dist);
-        }
-        res
-    }
-}
-struct Solver {
-    centroid: CentroidDecomposition,
-    paths: Vec<Vec<Paths>>,
-    color: Vec<usize>,
-}
-impl Solver {
-    fn new(g: &[Vec<usize>], color: &[usize]) -> Self {
-        let mut centroid = CentroidDecomposition::new(g);
-        let mut paths = vec![vec![Paths::new(); g.len()]; 2];
-        for v in 0..g.len() {
-            let my_color = color[v];
-            if color[v] == 2 {
-                continue;
-            }
-            for remote in &centroid.ups[v] {
-                paths[my_color][remote.to]
-                    .add(
-                        Idx {
-                            dist: remote.dist as usize,
-                            repr: remote.last_on_path,
-                        },
-                        v,
-                    );
-            }
-        }
-        Self {
-            centroid,
-            paths,
-            color: color.to_vec(),
-        }
-    }
-    fn update_color(&mut self, v: usize, c: usize) {
-        if self.color[v] != 2 {
-            for remote in &self.centroid.ups[v] {
-                self.paths[self.color[v]][remote.to]
-                    .remove(
-                        Idx {
-                            dist: remote.dist as usize,
-                            repr: remote.last_on_path,
-                        },
-                        v,
-                    );
-            }
-        }
-        self.color[v] = c;
-        if self.color[v] != 2 {
-            for remote in &self.centroid.ups[v] {
-                self.paths[self.color[v]][remote.to]
-                    .add(
-                        Idx {
-                            dist: remote.dist as usize,
-                            repr: remote.last_on_path,
-                        },
-                        v,
-                    );
+use crate::algo_lib::math::combinations::{Combinations, CombinationsFact};
+use crate::algo_lib::math::modulo::Mod_998_244_353;
+use crate::algo_lib::misc::binary_search::binary_search_first_true;
+type Mod = Mod_998_244_353;
+fn solve_slow(max_unicorns: usize, max_tiger: usize, cats: usize) -> Mod {
+    let should_go = |u: usize, t: usize| -> bool {
+        let expected_win = u * 2 + t;
+        let cur_money = (max_unicorns - u) * 2 + (max_tiger - t);
+        expected_win as u64 > cur_money as u64 * cats as u64
+    };
+    let mut dp = Array2D::new(Mod::ZERO, max_unicorns + 1, max_tiger + 1);
+    for u in 0..=max_unicorns {
+        for t in 0..=max_tiger {
+            if should_go(u, t) {
+                let cnt_ok = u + t;
+                let cnt_total = cnt_ok + cats;
+                let mut wins = Mod::ZERO;
+                if u > 0 {
+                    wins += dp[u - 1][t] * Mod::new(u);
+                }
+                if t > 0 {
+                    wins += dp[u][t - 1] * Mod::new(t);
+                }
+                dp[u][t] = wins / Mod::new(cnt_total);
+            } else {
+                dp[u][t] = Mod::new(2 * (max_unicorns - u) + (max_tiger - t));
             }
         }
     }
-    fn query(&self, v: usize) -> i64 {
-        let mut mins = [self.paths[0][v].get_two_min(), self.paths[1][v].get_two_min()];
-        for remote in &self.centroid.ups[v] {
-            if remote.to == v {
-                continue;
-            }
-            for color in 0..2 {
-                let remote_two_mins = self.paths[color][remote.to].get_two_min();
-                if let Some(dist) = remote_two_mins
-                    .get_value_by_not_id(remote.last_on_path)
-                {
-                    mins[color].add(remote.first_on_path, dist + remote.dist as usize);
+    dp[max_unicorns][max_tiger]
+}
+fn solve_fast(max_unicorns: usize, max_tiger: usize, cats: usize) -> Mod {
+    let should_go = |u: usize, t: usize| -> bool {
+        let expected_win = u * 2 + t;
+        let cur_money = (max_unicorns - u) * 2 + (max_tiger - t);
+        expected_win as u64 > cur_money as u64 * cats as u64
+    };
+    let comb = CombinationsFact::<Mod>::new(max_unicorns + max_tiger + 10);
+    let mut still_alive = vec![Mod::ZERO; max_unicorns + max_tiger + 1];
+    still_alive[0] = Mod::ONE;
+    let total = max_unicorns + max_tiger + cats;
+    for done_moves in 0..still_alive.len() - 1 {
+        let prob_fail = Mod::new(cats) / Mod::new(total - done_moves);
+        let prob_ok = Mod::ONE - prob_fail;
+        still_alive[done_moves + 1] = still_alive[done_moves] * prob_ok;
+    }
+    let mut res = Mod::ZERO;
+    for u in 0..=max_unicorns {
+        let tiger_upper = binary_search_first_true(0..max_tiger, |t| should_go(u, t));
+        for t in (0..=tiger_upper).rev() {
+            if !should_go(u, t) {
+                let mut ok = false;
+                for du in 0..2 {
+                    let dt = 1 - du;
+                    let nu = u + du;
+                    let nt = t + dt;
+                    if nu <= max_unicorns && nt <= max_tiger {
+                        if should_go(nu, nt) {
+                            ok = true;
+                            let total_moves = (max_tiger - nt) + (max_unicorns - nu);
+                            let alive_here = still_alive[total_moves];
+                            let total_ways = comb
+                                .c(max_tiger + max_unicorns, total_moves);
+                            let good_ways = comb.c(max_tiger, max_tiger - nt)
+                                * comb.c(max_unicorns, max_unicorns - nu);
+                            let prob_here = alive_here * good_ways / total_ways;
+                            let cards_left = nu + nt + cats;
+                            let move_ways = if du == 1 {
+                                Mod::new(nu)
+                            } else {
+                                Mod::new(nt)
+                            };
+                            let win_here = Mod::new(
+                                2 * (max_unicorns - u) + (max_tiger - t),
+                            );
+                            res
+                                += prob_here * move_ways / Mod::new(cards_left) * win_here;
+                        }
+                    }
+                }
+                if !ok {
+                    break;
                 }
             }
         }
-        let mut res = usize::MAX;
-        for min0 in mins[0].get_values() {
-            for min1 in mins[1].get_values() {
-                if min0.0 != min1.0 {
-                    res = res.min(min0.1 + min1.1);
-                }
-            }
-        }
-        if res >= usize::MAX / 5 { -1 } else { res as i64 }
     }
-}
-struct SolverSimple {
-    g: Vec<Vec<usize>>,
-    color: Vec<usize>,
-}
-impl SolverSimple {
-    fn new(g: &[Vec<usize>], color: &[usize]) -> Self {
-        Self {
-            g: g.to_vec(),
-            color: color.to_vec(),
-        }
-    }
-    fn update_color(&mut self, v: usize, c: usize) {
-        self.color[v] = c;
-    }
-    fn query(&self, v: usize) -> i64 {
-        assert_eq!(self.color[v], 2);
-        let mut res = i64::MAX;
-        for start in 0..self.g.len() {
-            if self.color[start] == 0 {
-                let dist = self.dfs(start, start, v, false);
-                res = res.min(dist);
-            }
-        }
-        if res >= i64::MAX / 10 {
-            res = -1;
-        }
-        res
-    }
-    fn dfs(&self, v: usize, p: usize, mid: usize, seen_mid: bool) -> i64 {
-        let mut res = i64::MAX / 2;
-        if seen_mid && self.color[v] == 1 {
-            return 0;
-        }
-        for &to in &self.g[v] {
-            if to != p {
-                res = res.min(self.dfs(to, v, mid, seen_mid || to == mid) + 1);
-            }
-        }
-        res
-    }
+    res
 }
 fn solve(input: &mut Input, out: &mut Output) {
-    let tc = input.usize();
-    for _ in 0..tc {
-        let n = input.usize();
-        let q = input.usize();
-        let mut g = vec![vec![]; n];
-        for _ in 0..(n - 1) {
-            let u = input.usize() - 1;
-            let v = input.usize() - 1;
-            g[u].push(v);
-            g[v].push(u);
-        }
-        let start_colors = input.string();
-        let mut color = vec![0; n];
-        for i in 0..n {
-            color[i] = conv_colors(start_colors[i]);
-        }
-        let mut solver = Solver::new(&g, &color);
-        for _ in 0..q {
-            let q_type = input.usize();
-            if q_type == 1 {
-                let v = input.usize() - 1;
-                let c = conv_colors(input.string()[0]);
-                solver.update_color(v, c);
-            } else {
-                assert_eq!(q_type, 2);
-                let v = input.usize() - 1;
-                let res = solver.query(v);
-                out.println(res);
-            }
-        }
-    }
-}
-fn stress() {
-    for it in 13470.. {
-        dbg!(it);
-        let mut rnd = Random::new(it);
-        let n = rnd.gen_range(1..129);
-        let mut g = vec![vec![]; n];
-        for i in 1..n {
-            let v = rnd.gen_range(0..i);
-            g[v].push(i);
-            g[i].push(v);
-        }
-        let mut color = vec![0; n];
-        for i in 0..n {
-            color[i] = rnd.gen_range(0..3);
-        }
-        let mut solver = Solver::new(&g, &color);
-        let mut solver_simple = SolverSimple::new(&g, &color);
-        for _ in 0..100 {
-            let v = rnd.gen_range(0..n);
-            if rnd.gen_bool() && color[v] == 2 {
-                let res = solver.query(v);
-                let res_simple = solver_simple.query(v);
-                assert_eq!(res, res_simple);
-            } else {
-                let c = rnd.gen_range(0..3);
-                solver.update_color(v, c);
-                solver_simple.update_color(v, c);
-                color[v] = c;
-            }
-        }
-    }
+    let max_unicorns = input.usize();
+    let max_tiger = input.usize();
+    let _panda = input.usize();
+    let cats = input.usize();
+    out.println(solve_fast(max_unicorns, max_tiger, cats));
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
     solve(&mut input, &mut output);
@@ -268,95 +110,187 @@ fn main() {
     run(input, output);
 }
 pub mod algo_lib {
-pub mod graph {
-pub mod trees {
-pub mod centroid_decomposition {
-#[derive(Clone, Copy, Debug)]
-pub struct Remote {
-    pub to: usize,
-    pub dist: i64,
-    pub first_on_path: usize,
-    pub last_on_path: usize,
+pub mod collections {
+pub mod array_2d {
+use crate::algo_lib::io::output::{Output, Writable};
+use crate::algo_lib::misc::num_traits::Number;
+use std::io::Write;
+use std::ops::{Index, IndexMut, Mul};
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Array2D<T> {
+    rows: usize,
+    cols: usize,
+    v: Vec<T>,
 }
-pub struct CentroidDecomposition {
-    alive: Vec<bool>,
-    size: Vec<usize>,
-    pub ups: Vec<Vec<Remote>>,
+pub struct Iter<'a, T> {
+    array: &'a Array2D<T>,
+    row: usize,
+    col: usize,
 }
-impl CentroidDecomposition {
-    pub fn new(g: &[Vec<usize>]) -> Self {
-        let n = g.len();
-        let mut res = Self {
-            alive: vec![true; n],
-            size: vec![0; n],
-            ups: vec![vec![]; n],
-        };
-        res.rec(g, 0);
+impl<T> Array2D<T>
+where
+    T: Clone,
+{
+    #[allow(unused)]
+    pub fn new(empty: T, rows: usize, cols: usize) -> Self {
+        Self {
+            rows,
+            cols,
+            v: vec![empty; rows * cols],
+        }
+    }
+    pub fn new_f(
+        rows: usize,
+        cols: usize,
+        mut f: impl FnMut(usize, usize) -> T,
+    ) -> Self {
+        let mut v = Vec::with_capacity(rows * cols);
+        for r in 0..rows {
+            for c in 0..cols {
+                v.push(f(r, c));
+            }
+        }
+        Self { rows, cols, v }
+    }
+    pub fn rows(&self) -> usize {
+        self.rows
+    }
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.rows()
+    }
+    pub fn cols(&self) -> usize {
+        self.cols
+    }
+    pub fn swap(&mut self, row1: usize, row2: usize) {
+        assert!(row1 < self.rows);
+        assert!(row2 < self.rows);
+        if row1 != row2 {
+            for col in 0..self.cols {
+                self.v.swap(row1 * self.cols + col, row2 * self.cols + col);
+            }
+        }
+    }
+    pub fn transpose(&self) -> Self {
+        Self::new_f(self.cols, self.rows, |r, c| self[c][r].clone())
+    }
+    pub fn iter(&self) -> Iter<'_, T> {
+        Iter {
+            array: self,
+            row: 0,
+            col: 0,
+        }
+    }
+    pub fn pref_sum(&self) -> Self
+    where
+        T: Number,
+    {
+        let mut res = Self::new(T::ZERO, self.rows + 1, self.cols + 1);
+        for i in 0..self.rows {
+            for j in 0..self.cols {
+                let value = self[i][j] + res[i][j + 1] + res[i + 1][j] - res[i][j];
+                res[i + 1][j + 1] = value;
+            }
+        }
         res
     }
-    fn rec(&mut self, g: &[Vec<usize>], mut root: usize) {
-        self.calc_sizes(g, root, root);
-        let full_size = self.size[root];
-        let mut prev = root;
-        loop {
-            let mut found = false;
-            for &to in &g[root] {
-                if to != prev && self.alive[to] && self.size[to] * 2 > full_size {
-                    prev = root;
-                    root = to;
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                break;
-            }
-        }
-        self.alive[root] = false;
-        self.build_paths(g, root, root, 0, root, root, root);
-        for &to in &g[root] {
-            if self.alive[to] {
-                self.rec(g, to);
-            }
-        }
-    }
-    fn calc_sizes(&mut self, g: &[Vec<usize>], v: usize, p: usize) {
-        self.size[v] = 1;
-        for &to in &g[v] {
-            if to != p && self.alive[to] {
-                self.calc_sizes(g, to, v);
-                self.size[v] += self.size[to];
-            }
-        }
-    }
-    fn build_paths(
-        &mut self,
-        g: &[Vec<usize>],
-        v: usize,
-        p: usize,
-        dist: i64,
-        centroid: usize,
-        first_on_path: usize,
-        last_on_path: usize,
-    ) {
-        self.ups[v]
-            .push(Remote {
-                to: centroid,
-                dist,
-                first_on_path: last_on_path,
-                last_on_path: first_on_path,
-            });
-        for &to in &g[v] {
-            if to != p && self.alive[to] {
-                let mut next_first_on_path = first_on_path;
-                if first_on_path == centroid {
-                    next_first_on_path = to;
-                }
-                self.build_paths(g, to, v, dist + 1, centroid, next_first_on_path, v);
-            }
+}
+impl<T> Writable for Array2D<T>
+where
+    T: Writable,
+{
+    fn write(&self, output: &mut Output) {
+        for r in 0..self.rows {
+            self[r].write(output);
+            output.write_all(b"\n").unwrap();
         }
     }
 }
+impl<T> Index<usize> for Array2D<T> {
+    type Output = [T];
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.v[(index) * self.cols..(index + 1) * self.cols]
+    }
+}
+impl<T> IndexMut<usize> for Array2D<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.v[(index) * self.cols..(index + 1) * self.cols]
+    }
+}
+impl<T> Mul for &Array2D<T>
+where
+    T: Number,
+{
+    type Output = Array2D<T>;
+    fn mul(self, rhs: Self) -> Self::Output {
+        let n = self.rows;
+        let m = self.cols;
+        assert_eq!(m, rhs.rows);
+        let k2 = rhs.cols;
+        let mut res = Array2D::new(T::ZERO, n, k2);
+        for i in 0..n {
+            for j in 0..m {
+                for k in 0..k2 {
+                    res[i][k] += self[i][j] * rhs[j][k];
+                }
+            }
+        }
+        res
+    }
+}
+impl<T> Array2D<T>
+where
+    T: Number,
+{
+    pub fn pown(&self, pw: usize) -> Self {
+        assert_eq!(self.rows, self.cols);
+        let n = self.rows;
+        if pw == 0 {
+            Self::new_f(n, n, |r, c| if r == c { T::ONE } else { T::ZERO })
+        } else if pw == 1 {
+            self.clone()
+        } else {
+            let half = self.pown(pw / 2);
+            let half2 = &half * &half;
+            if pw & 1 == 0 { half2 } else { &half2 * self }
+        }
+    }
+}
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.col == self.array.cols {
+            self.col = 0;
+            self.row += 1;
+        }
+        if self.row >= self.array.rows {
+            return None;
+        }
+        let elem = &self.array[self.row][self.col];
+        self.col += 1;
+        Some(elem)
+    }
+}
+}
+pub mod last_exn {
+use std::collections::BTreeSet;
+pub trait LastExn<T> {
+    fn last_exn(&self) -> &T;
+}
+impl<T> LastExn<T> for &[T] {
+    fn last_exn(&self) -> &T {
+        self.last().unwrap()
+    }
+}
+impl<T> LastExn<T> for Vec<T> {
+    fn last_exn(&self) -> &T {
+        self.last().unwrap()
+    }
+}
+impl<T> LastExn<T> for BTreeSet<T> {
+    fn last_exn(&self) -> &T {
+        self.iter().next_back().unwrap()
+    }
 }
 }
 }
@@ -790,7 +724,379 @@ impl<T: Writable, U: Writable, V: Writable> Writable for (T, U, V) {
 }
 }
 }
+pub mod math {
+pub mod combinations {
+use crate::algo_lib::math::factorials::gen_facts;
+use crate::algo_lib::misc::num_traits::Number;
+pub trait Combinations<T> {
+    fn c(&self, n: usize, k: usize) -> T;
+}
+pub struct CombinationsFact<T> {
+    fact: Vec<T>,
+    fact_inv: Vec<T>,
+}
+impl<T> CombinationsFact<T>
+where
+    T: Number,
+{
+    #[allow(unused)]
+    pub fn new(n: usize) -> Self {
+        let fact = gen_facts(n);
+        let mut fact_inv = fact.clone();
+        assert_eq!(fact_inv.len(), n + 1);
+        fact_inv[n] = T::ONE / fact_inv[n];
+        for i in (1..n).rev() {
+            fact_inv[i] = fact_inv[i + 1] * T::from_i32((i + 1) as i32);
+        }
+        Self { fact, fact_inv }
+    }
+    pub fn fact(&self, n: usize) -> T {
+        self.fact[n]
+    }
+}
+impl<T> Combinations<T> for CombinationsFact<T>
+where
+    T: Number,
+{
+    fn c(&self, n: usize, k: usize) -> T {
+        if k > n {
+            return T::ZERO;
+        }
+        self.fact[n] * self.fact_inv[k] * self.fact_inv[n - k]
+    }
+}
+}
+pub mod factorials {
+use crate::algo_lib::misc::num_traits::Number;
+///
+/// Generate factorials of all numbers up to `n`
+///
+pub fn gen_facts<T>(n: usize) -> Vec<T>
+where
+    T: Number,
+{
+    let mut res = Vec::with_capacity(n);
+    res.push(T::ONE);
+    for x in 1..=n {
+        let num = T::from_i32(x as i32);
+        res.push(*res.last().unwrap() * num);
+    }
+    res
+}
+}
+pub mod modulo {
+use crate::algo_lib::collections::last_exn::LastExn;
+use crate::algo_lib::io::input::{Input, Readable};
+use crate::algo_lib::io::output::{Output, Writable};
+use crate::algo_lib::misc::num_traits::{ConvSimple, HasConstants, Number};
+use std::io::Write;
+use std::marker::PhantomData;
+pub trait Value: Clone + Copy + Eq + Default + Ord {
+    fn val() -> i32;
+}
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
+pub struct ModWithValue<M>(
+    i32,
+    PhantomData<M>,
+)
+where
+    M: Value;
+impl<M> ModWithValue<M>
+where
+    M: Value,
+{
+    #[allow(unused)]
+    pub const ZERO: Self = Self(0, PhantomData);
+    #[allow(unused)]
+    pub const ONE: Self = Self(1, PhantomData);
+    #[allow(unused)]
+    pub const TWO: Self = Self(2, PhantomData);
+    fn rev_rec(a: i32, m: i32) -> i32 {
+        if a == 1 {
+            return a;
+        }
+        ((1 - Self::rev_rec(m % a, a) as i64 * m as i64) / a as i64 + m as i64) as i32
+    }
+    #[allow(dead_code)]
+    pub fn inv(self) -> Self {
+        ModWithValue(Self::rev_rec(self.0, M::val()), PhantomData)
+    }
+    pub fn value(&self) -> i32 {
+        self.0
+    }
+    pub fn i64(&self) -> i64 {
+        self.0 as i64
+    }
+    #[allow(dead_code)]
+    pub fn new<T: Number>(x: T) -> Self {
+        let mut x = x.to_i32();
+        if x < 0 {
+            x += M::val();
+            if x < 0 {
+                x %= M::val();
+                x += M::val();
+            }
+        } else if x >= M::val() {
+            x -= M::val();
+            if x >= M::val() {
+                x %= M::val();
+            }
+        }
+        assert!(0 <= x && x < M::val());
+        Self(x, PhantomData)
+    }
+    pub fn pown(self, pw: usize) -> Self {
+        if pw == 0 {
+            Self::ONE
+        } else if pw == 1 {
+            self
+        } else {
+            let half = self.pown(pw / 2);
+            let res = half * half;
+            if pw % 2 == 0 { res } else { res * self }
+        }
+    }
+    pub fn gen_powers(base: Self, n: usize) -> Vec<Self> {
+        let mut res = Vec::with_capacity(n);
+        res.push(Self::ONE);
+        for _ in 1..n {
+            res.push(*res.last_exn() * base);
+        }
+        res
+    }
+}
+impl<M> std::fmt::Display for ModWithValue<M>
+where
+    M: Value,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl<M> std::fmt::Debug for ModWithValue<M>
+where
+    M: Value + Copy + Eq,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        const MAX: i32 = 100;
+        if self.0 <= MAX {
+            write!(f, "{}", self.0)
+        } else if self.0 >= M::val() - MAX {
+            write!(f, "-{}", M::val() - self.0)
+        } else {
+            for denom in 1..MAX {
+                let num = *self * Self(denom, PhantomData);
+                if num.0 <= MAX {
+                    return write!(f, "{}/{}", num.0, denom);
+                } else if num.0 >= M::val() - MAX {
+                    return write!(f, "-{}/{}", M::val() - num.0, denom);
+                }
+            }
+            write!(f, "(?? {} ??)", self.0)
+        }
+    }
+}
+impl<M> std::ops::Add for ModWithValue<M>
+where
+    M: Value,
+{
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        let res = self.0 + rhs.0;
+        if res >= M::val() {
+            ModWithValue(res - M::val(), PhantomData)
+        } else {
+            ModWithValue(res, PhantomData)
+        }
+    }
+}
+impl<M> std::ops::AddAssign for ModWithValue<M>
+where
+    M: Value,
+{
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+        if self.0 >= M::val() {
+            self.0 -= M::val();
+        }
+    }
+}
+impl<M> std::ops::Sub for ModWithValue<M>
+where
+    M: Value,
+{
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        let res = self.0 - rhs.0;
+        if res < 0 {
+            ModWithValue(res + M::val(), PhantomData)
+        } else {
+            ModWithValue(res, PhantomData)
+        }
+    }
+}
+impl<M> std::ops::SubAssign for ModWithValue<M>
+where
+    M: Value,
+{
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+        if self.0 < 0 {
+            self.0 += M::val();
+        }
+    }
+}
+impl<M> std::ops::Mul for ModWithValue<M>
+where
+    M: Value,
+{
+    type Output = Self;
+    fn mul(self, rhs: Self) -> Self::Output {
+        let res = (self.0 as i64) * (rhs.0 as i64) % (M::val() as i64);
+        ModWithValue(res as i32, PhantomData)
+    }
+}
+impl<M> std::ops::MulAssign for ModWithValue<M>
+where
+    M: Value,
+{
+    fn mul_assign(&mut self, rhs: Self) {
+        self.0 = ((self.0 as i64) * (rhs.0 as i64) % (M::val() as i64)) as i32;
+    }
+}
+impl<M> std::ops::Div for ModWithValue<M>
+where
+    M: Value,
+{
+    type Output = Self;
+    #[allow(clippy::suspicious_arithmetic_impl)]
+    fn div(self, rhs: Self) -> Self::Output {
+        let rhs_inv = rhs.inv();
+        self * rhs_inv
+    }
+}
+impl<M> std::ops::DivAssign for ModWithValue<M>
+where
+    M: Value,
+{
+    #[allow(clippy::suspicious_op_assign_impl)]
+    fn div_assign(&mut self, rhs: Self) {
+        *self *= rhs.inv();
+    }
+}
+impl<M> Writable for ModWithValue<M>
+where
+    M: Value,
+{
+    fn write(&self, output: &mut Output) {
+        output.write_fmt(format_args!("{}", self.0)).unwrap();
+    }
+}
+impl<M> Readable for ModWithValue<M>
+where
+    M: Value,
+{
+    fn read(input: &mut Input) -> Self {
+        let i32 = input.i32();
+        Self::new(i32)
+    }
+}
+impl<M> HasConstants<ModWithValue<M>> for ModWithValue<M>
+where
+    M: Value,
+{
+    const MAX: ModWithValue<M> = ModWithValue::ZERO;
+    const MIN: ModWithValue<M> = ModWithValue::ZERO;
+    const ZERO: ModWithValue<M> = ModWithValue::ZERO;
+    const ONE: ModWithValue<M> = ModWithValue::ONE;
+    const TWO: ModWithValue<M> = ModWithValue::TWO;
+}
+impl<M> ConvSimple<ModWithValue<M>> for ModWithValue<M>
+where
+    M: Value,
+{
+    fn from_i32(val: i32) -> ModWithValue<M> {
+        ModWithValue::new(val)
+    }
+    fn to_i32(self) -> i32 {
+        self.0
+    }
+    fn to_f64(self) -> f64 {
+        self.0 as f64
+    }
+}
+pub trait ConstValue: Value + Copy {
+    const VAL: i32;
+}
+impl<V: ConstValue> Value for V {
+    fn val() -> i32 {
+        Self::VAL
+    }
+}
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
+pub struct Value7();
+impl ConstValue for Value7 {
+    const VAL: i32 = 1_000_000_007;
+}
+pub type Mod7 = ModWithValue<Value7>;
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
+pub struct Value9();
+impl ConstValue for Value9 {
+    const VAL: i32 = 1_000_000_009;
+}
+pub type Mod9 = ModWithValue<Value9>;
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
+pub struct Value_998_244_353();
+impl ConstValue for Value_998_244_353 {
+    const VAL: i32 = 998_244_353;
+}
+pub type Mod_998_244_353 = ModWithValue<Value_998_244_353>;
+pub trait ModuloTrait: Number {
+    fn mod_value() -> i32;
+    fn pown(self, n: usize) -> Self;
+}
+impl<V: Value> ModuloTrait for ModWithValue<V> {
+    fn mod_value() -> i32 {
+        V::val()
+    }
+    fn pown(self, n: usize) -> Self {
+        self.pown(n)
+    }
+}
+}
+}
 pub mod misc {
+pub mod binary_search {
+use crate::algo_lib::misc::num_traits::Number;
+use std::ops::Range;
+pub fn binary_search_first_true<T>(range: Range<T>, mut f: impl FnMut(T) -> bool) -> T
+where
+    T: Number,
+{
+    let mut left_plus_one = range.start;
+    let mut right = range.end;
+    while right > left_plus_one {
+        let mid = left_plus_one + (right - left_plus_one) / T::TWO;
+        if f(mid) {
+            right = mid;
+        } else {
+            left_plus_one = mid + T::ONE;
+        }
+    }
+    right
+}
+pub fn binary_search_last_true<T>(
+    range: Range<T>,
+    mut f: impl FnMut(T) -> bool,
+) -> Option<T>
+where
+    T: Number,
+{
+    let first_false = binary_search_first_true(range.clone(), |x| !f(x));
+    if first_false == range.start { None } else { Some(first_false - T::ONE) }
+}
+
+}
 pub mod dbg_macro {
 #[macro_export]
 macro_rules! dbg {
@@ -803,11 +1109,6 @@ macro_rules! dbg {
         eprintln!("[{}:{}] {} = {:?}", file!(), line!(), stringify!($first_val),
         &$first_val)
     };
-}
-}
-pub mod gen_vector {
-pub fn gen_vec<T>(n: usize, f: impl FnMut(usize) -> T) -> Vec<T> {
-    (0..n).map(f).collect()
 }
 }
 pub mod num_traits {
@@ -886,179 +1187,6 @@ impl<T: Number + Ord> Signum for T {
             Ordering::Less => -1,
             Ordering::Equal => 0,
         }
-    }
-}
-}
-pub mod rand {
-use crate::algo_lib::misc::gen_vector::gen_vec;
-use crate::algo_lib::misc::num_traits::Number;
-use std::ops::Range;
-use std::time::{SystemTime, UNIX_EPOCH};
-pub struct Random {
-    state: u64,
-}
-impl Random {
-    pub fn gen_u64(&mut self) -> u64 {
-        let mut x = self.state;
-        x ^= x << 13;
-        x ^= x >> 7;
-        x ^= x << 17;
-        self.state = x;
-        x
-    }
-    #[allow(dead_code)]
-    pub fn next_in_range(&mut self, from: usize, to: usize) -> usize {
-        assert!(from < to);
-        (from as u64 + self.gen_u64() % ((to - from) as u64)) as usize
-    }
-    pub fn gen_index<T>(&mut self, a: &[T]) -> usize {
-        self.gen_range(0..a.len())
-    }
-    #[allow(dead_code)]
-    #[inline(always)]
-    pub fn gen_double(&mut self) -> f64 {
-        (self.gen_u64() as f64) / (usize::MAX as f64)
-    }
-    #[allow(dead_code)]
-    pub fn new(seed: u64) -> Self {
-        let state = if seed == 0 { 787788 } else { seed };
-        Self { state }
-    }
-    pub fn new_time_seed() -> Self {
-        let time = SystemTime::now();
-        let seed = (time.duration_since(UNIX_EPOCH).unwrap().as_nanos() % 1_000_000_000)
-            as u64;
-        if seed == 0 { Self::new(787788) } else { Self::new(seed) }
-    }
-    #[allow(dead_code)]
-    pub fn gen_permutation(&mut self, n: usize) -> Vec<usize> {
-        let mut result: Vec<_> = (0..n).collect();
-        for i in 0..n {
-            let idx = self.next_in_range(0, i + 1);
-            result.swap(i, idx);
-        }
-        result
-    }
-    pub fn shuffle<T>(&mut self, a: &mut [T]) {
-        for i in 1..a.len() {
-            a.swap(i, self.gen_range(0..i + 1));
-        }
-    }
-    pub fn gen_range<T>(&mut self, range: Range<T>) -> T
-    where
-        T: Number,
-    {
-        let from = T::to_i32(range.start);
-        let to = T::to_i32(range.end);
-        assert!(from < to);
-        let len = (to - from) as usize;
-        T::from_i32(self.next_in_range(0, len) as i32 + from)
-    }
-    pub fn gen_vec<T>(&mut self, n: usize, range: Range<T>) -> Vec<T>
-    where
-        T: Number,
-    {
-        gen_vec(n, |_| self.gen_range(range.clone()))
-    }
-    pub fn gen_nonempty_range(&mut self, n: usize) -> Range<usize> {
-        let x = self.gen_range(0..n);
-        let y = self.gen_range(0..n);
-        if x <= y { x..y + 1 } else { y..x + 1 }
-    }
-    pub fn gen_bool(&mut self) -> bool {
-        self.gen_range(0..2) == 0
-    }
-}
-}
-pub mod two_min {
-#[derive(Clone, Debug)]
-pub struct TwoMin<IdType: Eq, ValueType: Ord> {
-    cnt: usize,
-    values: [(IdType, ValueType); 2],
-}
-impl<IdType: Eq + Copy, ValueType: Ord + Copy> TwoMin<IdType, ValueType> {
-    pub fn new(zero_id: IdType, zero_value: ValueType) -> Self {
-        Self {
-            cnt: 0,
-            values: [(zero_id, zero_value), (zero_id, zero_value)],
-        }
-    }
-    fn make_sorted(&mut self) {
-        if self.cnt == 2 && self.values[0].1 > self.values[1].1 {
-            self.values.swap(0, 1);
-        }
-    }
-    pub fn get_values(&self) -> &[(IdType, ValueType)] {
-        &self.values[..self.cnt]
-    }
-    pub fn add(&mut self, id: IdType, value: ValueType) -> bool {
-        if self.cnt >= 1 && self.values[0].0 == id {
-            if self.values[0].1 <= value {
-                return false;
-            }
-            self.values[0].1 = value;
-            return true;
-        }
-        if self.cnt >= 2 && self.values[1].0 == id {
-            if self.values[1].1 <= value {
-                return false;
-            }
-            self.values[1].1 = value;
-            self.make_sorted();
-            return true;
-        }
-        if self.cnt == 0 {
-            self.cnt = 1;
-            self.values[0] = (id, value);
-            return true;
-        }
-        if self.cnt == 1 {
-            self.cnt += 1;
-            self.values[1] = (id, value);
-            self.make_sorted();
-            return true;
-        }
-        if self.cnt == 2 {
-            if self.values[1].1 <= value {
-                return false;
-            }
-            self.values[1] = (id, value);
-            self.make_sorted();
-            return true;
-        }
-        unreachable!("cnt is greater than 2?");
-    }
-    pub fn merge(&mut self, another: &Self) {
-        for i in 0..another.cnt {
-            self.add(another.values[i].0, another.values[i].1);
-        }
-    }
-    pub fn get_value_by_id(&self, id: IdType) -> Option<ValueType> {
-        if self.cnt >= 1 && self.values[0].0 == id {
-            return Some(self.values[0].1);
-        }
-        if self.cnt >= 2 && self.values[1].0 == id {
-            return Some(self.values[1].1);
-        }
-        None
-    }
-    pub fn get_value_by_not_id(&self, not_id: IdType) -> Option<ValueType> {
-        if self.cnt >= 1 && self.values[0].0 != not_id {
-            return Some(self.values[0].1);
-        }
-        if self.cnt >= 2 && self.values[1].0 != not_id {
-            return Some(self.values[1].1);
-        }
-        None
-    }
-    pub fn get_by_not_id(&self, not_id: IdType) -> Option<(IdType, ValueType)> {
-        if self.cnt >= 1 && self.values[0].0 != not_id {
-            return Some((self.values[0].0, self.values[0].1));
-        }
-        if self.cnt >= 2 && self.values[1].0 != not_id {
-            return Some((self.values[1].0, self.values[1].1));
-        }
-        None
     }
 }
 }

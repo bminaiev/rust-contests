@@ -1,3 +1,5 @@
+pub mod big_int;
+pub mod big_int_tests;
 pub mod combinations;
 pub mod factorials;
 pub mod fft;
