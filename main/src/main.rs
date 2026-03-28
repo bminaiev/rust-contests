@@ -1,102 +1,242 @@
 // 
 use crate::algo_lib::collections::array_2d::Array2D;
+use crate::algo_lib::collections::bit_set::BitSet;
 
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
-use crate::algo_lib::math::combinations::{Combinations, CombinationsFact};
-use crate::algo_lib::math::modulo::Mod_998_244_353;
-use crate::algo_lib::misc::binary_search::binary_search_first_true;
-type Mod = Mod_998_244_353;
-fn solve_slow(max_unicorns: usize, max_tiger: usize, cats: usize) -> Mod {
-    let should_go = |u: usize, t: usize| -> bool {
-        let expected_win = u * 2 + t;
-        let cur_money = (max_unicorns - u) * 2 + (max_tiger - t);
-        expected_win as u64 > cur_money as u64 * cats as u64
-    };
-    let mut dp = Array2D::new(Mod::ZERO, max_unicorns + 1, max_tiger + 1);
-    for u in 0..=max_unicorns {
-        for t in 0..=max_tiger {
-            if should_go(u, t) {
-                let cnt_ok = u + t;
-                let cnt_total = cnt_ok + cats;
-                let mut wins = Mod::ZERO;
-                if u > 0 {
-                    wins += dp[u - 1][t] * Mod::new(u);
-                }
-                if t > 0 {
-                    wins += dp[u][t - 1] * Mod::new(t);
-                }
-                dp[u][t] = wins / Mod::new(cnt_total);
-            } else {
-                dp[u][t] = Mod::new(2 * (max_unicorns - u) + (max_tiger - t));
+use crate::algo_lib::misc::rand::Random;
+fn gauss(a: &mut [BitSet]) -> bool {
+    let n = a.len();
+    let mut row_from = 0;
+    for i in 0..n {
+        let mut use_row = n;
+        for j in row_from..n {
+            if a[j].get(i) {
+                use_row = j;
+                break;
             }
         }
+        if use_row == n {
+            continue;
+        }
+        a.swap(row_from, use_row);
+        for j in 0..n {
+            if j != row_from && a[j].get(i) {
+                a[j] ^= &a[row_from].clone();
+            }
+        }
+        row_from += 1;
     }
-    dp[max_unicorns][max_tiger]
+    true
 }
-fn solve_fast(max_unicorns: usize, max_tiger: usize, cats: usize) -> Mod {
-    let should_go = |u: usize, t: usize| -> bool {
-        let expected_win = u * 2 + t;
-        let cur_money = (max_unicorns - u) * 2 + (max_tiger - t);
-        expected_win as u64 > cur_money as u64 * cats as u64
-    };
-    let comb = CombinationsFact::<Mod>::new(max_unicorns + max_tiger + 10);
-    let mut still_alive = vec![Mod::ZERO; max_unicorns + max_tiger + 1];
-    still_alive[0] = Mod::ONE;
-    let total = max_unicorns + max_tiger + cats;
-    for done_moves in 0..still_alive.len() - 1 {
-        let prob_fail = Mod::new(cats) / Mod::new(total - done_moves);
-        let prob_ok = Mod::ONE - prob_fail;
-        still_alive[done_moves + 1] = still_alive[done_moves] * prob_ok;
+fn solve_gauss(s: &[Vec<u8>]) -> Option<Vec<Vec<bool>>> {
+    let n = s.len();
+    let m = s[0].len();
+    let mut click = Array2D::new(BitSet::new(m + 1), n, m);
+    for j in 0..m {
+        click[0][j].set(j, true);
     }
-    let mut res = Mod::ZERO;
-    for u in 0..=max_unicorns {
-        let tiger_upper = binary_search_first_true(0..max_tiger, |t| should_go(u, t));
-        for t in (0..=tiger_upper).rev() {
-            if !should_go(u, t) {
-                let mut ok = false;
-                for du in 0..2 {
-                    let dt = 1 - du;
-                    let nu = u + du;
-                    let nt = t + dt;
-                    if nu <= max_unicorns && nt <= max_tiger {
-                        if should_go(nu, nt) {
-                            ok = true;
-                            let total_moves = (max_tiger - nt) + (max_unicorns - nu);
-                            let alive_here = still_alive[total_moves];
-                            let total_ways = comb
-                                .c(max_tiger + max_unicorns, total_moves);
-                            let good_ways = comb.c(max_tiger, max_tiger - nt)
-                                * comb.c(max_unicorns, max_unicorns - nu);
-                            let prob_here = alive_here * good_ways / total_ways;
-                            let cards_left = nu + nt + cats;
-                            let move_ways = if du == 1 {
-                                Mod::new(nu)
-                            } else {
-                                Mod::new(nt)
-                            };
-                            let win_here = Mod::new(
-                                2 * (max_unicorns - u) + (max_tiger - t),
-                            );
-                            res
-                                += prob_here * move_ways / Mod::new(cards_left) * win_here;
-                        }
-                    }
+    for row in 0..n - 1 {
+        for col in 0..m {
+            let mut my_value = BitSet::new(m + 1);
+            if s[row][col] == b'1' {
+                my_value.set(m, true);
+            }
+            if row > 0 {
+                my_value ^= &click[row - 1][col];
+            }
+            if col > 0 {
+                my_value ^= &click[row][col - 1];
+            }
+            if col + 1 < m {
+                my_value ^= &click[row][col + 1];
+            }
+            my_value ^= &click[row][col];
+            click[row + 1][col] = my_value;
+        }
+    }
+    let mut a = vec![BitSet::new(m + 1); m];
+    for col in 0..m {
+        let mut my_value = BitSet::new(m + 1);
+        if s[n - 1][col] == b'1' {
+            my_value.set(m, true);
+        }
+        if n > 1 {
+            my_value ^= &click[n - 2][col];
+        }
+        if col > 0 {
+            my_value ^= &click[n - 1][col - 1];
+        }
+        if col + 1 < m {
+            my_value ^= &click[n - 1][col + 1];
+        }
+        my_value ^= &click[n - 1][col];
+        a[col] = my_value;
+    }
+    if !gauss(&mut a) {
+        return None;
+    }
+    let mut vars_values = vec![false; m];
+    let mut var_id = 0;
+    for i in 0..m {
+        while var_id < m && !a[var_id].get(i) {
+            var_id += 1;
+        }
+        if var_id == m {
+            break;
+        }
+        vars_values[var_id] = a[i].get(m);
+        var_id += 1;
+    }
+    let mut ans = vec![vec![false; m]; n];
+    for i in 0..n {
+        for j in 0..m {
+            let mut res = click[i][j].get(m);
+            for k in 0..m {
+                if click[i][j].get(k) && vars_values[k] {
+                    res = !res;
                 }
-                if !ok {
-                    break;
+            }
+            ans[i][j] = res;
+        }
+    }
+    let mut final_board = vec![vec![false; m]; n];
+    for i in 0..n {
+        for j in 0..m {
+            if ans[i][j] {
+                if i > 0 {
+                    final_board[i - 1][j] = !final_board[i - 1][j];
                 }
+                if j > 0 {
+                    final_board[i][j - 1] = !final_board[i][j - 1];
+                }
+                if i + 1 < n {
+                    final_board[i + 1][j] = !final_board[i + 1][j];
+                }
+                if j + 1 < m {
+                    final_board[i][j + 1] = !final_board[i][j + 1];
+                }
+                final_board[i][j] = !final_board[i][j];
             }
         }
     }
-    res
+    for i in 0..n {
+        for j in 0..m {
+            let expected = s[i][j] == b'1';
+            if final_board[i][j] != expected {
+                return None;
+            }
+            assert_eq!(final_board[i] [j], expected);
+        }
+    }
+    Some(ans)
 }
 fn solve(input: &mut Input, out: &mut Output) {
-    let max_unicorns = input.usize();
-    let max_tiger = input.usize();
-    let _panda = input.usize();
-    let cats = input.usize();
-    out.println(solve_fast(max_unicorns, max_tiger, cats));
+    let n = input.usize();
+    let m = input.usize();
+    let mut s = vec![];
+    for _ in 0..n {
+        let ss = input.string();
+        s.push(ss);
+    }
+    if let Some(ans) = solve_gauss(&s) {
+        out.println("YES");
+        for i in 0..n {
+            for j in 0..m {
+                if ans[i][j] {
+                    out.print("1");
+                } else {
+                    out.print("0");
+                }
+            }
+            out.println("");
+        }
+    } else {
+        out.println("NO");
+    }
+}
+fn solve_slow(s: &[Vec<u8>]) -> Option<Vec<Vec<bool>>> {
+    let n = s.len();
+    let m = s[0].len();
+    let total = n * m;
+    let mut ids = Array2D::new(0, n, m);
+    let mut need_mask = 0;
+    for i in 0..n {
+        for j in 0..m {
+            ids[i][j] = i * m + j;
+            if s[i][j] == b'1' {
+                need_mask |= 1 << ids[i][j];
+            }
+        }
+    }
+    let mut apply = Array2D::new(0, n, m);
+    for i in 0..n {
+        for j in 0..m {
+            for i2 in 0..n {
+                for j2 in 0..m {
+                    let d = i.abs_diff(i2) + j.abs_diff(j2);
+                    if d <= 1 {
+                        apply[i][j] |= 1 << ids[i2][j2];
+                    }
+                }
+            }
+        }
+    }
+    for mask in 0..1 << total {
+        let mut xor_mask = 0;
+        for i in 0..n {
+            for j in 0..m {
+                if (mask >> ids[i][j]) & 1 == 1 {
+                    xor_mask ^= apply[i][j];
+                }
+            }
+        }
+        if xor_mask == need_mask {
+            let mut ans = vec![vec![false; m]; n];
+            for i in 0..n {
+                for j in 0..m {
+                    if (mask >> ids[i][j]) & 1 == 1 {
+                        ans[i][j] = true;
+                    }
+                }
+            }
+            return Some(ans);
+        }
+    }
+    None
+}
+fn stress() {
+    const N: usize = 5;
+    for it in 1.. {
+        dbg!(it);
+        let mut rnd = Random::new(it);
+        let n = rnd.gen_range(1..N);
+        let m = rnd.gen_range(1..N);
+        let mut s = vec![vec![b'0'; m]; n];
+        for i in 0..n {
+            for j in 0..m {
+                if rnd.gen_bool() {
+                    s[i][j] = b'1';
+                }
+            }
+        }
+        let ans_slow = solve_slow(&s);
+        let ans_fast = solve_gauss(&s);
+        if ans_fast != ans_slow {
+            if ans_fast.is_some() && ans_slow.is_some() {
+                continue;
+            }
+            let s_str = s
+                .iter()
+                .map(|row| String::from_utf8_lossy(row))
+                .collect::<Vec<_>>()
+                .join("\n");
+            dbg!(s_str);
+            dbg!(ans_slow);
+            dbg!(ans_fast);
+        }
+        assert_eq!(ans_slow, ans_fast);
+    }
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
     solve(&mut input, &mut output);
@@ -272,24 +412,188 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 }
-pub mod last_exn {
-use std::collections::BTreeSet;
-pub trait LastExn<T> {
-    fn last_exn(&self) -> &T;
+pub mod bit_set {
+use std::ops::{BitAndAssign, BitOrAssign, BitXorAssign, Not};
+#[derive(Hash, Clone, Eq, PartialOrd, PartialEq, Debug)]
+pub struct BitSet {
+    values: Vec<u64>,
 }
-impl<T> LastExn<T> for &[T] {
-    fn last_exn(&self) -> &T {
-        self.last().unwrap()
+impl BitSet {
+    pub fn calc_len(n: usize) -> usize {
+        (n + 63) / 64
+    }
+    #[allow(unused)]
+    pub fn new(n: usize) -> Self {
+        Self {
+            values: vec![0u64; BitSet::calc_len(n)],
+        }
+    }
+    #[allow(unused)]
+    pub fn get(&self, pos: usize) -> bool {
+        (self.values[pos >> 6] >> (pos & 63)) & 1 == 1
+    }
+    pub fn get_u64(&self, from_pos: usize) -> u64 {
+        if from_pos >= self.bit_len() {
+            return 0;
+        }
+        if from_pos & 63 == 0 {
+            self.values[from_pos >> 6]
+        } else {
+            let mut res = self.values[from_pos >> 6] >> (from_pos & 63);
+            if from_pos + 64 < self.bit_len() {
+                res |= self.values[(from_pos >> 6) + 1] << (64 - (from_pos & 63));
+            }
+            res
+        }
+    }
+    pub fn shift_higher(&self, shift: usize) -> Self {
+        let mut res = Self::new(self.bit_len());
+        let whole = shift / 64;
+        let offset = shift % 64;
+        for i in 0..self.values.len() {
+            if i + whole >= res.values.len() {
+                break;
+            }
+            res.values[i + whole] |= self.values[i] << offset;
+            if offset != 0 && i + whole + 1 < res.values.len() {
+                res.values[i + whole + 1] |= self.values[i] >> (64 - offset);
+            }
+        }
+        res
+    }
+    pub fn shift_lower(&self, shift: usize) -> Self {
+        let mut res = Self::new(self.bit_len());
+        let whole = shift / 64;
+        let offset = shift % 64;
+        for i in 0..self.values.len() {
+            if i < whole {
+                continue;
+            }
+            res.values[i - whole] |= self.values[i] >> offset;
+            if offset != 0 && i - whole != 0 {
+                res.values[i - whole - 1] |= self.values[i] << (64 - offset);
+            }
+        }
+        res
+    }
+    #[allow(unused)]
+    pub fn set(&mut self, pos: usize, val: bool) {
+        if val {
+            self.values[pos >> 6] |= 1u64 << (pos & 63);
+        } else {
+            self.values[pos >> 6] &= (1u64 << (pos & 63)).not();
+        }
+    }
+    pub fn set_true(&mut self, pos: usize) {
+        self.values[pos >> 6] |= 1u64 << (pos & 63);
+    }
+    #[allow(unused)]
+    pub fn clear(&mut self) {
+        for x in self.values.iter_mut() {
+            *x = 0;
+        }
+    }
+    fn ensure_length(&mut self, bit_len: usize) {
+        let i64_len = Self::calc_len(bit_len);
+        if i64_len > self.values.len() {
+            self.values.resize(i64_len, 0);
+        }
+    }
+    fn bit_len(&self) -> usize {
+        self.values.len() << 6
+    }
+    pub fn first_not_set(&self, mut pos: usize) -> usize {
+        if pos >= self.bit_len() {
+            return pos;
+        }
+        while (pos & 63) != 0 {
+            if !self.get(pos) {
+                return pos;
+            }
+            pos += 1;
+        }
+        match self.values[pos >> 6..].iter().position(|x| *x != u64::MAX) {
+            None => self.values.len() << 6,
+            Some(idx) => {
+                pos += idx * 64;
+                while self.get(pos) {
+                    pos += 1;
+                }
+                pos
+            }
+        }
+    }
+    pub fn first_set(&self, mut pos: usize) -> Option<usize> {
+        if pos >= self.bit_len() {
+            return None;
+        }
+        if (pos & 63) != 0 {
+            let part = self.values[pos >> 6] >> (pos & 63);
+            if part != 0 {
+                return Some(pos + part.trailing_zeros() as usize);
+            }
+            pos = (pos | 63) + 1;
+        }
+        match self.values[pos >> 6..].iter().position(|x| *x != 0) {
+            None => None,
+            Some(idx) => {
+                pos += idx * 64;
+                pos += self.values[pos >> 6].trailing_zeros() as usize;
+                assert!(self.get(pos));
+                Some(pos)
+            }
+        }
+    }
+    #[target_feature(enable = "avx2")]
+    unsafe fn bitor_assign_avx2(&mut self, rhs: &Self) {
+        for (x, y) in self.values.iter_mut().zip(rhs.values.iter()) {
+            *x |= *y;
+        }
+    }
+    #[target_feature(enable = "ssse3")]
+    unsafe fn bitor_assign_ssse3(&mut self, rhs: &Self) {
+        for (x, y) in self.values.iter_mut().zip(rhs.values.iter()) {
+            *x |= *y;
+        }
+    }
+    pub fn count_ones(&self) -> usize {
+        self.values.iter().map(|x| x.count_ones() as usize).sum()
     }
 }
-impl<T> LastExn<T> for Vec<T> {
-    fn last_exn(&self) -> &T {
-        self.last().unwrap()
+impl BitOrAssign<&BitSet> for BitSet {
+    fn bitor_assign(&mut self, rhs: &Self) {
+        self.ensure_length(rhs.bit_len());
+        if is_x86_feature_detected!("avx2") {
+            unsafe {
+                self.bitor_assign_avx2(rhs);
+            }
+        } else if is_x86_feature_detected!("ssse3") {
+            unsafe {
+                self.bitor_assign_ssse3(rhs);
+            }
+        } else {
+            for (x, y) in self.values.iter_mut().zip(rhs.values.iter()) {
+                *x |= *y;
+            }
+        }
     }
 }
-impl<T> LastExn<T> for BTreeSet<T> {
-    fn last_exn(&self) -> &T {
-        self.iter().next_back().unwrap()
+impl BitAndAssign<&BitSet> for BitSet {
+    fn bitand_assign(&mut self, rhs: &BitSet) {
+        self.ensure_length(rhs.bit_len());
+        let len = rhs.values.len();
+        for (x, y) in self.values[0..len].iter_mut().zip(rhs.values[0..len].iter()) {
+            *x &= *y;
+        }
+    }
+}
+impl BitXorAssign<&BitSet> for BitSet {
+    fn bitxor_assign(&mut self, rhs: &BitSet) {
+        self.ensure_length(rhs.bit_len());
+        let len = rhs.values.len();
+        for (x, y) in self.values[0..len].iter_mut().zip(rhs.values[0..len].iter()) {
+            *x ^= *y;
+        }
     }
 }
 }
@@ -724,379 +1028,7 @@ impl<T: Writable, U: Writable, V: Writable> Writable for (T, U, V) {
 }
 }
 }
-pub mod math {
-pub mod combinations {
-use crate::algo_lib::math::factorials::gen_facts;
-use crate::algo_lib::misc::num_traits::Number;
-pub trait Combinations<T> {
-    fn c(&self, n: usize, k: usize) -> T;
-}
-pub struct CombinationsFact<T> {
-    fact: Vec<T>,
-    fact_inv: Vec<T>,
-}
-impl<T> CombinationsFact<T>
-where
-    T: Number,
-{
-    #[allow(unused)]
-    pub fn new(n: usize) -> Self {
-        let fact = gen_facts(n);
-        let mut fact_inv = fact.clone();
-        assert_eq!(fact_inv.len(), n + 1);
-        fact_inv[n] = T::ONE / fact_inv[n];
-        for i in (1..n).rev() {
-            fact_inv[i] = fact_inv[i + 1] * T::from_i32((i + 1) as i32);
-        }
-        Self { fact, fact_inv }
-    }
-    pub fn fact(&self, n: usize) -> T {
-        self.fact[n]
-    }
-}
-impl<T> Combinations<T> for CombinationsFact<T>
-where
-    T: Number,
-{
-    fn c(&self, n: usize, k: usize) -> T {
-        if k > n {
-            return T::ZERO;
-        }
-        self.fact[n] * self.fact_inv[k] * self.fact_inv[n - k]
-    }
-}
-}
-pub mod factorials {
-use crate::algo_lib::misc::num_traits::Number;
-///
-/// Generate factorials of all numbers up to `n`
-///
-pub fn gen_facts<T>(n: usize) -> Vec<T>
-where
-    T: Number,
-{
-    let mut res = Vec::with_capacity(n);
-    res.push(T::ONE);
-    for x in 1..=n {
-        let num = T::from_i32(x as i32);
-        res.push(*res.last().unwrap() * num);
-    }
-    res
-}
-}
-pub mod modulo {
-use crate::algo_lib::collections::last_exn::LastExn;
-use crate::algo_lib::io::input::{Input, Readable};
-use crate::algo_lib::io::output::{Output, Writable};
-use crate::algo_lib::misc::num_traits::{ConvSimple, HasConstants, Number};
-use std::io::Write;
-use std::marker::PhantomData;
-pub trait Value: Clone + Copy + Eq + Default + Ord {
-    fn val() -> i32;
-}
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
-pub struct ModWithValue<M>(
-    i32,
-    PhantomData<M>,
-)
-where
-    M: Value;
-impl<M> ModWithValue<M>
-where
-    M: Value,
-{
-    #[allow(unused)]
-    pub const ZERO: Self = Self(0, PhantomData);
-    #[allow(unused)]
-    pub const ONE: Self = Self(1, PhantomData);
-    #[allow(unused)]
-    pub const TWO: Self = Self(2, PhantomData);
-    fn rev_rec(a: i32, m: i32) -> i32 {
-        if a == 1 {
-            return a;
-        }
-        ((1 - Self::rev_rec(m % a, a) as i64 * m as i64) / a as i64 + m as i64) as i32
-    }
-    #[allow(dead_code)]
-    pub fn inv(self) -> Self {
-        ModWithValue(Self::rev_rec(self.0, M::val()), PhantomData)
-    }
-    pub fn value(&self) -> i32 {
-        self.0
-    }
-    pub fn i64(&self) -> i64 {
-        self.0 as i64
-    }
-    #[allow(dead_code)]
-    pub fn new<T: Number>(x: T) -> Self {
-        let mut x = x.to_i32();
-        if x < 0 {
-            x += M::val();
-            if x < 0 {
-                x %= M::val();
-                x += M::val();
-            }
-        } else if x >= M::val() {
-            x -= M::val();
-            if x >= M::val() {
-                x %= M::val();
-            }
-        }
-        assert!(0 <= x && x < M::val());
-        Self(x, PhantomData)
-    }
-    pub fn pown(self, pw: usize) -> Self {
-        if pw == 0 {
-            Self::ONE
-        } else if pw == 1 {
-            self
-        } else {
-            let half = self.pown(pw / 2);
-            let res = half * half;
-            if pw % 2 == 0 { res } else { res * self }
-        }
-    }
-    pub fn gen_powers(base: Self, n: usize) -> Vec<Self> {
-        let mut res = Vec::with_capacity(n);
-        res.push(Self::ONE);
-        for _ in 1..n {
-            res.push(*res.last_exn() * base);
-        }
-        res
-    }
-}
-impl<M> std::fmt::Display for ModWithValue<M>
-where
-    M: Value,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-impl<M> std::fmt::Debug for ModWithValue<M>
-where
-    M: Value + Copy + Eq,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        const MAX: i32 = 100;
-        if self.0 <= MAX {
-            write!(f, "{}", self.0)
-        } else if self.0 >= M::val() - MAX {
-            write!(f, "-{}", M::val() - self.0)
-        } else {
-            for denom in 1..MAX {
-                let num = *self * Self(denom, PhantomData);
-                if num.0 <= MAX {
-                    return write!(f, "{}/{}", num.0, denom);
-                } else if num.0 >= M::val() - MAX {
-                    return write!(f, "-{}/{}", M::val() - num.0, denom);
-                }
-            }
-            write!(f, "(?? {} ??)", self.0)
-        }
-    }
-}
-impl<M> std::ops::Add for ModWithValue<M>
-where
-    M: Value,
-{
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        let res = self.0 + rhs.0;
-        if res >= M::val() {
-            ModWithValue(res - M::val(), PhantomData)
-        } else {
-            ModWithValue(res, PhantomData)
-        }
-    }
-}
-impl<M> std::ops::AddAssign for ModWithValue<M>
-where
-    M: Value,
-{
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
-        if self.0 >= M::val() {
-            self.0 -= M::val();
-        }
-    }
-}
-impl<M> std::ops::Sub for ModWithValue<M>
-where
-    M: Value,
-{
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self::Output {
-        let res = self.0 - rhs.0;
-        if res < 0 {
-            ModWithValue(res + M::val(), PhantomData)
-        } else {
-            ModWithValue(res, PhantomData)
-        }
-    }
-}
-impl<M> std::ops::SubAssign for ModWithValue<M>
-where
-    M: Value,
-{
-    fn sub_assign(&mut self, rhs: Self) {
-        self.0 -= rhs.0;
-        if self.0 < 0 {
-            self.0 += M::val();
-        }
-    }
-}
-impl<M> std::ops::Mul for ModWithValue<M>
-where
-    M: Value,
-{
-    type Output = Self;
-    fn mul(self, rhs: Self) -> Self::Output {
-        let res = (self.0 as i64) * (rhs.0 as i64) % (M::val() as i64);
-        ModWithValue(res as i32, PhantomData)
-    }
-}
-impl<M> std::ops::MulAssign for ModWithValue<M>
-where
-    M: Value,
-{
-    fn mul_assign(&mut self, rhs: Self) {
-        self.0 = ((self.0 as i64) * (rhs.0 as i64) % (M::val() as i64)) as i32;
-    }
-}
-impl<M> std::ops::Div for ModWithValue<M>
-where
-    M: Value,
-{
-    type Output = Self;
-    #[allow(clippy::suspicious_arithmetic_impl)]
-    fn div(self, rhs: Self) -> Self::Output {
-        let rhs_inv = rhs.inv();
-        self * rhs_inv
-    }
-}
-impl<M> std::ops::DivAssign for ModWithValue<M>
-where
-    M: Value,
-{
-    #[allow(clippy::suspicious_op_assign_impl)]
-    fn div_assign(&mut self, rhs: Self) {
-        *self *= rhs.inv();
-    }
-}
-impl<M> Writable for ModWithValue<M>
-where
-    M: Value,
-{
-    fn write(&self, output: &mut Output) {
-        output.write_fmt(format_args!("{}", self.0)).unwrap();
-    }
-}
-impl<M> Readable for ModWithValue<M>
-where
-    M: Value,
-{
-    fn read(input: &mut Input) -> Self {
-        let i32 = input.i32();
-        Self::new(i32)
-    }
-}
-impl<M> HasConstants<ModWithValue<M>> for ModWithValue<M>
-where
-    M: Value,
-{
-    const MAX: ModWithValue<M> = ModWithValue::ZERO;
-    const MIN: ModWithValue<M> = ModWithValue::ZERO;
-    const ZERO: ModWithValue<M> = ModWithValue::ZERO;
-    const ONE: ModWithValue<M> = ModWithValue::ONE;
-    const TWO: ModWithValue<M> = ModWithValue::TWO;
-}
-impl<M> ConvSimple<ModWithValue<M>> for ModWithValue<M>
-where
-    M: Value,
-{
-    fn from_i32(val: i32) -> ModWithValue<M> {
-        ModWithValue::new(val)
-    }
-    fn to_i32(self) -> i32 {
-        self.0
-    }
-    fn to_f64(self) -> f64 {
-        self.0 as f64
-    }
-}
-pub trait ConstValue: Value + Copy {
-    const VAL: i32;
-}
-impl<V: ConstValue> Value for V {
-    fn val() -> i32 {
-        Self::VAL
-    }
-}
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
-pub struct Value7();
-impl ConstValue for Value7 {
-    const VAL: i32 = 1_000_000_007;
-}
-pub type Mod7 = ModWithValue<Value7>;
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
-pub struct Value9();
-impl ConstValue for Value9 {
-    const VAL: i32 = 1_000_000_009;
-}
-pub type Mod9 = ModWithValue<Value9>;
-#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
-pub struct Value_998_244_353();
-impl ConstValue for Value_998_244_353 {
-    const VAL: i32 = 998_244_353;
-}
-pub type Mod_998_244_353 = ModWithValue<Value_998_244_353>;
-pub trait ModuloTrait: Number {
-    fn mod_value() -> i32;
-    fn pown(self, n: usize) -> Self;
-}
-impl<V: Value> ModuloTrait for ModWithValue<V> {
-    fn mod_value() -> i32 {
-        V::val()
-    }
-    fn pown(self, n: usize) -> Self {
-        self.pown(n)
-    }
-}
-}
-}
 pub mod misc {
-pub mod binary_search {
-use crate::algo_lib::misc::num_traits::Number;
-use std::ops::Range;
-pub fn binary_search_first_true<T>(range: Range<T>, mut f: impl FnMut(T) -> bool) -> T
-where
-    T: Number,
-{
-    let mut left_plus_one = range.start;
-    let mut right = range.end;
-    while right > left_plus_one {
-        let mid = left_plus_one + (right - left_plus_one) / T::TWO;
-        if f(mid) {
-            right = mid;
-        } else {
-            left_plus_one = mid + T::ONE;
-        }
-    }
-    right
-}
-pub fn binary_search_last_true<T>(
-    range: Range<T>,
-    mut f: impl FnMut(T) -> bool,
-) -> Option<T>
-where
-    T: Number,
-{
-    let first_false = binary_search_first_true(range.clone(), |x| !f(x));
-    if first_false == range.start { None } else { Some(first_false - T::ONE) }
-}
-
-}
 pub mod dbg_macro {
 #[macro_export]
 macro_rules! dbg {
@@ -1109,6 +1041,11 @@ macro_rules! dbg {
         eprintln!("[{}:{}] {} = {:?}", file!(), line!(), stringify!($first_val),
         &$first_val)
     };
+}
+}
+pub mod gen_vector {
+pub fn gen_vec<T>(n: usize, f: impl FnMut(usize) -> T) -> Vec<T> {
+    (0..n).map(f).collect()
 }
 }
 pub mod num_traits {
@@ -1187,6 +1124,87 @@ impl<T: Number + Ord> Signum for T {
             Ordering::Less => -1,
             Ordering::Equal => 0,
         }
+    }
+}
+}
+pub mod rand {
+use crate::algo_lib::misc::gen_vector::gen_vec;
+use crate::algo_lib::misc::num_traits::Number;
+use std::ops::Range;
+use std::time::{SystemTime, UNIX_EPOCH};
+pub struct Random {
+    state: u64,
+}
+impl Random {
+    pub fn gen_u64(&mut self) -> u64 {
+        let mut x = self.state;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.state = x;
+        x
+    }
+    #[allow(dead_code)]
+    pub fn next_in_range(&mut self, from: usize, to: usize) -> usize {
+        assert!(from < to);
+        (from as u64 + self.gen_u64() % ((to - from) as u64)) as usize
+    }
+    pub fn gen_index<T>(&mut self, a: &[T]) -> usize {
+        self.gen_range(0..a.len())
+    }
+    #[allow(dead_code)]
+    #[inline(always)]
+    pub fn gen_double(&mut self) -> f64 {
+        (self.gen_u64() as f64) / (usize::MAX as f64)
+    }
+    #[allow(dead_code)]
+    pub fn new(seed: u64) -> Self {
+        let state = if seed == 0 { 787788 } else { seed };
+        Self { state }
+    }
+    pub fn new_time_seed() -> Self {
+        let time = SystemTime::now();
+        let seed = (time.duration_since(UNIX_EPOCH).unwrap().as_nanos() % 1_000_000_000)
+            as u64;
+        if seed == 0 { Self::new(787788) } else { Self::new(seed) }
+    }
+    #[allow(dead_code)]
+    pub fn gen_permutation(&mut self, n: usize) -> Vec<usize> {
+        let mut result: Vec<_> = (0..n).collect();
+        for i in 0..n {
+            let idx = self.next_in_range(0, i + 1);
+            result.swap(i, idx);
+        }
+        result
+    }
+    pub fn shuffle<T>(&mut self, a: &mut [T]) {
+        for i in 1..a.len() {
+            a.swap(i, self.gen_range(0..i + 1));
+        }
+    }
+    pub fn gen_range<T>(&mut self, range: Range<T>) -> T
+    where
+        T: Number,
+    {
+        let from = T::to_i32(range.start);
+        let to = T::to_i32(range.end);
+        assert!(from < to);
+        let len = (to - from) as usize;
+        T::from_i32(self.next_in_range(0, len) as i32 + from)
+    }
+    pub fn gen_vec<T>(&mut self, n: usize, range: Range<T>) -> Vec<T>
+    where
+        T: Number,
+    {
+        gen_vec(n, |_| self.gen_range(range.clone()))
+    }
+    pub fn gen_nonempty_range(&mut self, n: usize) -> Range<usize> {
+        let x = self.gen_range(0..n);
+        let y = self.gen_range(0..n);
+        if x <= y { x..y + 1 } else { y..x + 1 }
+    }
+    pub fn gen_bool(&mut self) -> bool {
+        self.gen_range(0..2) == 0
     }
 }
 }
