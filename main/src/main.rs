@@ -1,241 +1,166 @@
 // 
 use crate::algo_lib::collections::array_2d::Array2D;
-use crate::algo_lib::collections::bit_set::BitSet;
 
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
 use crate::algo_lib::misc::rand::Random;
-fn gauss(a: &mut [BitSet]) -> bool {
+fn solve_case(a: &Array2D<usize>, k: usize) -> usize {
     let n = a.len();
-    let mut row_from = 0;
+    let max_val = (n - k) * (n - k);
+    let mut rnd = Random::new(7687788);
+    let mut r = vec![0; n * n];
+    for i in 0..n * n {
+        r[i] = rnd.gen_u64();
+    }
+    let mut cnt = vec![0; max_val];
     for i in 0..n {
-        let mut use_row = n;
-        for j in row_from..n {
-            if a[j].get(i) {
-                use_row = j;
+        for j in 0..n {
+            cnt[a[i][j]] += 1;
+        }
+    }
+    for i in 0..max_val {
+        if cnt[i] == 0 {
+            return 0;
+        }
+    }
+    let mut xor_rows = vec![0; n];
+    let mut xor_cols = vec![0; n];
+    for i in 0..n {
+        for j in 0..n {
+            xor_rows[i] ^= r[a[i][j]];
+            xor_cols[j] ^= r[a[i][j]];
+        }
+    }
+    let mut expected_xor = 0;
+    for i in 0..max_val {
+        expected_xor ^= r[i];
+    }
+    let mut full_xor = 0;
+    for i in 0..n {
+        full_xor ^= xor_rows[i];
+    }
+    let mut allowed_rows = vec![];
+    for i in 0..n {
+        let mut ok = true;
+        for j in 0..n {
+            if cnt[a[i][j]] == 1 {
+                ok = false;
                 break;
             }
         }
-        if use_row == n {
-            continue;
+        if ok {
+            allowed_rows.push(i);
         }
-        a.swap(row_from, use_row);
-        for j in 0..n {
-            if j != row_from && a[j].get(i) {
-                a[j] ^= &a[row_from].clone();
+    }
+    assert!(allowed_rows.len() <= 20);
+    let mut allowed_cols = vec![];
+    for j in 0..n {
+        let mut ok = true;
+        for i in 0..n {
+            if cnt[a[i][j]] == 1 {
+                ok = false;
+                break;
             }
         }
-        row_from += 1;
-    }
-    true
-}
-fn solve_gauss(s: &[Vec<u8>]) -> Option<Vec<Vec<bool>>> {
-    let n = s.len();
-    let m = s[0].len();
-    let mut click = Array2D::new(BitSet::new(m + 1), n, m);
-    for j in 0..m {
-        click[0][j].set(j, true);
-    }
-    for row in 0..n - 1 {
-        for col in 0..m {
-            let mut my_value = BitSet::new(m + 1);
-            if s[row][col] == b'1' {
-                my_value.set(m, true);
-            }
-            if row > 0 {
-                my_value ^= &click[row - 1][col];
-            }
-            if col > 0 {
-                my_value ^= &click[row][col - 1];
-            }
-            if col + 1 < m {
-                my_value ^= &click[row][col + 1];
-            }
-            my_value ^= &click[row][col];
-            click[row + 1][col] = my_value;
+        if ok {
+            allowed_cols.push(j);
         }
     }
-    let mut a = vec![BitSet::new(m + 1); m];
-    for col in 0..m {
-        let mut my_value = BitSet::new(m + 1);
-        if s[n - 1][col] == b'1' {
-            my_value.set(m, true);
-        }
-        if n > 1 {
-            my_value ^= &click[n - 2][col];
-        }
-        if col > 0 {
-            my_value ^= &click[n - 1][col - 1];
-        }
-        if col + 1 < m {
-            my_value ^= &click[n - 1][col + 1];
-        }
-        my_value ^= &click[n - 1][col];
-        a[col] = my_value;
-    }
-    if !gauss(&mut a) {
-        return None;
-    }
-    let mut vars_values = vec![false; m];
-    let mut var_id = 0;
-    for i in 0..m {
-        while var_id < m && !a[var_id].get(i) {
-            var_id += 1;
-        }
-        if var_id == m {
-            break;
-        }
-        vars_values[var_id] = a[i].get(m);
-        var_id += 1;
-    }
-    let mut ans = vec![vec![false; m]; n];
-    for i in 0..n {
-        for j in 0..m {
-            let mut res = click[i][j].get(m);
-            for k in 0..m {
-                if click[i][j].get(k) && vars_values[k] {
-                    res = !res;
+    assert!(allowed_cols.len() <= 20);
+    let mut res = 0;
+    let mut allowed_rows_masks = vec![];
+    for mask in 0i32..(1 << allowed_rows.len()) {
+        if mask.count_ones() as usize == k {
+            let mut tmp = vec![];
+            for i in 0..allowed_rows.len() {
+                if (mask >> i) & 1 == 1 {
+                    tmp.push(allowed_rows[i]);
                 }
             }
-            ans[i][j] = res;
+            allowed_rows_masks.push((mask, tmp));
         }
     }
-    let mut final_board = vec![vec![false; m]; n];
-    for i in 0..n {
-        for j in 0..m {
-            if ans[i][j] {
-                if i > 0 {
-                    final_board[i - 1][j] = !final_board[i - 1][j];
+    let mut allowed_cols_masks = vec![];
+    for mask in 0i32..(1 << allowed_cols.len()) {
+        if mask.count_ones() as usize == k {
+            let mut tmp = vec![];
+            for j in 0..allowed_cols.len() {
+                if (mask >> j) & 1 == 1 {
+                    tmp.push(allowed_cols[j]);
                 }
-                if j > 0 {
-                    final_board[i][j - 1] = !final_board[i][j - 1];
+            }
+            allowed_cols_masks.push((mask, tmp));
+        }
+    }
+    for &(mask1, ref rows) in &allowed_rows_masks {
+        for &(mask2, ref cols) in &allowed_cols_masks {
+            let mut cur_xor = full_xor;
+            for r in 0..rows.len() {
+                cur_xor ^= xor_rows[rows[r]];
+            }
+            for c in 0..cols.len() {
+                cur_xor ^= xor_cols[cols[c]];
+            }
+            for i in rows.iter() {
+                for j in cols.iter() {
+                    cur_xor ^= r[a[*i][*j]];
                 }
-                if i + 1 < n {
-                    final_board[i + 1][j] = !final_board[i + 1][j];
-                }
-                if j + 1 < m {
-                    final_board[i][j + 1] = !final_board[i][j + 1];
-                }
-                final_board[i][j] = !final_board[i][j];
+            }
+            if cur_xor == expected_xor {
+                res += 1;
             }
         }
     }
-    for i in 0..n {
-        for j in 0..m {
-            let expected = s[i][j] == b'1';
-            if final_board[i][j] != expected {
-                return None;
-            }
-            assert_eq!(final_board[i] [j], expected);
-        }
-    }
-    Some(ans)
+    res
 }
 fn solve(input: &mut Input, out: &mut Output) {
     let n = input.usize();
-    let m = input.usize();
-    let mut s = vec![];
-    for _ in 0..n {
-        let ss = input.string();
-        s.push(ss);
-    }
-    if let Some(ans) = solve_gauss(&s) {
-        out.println("YES");
-        for i in 0..n {
-            for j in 0..m {
-                if ans[i][j] {
-                    out.print("1");
-                } else {
-                    out.print("0");
-                }
-            }
-            out.println("");
-        }
-    } else {
-        out.println("NO");
-    }
-}
-fn solve_slow(s: &[Vec<u8>]) -> Option<Vec<Vec<bool>>> {
-    let n = s.len();
-    let m = s[0].len();
-    let total = n * m;
-    let mut ids = Array2D::new(0, n, m);
-    let mut need_mask = 0;
+    let k = input.usize();
+    let mut a = Array2D::new(0, n, n);
     for i in 0..n {
-        for j in 0..m {
-            ids[i][j] = i * m + j;
-            if s[i][j] == b'1' {
-                need_mask |= 1 << ids[i][j];
-            }
+        for j in 0..n {
+            a[i][j] = input.usize() - 1;
         }
     }
-    let mut apply = Array2D::new(0, n, m);
-    for i in 0..n {
-        for j in 0..m {
-            for i2 in 0..n {
-                for j2 in 0..m {
-                    let d = i.abs_diff(i2) + j.abs_diff(j2);
-                    if d <= 1 {
-                        apply[i][j] |= 1 << ids[i2][j2];
-                    }
-                }
-            }
-        }
-    }
-    for mask in 0..1 << total {
-        let mut xor_mask = 0;
-        for i in 0..n {
-            for j in 0..m {
-                if (mask >> ids[i][j]) & 1 == 1 {
-                    xor_mask ^= apply[i][j];
-                }
-            }
-        }
-        if xor_mask == need_mask {
-            let mut ans = vec![vec![false; m]; n];
-            for i in 0..n {
-                for j in 0..m {
-                    if (mask >> ids[i][j]) & 1 == 1 {
-                        ans[i][j] = true;
-                    }
-                }
-            }
-            return Some(ans);
-        }
-    }
-    None
+    let res = solve_case(&a, k);
+    out.println(res);
 }
 fn stress() {
-    const N: usize = 5;
-    for it in 1.. {
+    for it in 17513.. {
         dbg!(it);
         let mut rnd = Random::new(it);
-        let n = rnd.gen_range(1..N);
-        let m = rnd.gen_range(1..N);
-        let mut s = vec![vec![b'0'; m]; n];
+        let n = rnd.gen_range(2..100);
+        let k = rnd.gen_range(1..6);
+        if k >= n {
+            continue;
+        }
+        dbg!(n, k);
+        let max_val = (n - k) * (n - k);
+        let mut a = Array2D::new(0, n, n);
         for i in 0..n {
-            for j in 0..m {
-                if rnd.gen_bool() {
-                    s[i][j] = b'1';
-                }
+            for j in 0..n {
+                a[i][j] = rnd.gen_range(0..max_val);
             }
         }
-        let ans_slow = solve_slow(&s);
-        let ans_fast = solve_gauss(&s);
-        if ans_fast != ans_slow {
-            if ans_fast.is_some() && ans_slow.is_some() {
-                continue;
-            }
-            let s_str = s
-                .iter()
-                .map(|row| String::from_utf8_lossy(row))
-                .collect::<Vec<_>>()
-                .join("\n");
-            dbg!(s_str);
-            dbg!(ans_slow);
-            dbg!(ans_fast);
+        let mut ok_rows = vec![];
+        let mut ok_cols = vec![];
+        for i in 0..n {
+            ok_rows.push(i);
+            ok_cols.push(i);
         }
-        assert_eq!(ans_slow, ans_fast);
+        rnd.shuffle(&mut ok_rows);
+        rnd.shuffle(&mut ok_cols);
+        ok_rows.truncate(ok_rows.len() - k);
+        ok_cols.truncate(ok_cols.len() - k);
+        let mut it = 0;
+        for i in 0..ok_rows.len() {
+            for j in 0..ok_cols.len() {
+                a[ok_rows[i]][ok_cols[j]] = it;
+                it += 1;
+            }
+        }
+        let res = solve_case(&a, k);
+        dbg!(res);
     }
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
@@ -409,191 +334,6 @@ impl<'a, T> Iterator for Iter<'a, T> {
         let elem = &self.array[self.row][self.col];
         self.col += 1;
         Some(elem)
-    }
-}
-}
-pub mod bit_set {
-use std::ops::{BitAndAssign, BitOrAssign, BitXorAssign, Not};
-#[derive(Hash, Clone, Eq, PartialOrd, PartialEq, Debug)]
-pub struct BitSet {
-    values: Vec<u64>,
-}
-impl BitSet {
-    pub fn calc_len(n: usize) -> usize {
-        (n + 63) / 64
-    }
-    #[allow(unused)]
-    pub fn new(n: usize) -> Self {
-        Self {
-            values: vec![0u64; BitSet::calc_len(n)],
-        }
-    }
-    #[allow(unused)]
-    pub fn get(&self, pos: usize) -> bool {
-        (self.values[pos >> 6] >> (pos & 63)) & 1 == 1
-    }
-    pub fn get_u64(&self, from_pos: usize) -> u64 {
-        if from_pos >= self.bit_len() {
-            return 0;
-        }
-        if from_pos & 63 == 0 {
-            self.values[from_pos >> 6]
-        } else {
-            let mut res = self.values[from_pos >> 6] >> (from_pos & 63);
-            if from_pos + 64 < self.bit_len() {
-                res |= self.values[(from_pos >> 6) + 1] << (64 - (from_pos & 63));
-            }
-            res
-        }
-    }
-    pub fn shift_higher(&self, shift: usize) -> Self {
-        let mut res = Self::new(self.bit_len());
-        let whole = shift / 64;
-        let offset = shift % 64;
-        for i in 0..self.values.len() {
-            if i + whole >= res.values.len() {
-                break;
-            }
-            res.values[i + whole] |= self.values[i] << offset;
-            if offset != 0 && i + whole + 1 < res.values.len() {
-                res.values[i + whole + 1] |= self.values[i] >> (64 - offset);
-            }
-        }
-        res
-    }
-    pub fn shift_lower(&self, shift: usize) -> Self {
-        let mut res = Self::new(self.bit_len());
-        let whole = shift / 64;
-        let offset = shift % 64;
-        for i in 0..self.values.len() {
-            if i < whole {
-                continue;
-            }
-            res.values[i - whole] |= self.values[i] >> offset;
-            if offset != 0 && i - whole != 0 {
-                res.values[i - whole - 1] |= self.values[i] << (64 - offset);
-            }
-        }
-        res
-    }
-    #[allow(unused)]
-    pub fn set(&mut self, pos: usize, val: bool) {
-        if val {
-            self.values[pos >> 6] |= 1u64 << (pos & 63);
-        } else {
-            self.values[pos >> 6] &= (1u64 << (pos & 63)).not();
-        }
-    }
-    pub fn set_true(&mut self, pos: usize) {
-        self.values[pos >> 6] |= 1u64 << (pos & 63);
-    }
-    #[allow(unused)]
-    pub fn clear(&mut self) {
-        for x in self.values.iter_mut() {
-            *x = 0;
-        }
-    }
-    fn ensure_length(&mut self, bit_len: usize) {
-        let i64_len = Self::calc_len(bit_len);
-        if i64_len > self.values.len() {
-            self.values.resize(i64_len, 0);
-        }
-    }
-    fn bit_len(&self) -> usize {
-        self.values.len() << 6
-    }
-    pub fn first_not_set(&self, mut pos: usize) -> usize {
-        if pos >= self.bit_len() {
-            return pos;
-        }
-        while (pos & 63) != 0 {
-            if !self.get(pos) {
-                return pos;
-            }
-            pos += 1;
-        }
-        match self.values[pos >> 6..].iter().position(|x| *x != u64::MAX) {
-            None => self.values.len() << 6,
-            Some(idx) => {
-                pos += idx * 64;
-                while self.get(pos) {
-                    pos += 1;
-                }
-                pos
-            }
-        }
-    }
-    pub fn first_set(&self, mut pos: usize) -> Option<usize> {
-        if pos >= self.bit_len() {
-            return None;
-        }
-        if (pos & 63) != 0 {
-            let part = self.values[pos >> 6] >> (pos & 63);
-            if part != 0 {
-                return Some(pos + part.trailing_zeros() as usize);
-            }
-            pos = (pos | 63) + 1;
-        }
-        match self.values[pos >> 6..].iter().position(|x| *x != 0) {
-            None => None,
-            Some(idx) => {
-                pos += idx * 64;
-                pos += self.values[pos >> 6].trailing_zeros() as usize;
-                assert!(self.get(pos));
-                Some(pos)
-            }
-        }
-    }
-    #[target_feature(enable = "avx2")]
-    unsafe fn bitor_assign_avx2(&mut self, rhs: &Self) {
-        for (x, y) in self.values.iter_mut().zip(rhs.values.iter()) {
-            *x |= *y;
-        }
-    }
-    #[target_feature(enable = "ssse3")]
-    unsafe fn bitor_assign_ssse3(&mut self, rhs: &Self) {
-        for (x, y) in self.values.iter_mut().zip(rhs.values.iter()) {
-            *x |= *y;
-        }
-    }
-    pub fn count_ones(&self) -> usize {
-        self.values.iter().map(|x| x.count_ones() as usize).sum()
-    }
-}
-impl BitOrAssign<&BitSet> for BitSet {
-    fn bitor_assign(&mut self, rhs: &Self) {
-        self.ensure_length(rhs.bit_len());
-        if is_x86_feature_detected!("avx2") {
-            unsafe {
-                self.bitor_assign_avx2(rhs);
-            }
-        } else if is_x86_feature_detected!("ssse3") {
-            unsafe {
-                self.bitor_assign_ssse3(rhs);
-            }
-        } else {
-            for (x, y) in self.values.iter_mut().zip(rhs.values.iter()) {
-                *x |= *y;
-            }
-        }
-    }
-}
-impl BitAndAssign<&BitSet> for BitSet {
-    fn bitand_assign(&mut self, rhs: &BitSet) {
-        self.ensure_length(rhs.bit_len());
-        let len = rhs.values.len();
-        for (x, y) in self.values[0..len].iter_mut().zip(rhs.values[0..len].iter()) {
-            *x &= *y;
-        }
-    }
-}
-impl BitXorAssign<&BitSet> for BitSet {
-    fn bitxor_assign(&mut self, rhs: &BitSet) {
-        self.ensure_length(rhs.bit_len());
-        let len = rhs.values.len();
-        for (x, y) in self.values[0..len].iter_mut().zip(rhs.values[0..len].iter()) {
-            *x ^= *y;
-        }
     }
 }
 }
