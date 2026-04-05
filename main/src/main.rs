@@ -1,166 +1,98 @@
 // 
-use crate::algo_lib::collections::array_2d::Array2D;
+use std::collections::BTreeSet;
+use crate::algo_lib::collections::fx_hash_map::FxHashMap;
 
+use crate::algo_lib::graph::dsu::Dsu;
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
-use crate::algo_lib::misc::rand::Random;
-fn solve_case(a: &Array2D<usize>, k: usize) -> usize {
-    let n = a.len();
-    let max_val = (n - k) * (n - k);
-    let mut rnd = Random::new(7687788);
-    let mut r = vec![0; n * n];
-    for i in 0..n * n {
-        r[i] = rnd.gen_u64();
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct Query {
+    x: i64,
+    id: usize,
+}
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct LinearFunction {
+    a: i64,
+    b: i64,
+}
+impl LinearFunction {
+    fn eval(&self, x: i64) -> i64 {
+        self.a * x + self.b
     }
-    let mut cnt = vec![0; max_val];
-    for i in 0..n {
-        for j in 0..n {
-            cnt[a[i][j]] += 1;
+}
+fn when_second_better(f1: LinearFunction, f2: LinearFunction) -> i64 {
+    if f1.a == f2.a {
+        if f1.b <= f2.b { i64::MAX } else { i64::MIN }
+    } else {
+        let start = (f1.b - f2.b) / (f2.a - f1.a) + 1;
+        let mut x = start;
+        while f1.eval(x) >= f2.eval(x) {
+            x -= 1;
+        }
+        assert!(start - x <= 3);
+        x
+    }
+}
+impl std::ops::Add<LinearFunction> for &LinearFunction {
+    type Output = LinearFunction;
+    fn add(self, rhs: LinearFunction) -> Self::Output {
+        LinearFunction {
+            a: self.a + rhs.a,
+            b: self.b + rhs.b,
         }
     }
-    for i in 0..max_val {
-        if cnt[i] == 0 {
-            return 0;
+}
+struct Store {
+    funs: BTreeSet<LinearFunction>,
+    final_fun: LinearFunction,
+    extra: LinearFunction,
+}
+impl Store {
+    fn new(value: i64) -> Self {
+        let fun = if value == -1 {
+            LinearFunction { a: -1, b: 0 }
+        } else {
+            LinearFunction { a: 0, b: value }
+        };
+        let mut funs = BTreeSet::new();
+        funs.insert(fun);
+        Self {
+            funs,
+            final_fun: fun,
+            extra: LinearFunction { a: 0, b: 0 },
         }
     }
-    let mut xor_rows = vec![0; n];
-    let mut xor_cols = vec![0; n];
-    for i in 0..n {
-        for j in 0..n {
-            xor_rows[i] ^= r[a[i][j]];
-            xor_cols[j] ^= r[a[i][j]];
-        }
-    }
-    let mut expected_xor = 0;
-    for i in 0..max_val {
-        expected_xor ^= r[i];
-    }
-    let mut full_xor = 0;
-    for i in 0..n {
-        full_xor ^= xor_rows[i];
-    }
-    let mut allowed_rows = vec![];
-    for i in 0..n {
-        let mut ok = true;
-        for j in 0..n {
-            if cnt[a[i][j]] == 1 {
-                ok = false;
+    fn merge(mut a: Store, mut b: Store, cur_x: i64) -> Self {
+        let first_b = b.funs.iter().next().unwrap() + b.extra;
+        while a.funs.len() > 0 {
+            let f = a.funs.iter().next_back().unwrap() + a.extra;
+            if when_second_better(f, first_b) <= cur_x {
                 break;
             }
         }
-        if ok {
-            allowed_rows.push(i);
-        }
-    }
-    assert!(allowed_rows.len() <= 20);
-    let mut allowed_cols = vec![];
-    for j in 0..n {
-        let mut ok = true;
-        for i in 0..n {
-            if cnt[a[i][j]] == 1 {
-                ok = false;
+        while let Some(f) = a.funs.iter().next_back() {
+            if when_second_better(f + a.extra, first_b) < cur_x {
                 break;
             }
+            a.funs.remove(f);
         }
-        if ok {
-            allowed_cols.push(j);
-        }
+        if a.funs.len() > b.funs.len() { a } else { b }
     }
-    assert!(allowed_cols.len() <= 20);
-    let mut res = 0;
-    let mut allowed_rows_masks = vec![];
-    for mask in 0i32..(1 << allowed_rows.len()) {
-        if mask.count_ones() as usize == k {
-            let mut tmp = vec![];
-            for i in 0..allowed_rows.len() {
-                if (mask >> i) & 1 == 1 {
-                    tmp.push(allowed_rows[i]);
-                }
-            }
-            allowed_rows_masks.push((mask, tmp));
-        }
-    }
-    let mut allowed_cols_masks = vec![];
-    for mask in 0i32..(1 << allowed_cols.len()) {
-        if mask.count_ones() as usize == k {
-            let mut tmp = vec![];
-            for j in 0..allowed_cols.len() {
-                if (mask >> j) & 1 == 1 {
-                    tmp.push(allowed_cols[j]);
-                }
-            }
-            allowed_cols_masks.push((mask, tmp));
-        }
-    }
-    for &(mask1, ref rows) in &allowed_rows_masks {
-        for &(mask2, ref cols) in &allowed_cols_masks {
-            let mut cur_xor = full_xor;
-            for r in 0..rows.len() {
-                cur_xor ^= xor_rows[rows[r]];
-            }
-            for c in 0..cols.len() {
-                cur_xor ^= xor_cols[cols[c]];
-            }
-            for i in rows.iter() {
-                for j in cols.iter() {
-                    cur_xor ^= r[a[*i][*j]];
-                }
-            }
-            if cur_xor == expected_xor {
-                res += 1;
-            }
-        }
-    }
-    res
 }
 fn solve(input: &mut Input, out: &mut Output) {
     let n = input.usize();
-    let k = input.usize();
-    let mut a = Array2D::new(0, n, n);
-    for i in 0..n {
-        for j in 0..n {
-            a[i][j] = input.usize() - 1;
-        }
+    let q = input.usize();
+    let a = input.vec::<i64>(n);
+    let mut queries = vec![];
+    for i in 0..q {
+        let x = input.i64();
+        queries.push(Query { x, id: i });
     }
-    let res = solve_case(&a, k);
-    out.println(res);
-}
-fn stress() {
-    for it in 17513.. {
-        dbg!(it);
-        let mut rnd = Random::new(it);
-        let n = rnd.gen_range(2..100);
-        let k = rnd.gen_range(1..6);
-        if k >= n {
-            continue;
-        }
-        dbg!(n, k);
-        let max_val = (n - k) * (n - k);
-        let mut a = Array2D::new(0, n, n);
-        for i in 0..n {
-            for j in 0..n {
-                a[i][j] = rnd.gen_range(0..max_val);
-            }
-        }
-        let mut ok_rows = vec![];
-        let mut ok_cols = vec![];
-        for i in 0..n {
-            ok_rows.push(i);
-            ok_cols.push(i);
-        }
-        rnd.shuffle(&mut ok_rows);
-        rnd.shuffle(&mut ok_cols);
-        ok_rows.truncate(ok_rows.len() - k);
-        ok_cols.truncate(ok_cols.len() - k);
-        let mut it = 0;
-        for i in 0..ok_rows.len() {
-            for j in 0..ok_cols.len() {
-                a[ok_rows[i]][ok_cols[j]] = it;
-                it += 1;
-            }
-        }
-        let res = solve_case(&a, k);
-        dbg!(res);
+    queries.sort_by_key(|q| -q.x);
+    let mut dsu = Dsu::new(n);
+    let mut stores = FxHashMap::default();
+    for i in 0..n {
+        stores.insert(i, Store::new(a[i]));
     }
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
@@ -176,164 +108,186 @@ fn main() {
 }
 pub mod algo_lib {
 pub mod collections {
-pub mod array_2d {
-use crate::algo_lib::io::output::{Output, Writable};
-use crate::algo_lib::misc::num_traits::Number;
-use std::io::Write;
-use std::ops::{Index, IndexMut, Mul};
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Array2D<T> {
-    rows: usize,
-    cols: usize,
-    v: Vec<T>,
+pub mod fx_hash_map {
+//! Fast, non-cryptographic hash used by rustc and Firefox.
+//!
+//! # Example
+//!
+//! ```rust
+//! # #[cfg(feature = "std")]
+//! # fn main() {
+//! use rustc_hash::FxHashMap;
+//! let mut map: FxHashMap<u32, u32> = FxHashMap::default();
+//! map.insert(22, 44);
+//! # }
+//! # #[cfg(not(feature = "std"))]
+//! # fn main() { }
+//! ```
+use std::convert::TryInto;
+use std::{
+    collections::{HashMap, HashSet},
+    hash::{BuildHasherDefault, Hasher},
+    mem::size_of, ops::BitXor,
+};
+/// Type alias for a hashmap using the `fx` hash algorithm.
+pub type FxHashMap<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
+/// Type alias for a hashmap using the `fx` hash algorithm.
+pub type FxHashSet<V> = HashSet<V, BuildHasherDefault<FxHasher>>;
+/// A speedy hash algorithm for use within rustc. The hashmap in liballoc
+/// by default uses SipHash which isn't quite as speedy as we want. In the
+/// compiler we're not really worried about DOS attempts, so we use a fast
+/// non-cryptographic hash.
+///
+/// This is the same as the algorithm used by Firefox -- which is a homespun
+/// one not based on any widely-known algorithm -- though modified to produce
+/// 64-bit hash values instead of 32-bit hash values. It consistently
+/// out-performs an FNV-based hash within rustc itself -- the collision rate is
+/// similar or slightly worse than FNV, but the speed of the hash function
+/// itself is much higher because it works on up to 8 bytes at a time.
+#[derive(Default)]
+pub struct FxHasher {
+    hash: usize,
 }
-pub struct Iter<'a, T> {
-    array: &'a Array2D<T>,
-    row: usize,
-    col: usize,
+const K: usize = 0x517cc1b727220a95;
+impl FxHasher {
+    #[inline]
+    fn add_to_hash(&mut self, i: usize) {
+        self.hash = self.hash.rotate_left(5).bitxor(i).wrapping_mul(K);
+    }
 }
-impl<T> Array2D<T>
-where
-    T: Clone,
-{
-    #[allow(unused)]
-    pub fn new(empty: T, rows: usize, cols: usize) -> Self {
-        Self {
-            rows,
-            cols,
-            v: vec![empty; rows * cols],
+impl Hasher for FxHasher {
+    #[inline]
+    fn write(&mut self, mut bytes: &[u8]) {
+        #[cfg(target_pointer_width = "32")]
+        let read_usize = |bytes: &[u8]| u32::from_ne_bytes(
+            bytes[..4].try_into().unwrap(),
+        );
+        #[cfg(target_pointer_width = "64")]
+        let read_usize = |bytes: &[u8]| u64::from_ne_bytes(
+            bytes[..8].try_into().unwrap(),
+        );
+        let mut hash = FxHasher { hash: self.hash };
+        assert!(size_of::< usize > () <= 8);
+        while bytes.len() >= size_of::<usize>() {
+            hash.add_to_hash(read_usize(bytes) as usize);
+            bytes = &bytes[size_of::<usize>()..];
         }
-    }
-    pub fn new_f(
-        rows: usize,
-        cols: usize,
-        mut f: impl FnMut(usize, usize) -> T,
-    ) -> Self {
-        let mut v = Vec::with_capacity(rows * cols);
-        for r in 0..rows {
-            for c in 0..cols {
-                v.push(f(r, c));
-            }
+        if (size_of::<usize>() > 4) && (bytes.len() >= 4) {
+            hash.add_to_hash(
+                u32::from_ne_bytes(bytes[..4].try_into().unwrap()) as usize,
+            );
+            bytes = &bytes[4..];
         }
-        Self { rows, cols, v }
-    }
-    pub fn rows(&self) -> usize {
-        self.rows
-    }
-    #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> usize {
-        self.rows()
-    }
-    pub fn cols(&self) -> usize {
-        self.cols
-    }
-    pub fn swap(&mut self, row1: usize, row2: usize) {
-        assert!(row1 < self.rows);
-        assert!(row2 < self.rows);
-        if row1 != row2 {
-            for col in 0..self.cols {
-                self.v.swap(row1 * self.cols + col, row2 * self.cols + col);
-            }
+        if (size_of::<usize>() > 2) && bytes.len() >= 2 {
+            hash.add_to_hash(
+                u16::from_ne_bytes(bytes[..2].try_into().unwrap()) as usize,
+            );
+            bytes = &bytes[2..];
         }
-    }
-    pub fn transpose(&self) -> Self {
-        Self::new_f(self.cols, self.rows, |r, c| self[c][r].clone())
-    }
-    pub fn iter(&self) -> Iter<'_, T> {
-        Iter {
-            array: self,
-            row: 0,
-            col: 0,
+        if (size_of::<usize>() > 1) && !bytes.is_empty() {
+            hash.add_to_hash(bytes[0] as usize);
         }
+        self.hash = hash.hash;
     }
-    pub fn pref_sum(&self) -> Self
-    where
-        T: Number,
-    {
-        let mut res = Self::new(T::ZERO, self.rows + 1, self.cols + 1);
-        for i in 0..self.rows {
-            for j in 0..self.cols {
-                let value = self[i][j] + res[i][j + 1] + res[i + 1][j] - res[i][j];
-                res[i + 1][j + 1] = value;
-            }
+    #[inline]
+    fn write_u8(&mut self, i: u8) {
+        self.add_to_hash(i as usize);
+    }
+    #[inline]
+    fn write_u16(&mut self, i: u16) {
+        self.add_to_hash(i as usize);
+    }
+    #[inline]
+    fn write_u32(&mut self, i: u32) {
+        self.add_to_hash(i as usize);
+    }
+    #[cfg(target_pointer_width = "32")]
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        self.add_to_hash(i as usize);
+        self.add_to_hash((i >> 32) as usize);
+    }
+    #[cfg(target_pointer_width = "64")]
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        self.add_to_hash(i as usize);
+    }
+    #[inline]
+    fn write_usize(&mut self, i: usize) {
+        self.add_to_hash(i);
+    }
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash as u64
+    }
+}
+}
+}
+pub mod graph {
+pub mod dsu {
+#[derive(Clone)]
+pub struct Dsu {
+    p: Vec<u32>,
+    size: Vec<u32>,
+    num_comps: u32,
+}
+impl Dsu {
+    pub fn clear(&mut self) {
+        for (idx, val) in self.p.iter_mut().enumerate() {
+            *val = idx as u32;
         }
+        for val in self.size.iter_mut() {
+            *val = 1;
+        }
+        self.num_comps = self.p.len() as u32;
+    }
+    pub fn new(n: usize) -> Self {
+        let mut res = Self {
+            p: vec![0; n],
+            size: vec![0; n],
+            num_comps: n as u32,
+        };
+        res.clear();
         res
     }
-}
-impl<T> Writable for Array2D<T>
-where
-    T: Writable,
-{
-    fn write(&self, output: &mut Output) {
-        for r in 0..self.rows {
-            self[r].write(output);
-            output.write_all(b"\n").unwrap();
+    pub fn get(&mut self, v: usize) -> usize {
+        if self.p[v] as usize != v {
+            self.p[v] = self.get(self.p[v] as usize) as u32;
         }
+        self.p[v] as usize
     }
-}
-impl<T> Index<usize> for Array2D<T> {
-    type Output = [T];
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.v[(index) * self.cols..(index + 1) * self.cols]
-    }
-}
-impl<T> IndexMut<usize> for Array2D<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.v[(index) * self.cols..(index + 1) * self.cols]
-    }
-}
-impl<T> Mul for &Array2D<T>
-where
-    T: Number,
-{
-    type Output = Array2D<T>;
-    fn mul(self, rhs: Self) -> Self::Output {
-        let n = self.rows;
-        let m = self.cols;
-        assert_eq!(m, rhs.rows);
-        let k2 = rhs.cols;
-        let mut res = Array2D::new(T::ZERO, n, k2);
-        for i in 0..n {
-            for j in 0..m {
-                for k in 0..k2 {
-                    res[i][k] += self[i][j] * rhs[j][k];
-                }
-            }
-        }
-        res
-    }
-}
-impl<T> Array2D<T>
-where
-    T: Number,
-{
-    pub fn pown(&self, pw: usize) -> Self {
-        assert_eq!(self.rows, self.cols);
-        let n = self.rows;
-        if pw == 0 {
-            Self::new_f(n, n, |r, c| if r == c { T::ONE } else { T::ZERO })
-        } else if pw == 1 {
-            self.clone()
+    pub fn unite(&mut self, v1: usize, v2: usize) -> bool {
+        let v1 = self.get(v1);
+        let v2 = self.get(v2);
+        if v1 == v2 {
+            false
         } else {
-            let half = self.pown(pw / 2);
-            let half2 = &half * &half;
-            if pw & 1 == 0 { half2 } else { &half2 * self }
+            self.p[v1] = v2 as u32;
+            self.size[v2] += self.size[v1];
+            self.num_comps -= 1;
+            true
         }
     }
-}
-impl<'a, T> Iterator for Iter<'a, T> {
-    type Item = &'a T;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.col == self.array.cols {
-            self.col = 0;
-            self.row += 1;
+    pub fn calc_size(&mut self, mut v: usize) -> usize {
+        v = self.get(v);
+        self.size[v] as usize
+    }
+    pub fn is_root(&self, v: usize) -> bool {
+        self.p[v] as usize == v
+    }
+    pub fn calc_components(&mut self) -> Vec<Vec<usize>> {
+        let n = self.p.len();
+        let mut res = vec![vec![]; n];
+        for v in 0..n {
+            res[self.get(v)].push(v);
         }
-        if self.row >= self.array.rows {
-            return None;
-        }
-        let elem = &self.array[self.row][self.col];
-        self.col += 1;
-        Some(elem)
+        res.into_iter().filter(|vec| !vec.is_empty()).collect()
+    }
+    pub fn num_components(&self) -> usize {
+        self.num_comps as usize
+    }
+    pub fn len(&self) -> usize {
+        self.p.len()
     }
 }
 }
@@ -781,171 +735,6 @@ macro_rules! dbg {
         eprintln!("[{}:{}] {} = {:?}", file!(), line!(), stringify!($first_val),
         &$first_val)
     };
-}
-}
-pub mod gen_vector {
-pub fn gen_vec<T>(n: usize, f: impl FnMut(usize) -> T) -> Vec<T> {
-    (0..n).map(f).collect()
-}
-}
-pub mod num_traits {
-use std::cmp::Ordering;
-use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-pub trait HasConstants<T> {
-    const MAX: T;
-    const MIN: T;
-    const ZERO: T;
-    const ONE: T;
-    const TWO: T;
-}
-pub trait ConvSimple<T> {
-    fn from_i32(val: i32) -> T;
-    fn to_i32(self) -> i32;
-    fn to_f64(self) -> f64;
-}
-pub trait Signum {
-    fn signum(&self) -> i32;
-}
-pub trait Number: Copy + Add<
-        Output = Self,
-    > + AddAssign + Sub<
-        Output = Self,
-    > + SubAssign + Mul<
-        Output = Self,
-    > + MulAssign + Div<
-        Output = Self,
-    > + DivAssign + PartialOrd + PartialEq + HasConstants<
-        Self,
-    > + Default + Debug + Sized + ConvSimple<Self> {}
-impl<
-    T: Copy + Add<Output = Self> + AddAssign + Sub<Output = Self> + SubAssign
-        + Mul<Output = Self> + MulAssign + Div<Output = Self> + DivAssign + PartialOrd
-        + PartialEq + HasConstants<Self> + Default + Debug + Sized + ConvSimple<Self>,
-> Number for T {}
-macro_rules! has_constants_impl {
-    ($t:ident) => {
-        impl HasConstants <$t > for $t { const MAX : $t = $t ::MAX; const MIN : $t = $t
-        ::MIN; const ZERO : $t = 0; const ONE : $t = 1; const TWO : $t = 2; } impl
-        ConvSimple <$t > for $t { fn from_i32(val : i32) -> $t { val as $t } fn
-        to_i32(self) -> i32 { self as i32 } fn to_f64(self) -> f64 { self as f64 } }
-    };
-}
-has_constants_impl!(i32);
-has_constants_impl!(i64);
-has_constants_impl!(i128);
-has_constants_impl!(u32);
-has_constants_impl!(u64);
-has_constants_impl!(u128);
-has_constants_impl!(usize);
-has_constants_impl!(u8);
-impl ConvSimple<Self> for f64 {
-    fn from_i32(val: i32) -> Self {
-        val as f64
-    }
-    fn to_i32(self) -> i32 {
-        self as i32
-    }
-    fn to_f64(self) -> f64 {
-        self
-    }
-}
-impl HasConstants<Self> for f64 {
-    const MAX: Self = Self::MAX;
-    const MIN: Self = -Self::MAX;
-    const ZERO: Self = 0.0;
-    const ONE: Self = 1.0;
-    const TWO: Self = 2.0;
-}
-impl<T: Number + Ord> Signum for T {
-    fn signum(&self) -> i32 {
-        match self.cmp(&T::ZERO) {
-            Ordering::Greater => 1,
-            Ordering::Less => -1,
-            Ordering::Equal => 0,
-        }
-    }
-}
-}
-pub mod rand {
-use crate::algo_lib::misc::gen_vector::gen_vec;
-use crate::algo_lib::misc::num_traits::Number;
-use std::ops::Range;
-use std::time::{SystemTime, UNIX_EPOCH};
-pub struct Random {
-    state: u64,
-}
-impl Random {
-    pub fn gen_u64(&mut self) -> u64 {
-        let mut x = self.state;
-        x ^= x << 13;
-        x ^= x >> 7;
-        x ^= x << 17;
-        self.state = x;
-        x
-    }
-    #[allow(dead_code)]
-    pub fn next_in_range(&mut self, from: usize, to: usize) -> usize {
-        assert!(from < to);
-        (from as u64 + self.gen_u64() % ((to - from) as u64)) as usize
-    }
-    pub fn gen_index<T>(&mut self, a: &[T]) -> usize {
-        self.gen_range(0..a.len())
-    }
-    #[allow(dead_code)]
-    #[inline(always)]
-    pub fn gen_double(&mut self) -> f64 {
-        (self.gen_u64() as f64) / (usize::MAX as f64)
-    }
-    #[allow(dead_code)]
-    pub fn new(seed: u64) -> Self {
-        let state = if seed == 0 { 787788 } else { seed };
-        Self { state }
-    }
-    pub fn new_time_seed() -> Self {
-        let time = SystemTime::now();
-        let seed = (time.duration_since(UNIX_EPOCH).unwrap().as_nanos() % 1_000_000_000)
-            as u64;
-        if seed == 0 { Self::new(787788) } else { Self::new(seed) }
-    }
-    #[allow(dead_code)]
-    pub fn gen_permutation(&mut self, n: usize) -> Vec<usize> {
-        let mut result: Vec<_> = (0..n).collect();
-        for i in 0..n {
-            let idx = self.next_in_range(0, i + 1);
-            result.swap(i, idx);
-        }
-        result
-    }
-    pub fn shuffle<T>(&mut self, a: &mut [T]) {
-        for i in 1..a.len() {
-            a.swap(i, self.gen_range(0..i + 1));
-        }
-    }
-    pub fn gen_range<T>(&mut self, range: Range<T>) -> T
-    where
-        T: Number,
-    {
-        let from = T::to_i32(range.start);
-        let to = T::to_i32(range.end);
-        assert!(from < to);
-        let len = (to - from) as usize;
-        T::from_i32(self.next_in_range(0, len) as i32 + from)
-    }
-    pub fn gen_vec<T>(&mut self, n: usize, range: Range<T>) -> Vec<T>
-    where
-        T: Number,
-    {
-        gen_vec(n, |_| self.gen_range(range.clone()))
-    }
-    pub fn gen_nonempty_range(&mut self, n: usize) -> Range<usize> {
-        let x = self.gen_range(0..n);
-        let y = self.gen_range(0..n);
-        if x <= y { x..y + 1 } else { y..x + 1 }
-    }
-    pub fn gen_bool(&mut self) -> bool {
-        self.gen_range(0..2) == 0
-    }
 }
 }
 }
