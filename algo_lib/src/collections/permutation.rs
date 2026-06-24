@@ -1,7 +1,7 @@
 use std::ops::{Index, Range};
 
 pub struct Permutation {
-    ids: Vec<usize>,
+    pub ids: Vec<usize>,
     pos_of_element: Vec<usize>,
 }
 

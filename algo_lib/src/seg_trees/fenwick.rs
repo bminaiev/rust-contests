@@ -23,7 +23,7 @@ impl<T: Number> Fenwick<T> {
     }
 
     pub fn get_range_sum(&self, range: Range<usize>) -> T {
-        if range.end == 0 {
+        if range.end == 0 || range.start > range.end {
             return T::ZERO;
         }
         let res = self.get_sum(range.end - 1);

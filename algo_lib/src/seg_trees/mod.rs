@@ -15,6 +15,8 @@ pub mod lazy_seg_tree_max_tests;
 pub mod lazy_seg_tree_max_update;
 pub mod lazy_seg_tree_set_sum;
 pub mod lazy_seg_tree_string_hash;
+pub mod li_chao_tree;
+pub mod li_chao_tree_tests;
 pub mod persistent_tree;
 pub mod persistent_tree_rc;
 pub mod seg_tree_2d;
