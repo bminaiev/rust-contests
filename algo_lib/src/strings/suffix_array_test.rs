@@ -14,4 +14,18 @@ mod tests {
             let _suf_array = SuffixArray::new(str);
         }
     }
+
+    // Small alphabet + larger n exercises deep SA-IS recursion; correctness is
+    // checked by the debug assertions inside `SuffixArray::new`.
+    #[test]
+    fn stress() {
+        const MAX: usize = 2000;
+        for test in 0..20 {
+            let mut rnd = Random::new(123 + test);
+            let n = rnd.gen_range(1..MAX);
+            let alph_size = rnd.gen_range(1..4);
+            let str = rnd.gen_vec(n, b'a'..b'a' + alph_size);
+            let _suf_array = SuffixArray::new(str);
+        }
+    }
 }
