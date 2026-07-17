@@ -1,63 +1,64 @@
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::HashSet;
 
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
+use crate::algo_lib::misc::rec_function::{Callable3, RecursiveFunction3};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+fn sum_digits(mut n: i128) -> i128 {
+    let mut res = 0;
+    while n > 0 {
+        res += n % 10;
+        n /= 10;
+    }
+    res
+}
+fn solve_case(d: i128) -> Option<(i128, i128)> {
+    let mut seen = HashSet::new();
+    RecursiveFunction3::new(|f, pos: usize, a: i128, b: i128| -> Option<(i128, i128)> {
+            if pos == 33 {
+                return None;
+            }
+            let sum_a = sum_digits(a);
+            let sum_b = sum_digits(b);
+            if sum_a == sum_b && a - b == d {
+                return Some((a, b));
+            }
+            let pw10 = 10i128.pow(pos as u32);
+            if ((a - b - d) % pw10) != 0 {
+                return None;
+            }
+            let key = (pos, sum_a - sum_b, a - b);
+            if !seen.insert(key) {
+                return None;
+            }
+            for x in 0..10 {
+                for y in 0..10 {
+                    let na = a + x * pw10;
+                    let nb = b + y * pw10;
+                    if let Some(res) = f.call(pos + 1, na, nb) {
+                        return Some(res);
+                    }
+                }
+            }
+            None
+        })
+        .call(0, 0, 0)
+}
 fn solve(input: &mut Input, out: &mut Output) {
     let tc = input.usize();
-    for _ in 0..tc {
-        let n = input.usize();
-        let k = input.usize();
-        let h = input.vec::<usize>(n);
-        let mut sorted = vec![];
-        for i in 0..n {
-            sorted.push((h[i], i));
-        }
-        sorted.sort();
-        let mut alive = BTreeSet::new();
-        let mut small = vec![false; n];
-        for i in 0..k {
-            let id = sorted[i].1;
-            alive.insert(id);
-            small[id] = true;
-        }
-        for i in 0..k {
-            let id = sorted[n - i - 1].1;
-            alive.insert(id);
-        }
-        let mut queue = VecDeque::new();
-        for &k1 in alive.iter() {
-            if let Some(&k2) = alive.range(k1 + 1..).next() {
-                if small[k1] != small[k2] {
-                    queue.push_back(k1);
-                }
-            }
-        }
-        let mut pairs = vec![];
-        while let Some(k1) = queue.pop_front() {
-            if let Some(&k2) = alive.range(k1 + 1..).next() {
-                if alive.contains(&k1) && alive.contains(&k2) && small[k1] != small[k2] {
-                    alive.remove(&k1);
-                    alive.remove(&k2);
-                    if small[k1] {
-                        pairs.push((k2, k1));
-                    } else {
-                        pairs.push((k1, k2));
-                    }
-                    if let Some(&k0) = alive.range(..k1).next_back() {
-                        if let Some(&k3) = alive.range(k2 + 1..).next() {
-                            if small[k0] != small[k3] {
-                                queue.push_back(k0);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        assert_eq!(pairs.len(), k);
-        for (a, b) in pairs {
-            out.println(vec![a, b]);
+    let ds = input.vec::<i128>(tc);
+    let res = ds.par_iter().map(|&d| (d, solve_case(d))).collect::<Vec<_>>();
+    let mut cnt_none = 0;
+    for (d, res) in res {
+        if let Some((x, y)) = res {
+            assert!(x - y == d);
+            out.println(vec![x, y]);
+        } else {
+            cnt_none += 1;
+            out.println("NONE");
         }
     }
+    dbg!(cnt_none);
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
     solve(&mut input, &mut output);
@@ -515,6 +516,52 @@ macro_rules! dbg {
         &$first_val)
     };
 }
+}
+pub mod rec_function {
+use std::cell::UnsafeCell;
+use std::marker::PhantomData;
+macro_rules! recursive_function {
+    ($name:ident, $trait:ident, ($($type:ident $arg:ident,)*)) => {
+        pub trait $trait <$($type,)* Output > { fn call(& mut self, $($arg : $type,)*) ->
+        Output; } pub struct $name < F, $($type,)* Output > where F : FnMut(& mut dyn
+        $trait <$($type,)* Output >, $($type,)*) -> Output, { f : UnsafeCell < F >,
+        $($arg : PhantomData <$type >,)* phantom_output : PhantomData < Output >, } impl
+        < F, $($type,)* Output > $name < F, $($type,)* Output > where F : FnMut(& mut dyn
+        $trait <$($type,)* Output >, $($type,)*) -> Output, { pub fn new(f : F) -> Self {
+        Self { f : f.into(), $($arg : Default::default(),)* phantom_output :
+        Default::default(), } } } impl < F, $($type,)* Output > $trait <$($type,)* Output
+        > for $name < F, $($type,)* Output > where F : FnMut(& mut dyn $trait <$($type,)*
+        Output >, $($type,)*) -> Output, { fn call(& mut self, $($arg : $type,)*) ->
+        Output { let ptr = self.f.get(); unsafe { (* ptr) (self, $($arg,)*) } } }
+    };
+}
+recursive_function!(RecursiveFunction0, Callable0, ());
+recursive_function!(RecursiveFunction, Callable, (Arg arg,));
+recursive_function!(RecursiveFunction2, Callable2, (Arg1 arg1, Arg2 arg2,));
+recursive_function!(RecursiveFunction3, Callable3, (Arg1 arg1, Arg2 arg2, Arg3 arg3,));
+recursive_function!(
+    RecursiveFunction4, Callable4, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4,)
+);
+recursive_function!(
+    RecursiveFunction5, Callable5, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
+    arg5,)
+);
+recursive_function!(
+    RecursiveFunction6, Callable6, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
+    arg5, Arg6 arg6,)
+);
+recursive_function!(
+    RecursiveFunction7, Callable7, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
+    arg5, Arg6 arg6, Arg7 arg7,)
+);
+recursive_function!(
+    RecursiveFunction8, Callable8, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
+    arg5, Arg6 arg6, Arg7 arg7, Arg8 arg8,)
+);
+recursive_function!(
+    RecursiveFunction9, Callable9, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
+    arg5, Arg6 arg6, Arg7 arg7, Arg8 arg8, Arg9 arg9,)
+);
 }
 }
 }
