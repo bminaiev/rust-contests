@@ -12,11 +12,14 @@ $SOLVE
 fn main() {
     const PROBLEM_NAME: &str = "$TASK";
     use algo_lib::tester::helper::*;
+    #[allow(unused)]
+    use algo_lib::misc::dragon::run_dragon;
 
     run_tests(PROBLEM_NAME, run);
     // run_single_test(PROBLEM_NAME, run, "1");
     // run_stress(stress);
     // run_locally(run);
+    // run_dragon(solve, "W", 1..2);
 }
 //END MAIN
 
