@@ -1,64 +1,46 @@
-use std::collections::HashSet;
 
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
-use crate::algo_lib::misc::rec_function::{Callable3, RecursiveFunction3};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-fn sum_digits(mut n: i128) -> i128 {
-    let mut res = 0;
-    while n > 0 {
-        res += n % 10;
-        n /= 10;
-    }
-    res
-}
-fn solve_case(d: i128) -> Option<(i128, i128)> {
-    let mut seen = HashSet::new();
-    RecursiveFunction3::new(|f, pos: usize, a: i128, b: i128| -> Option<(i128, i128)> {
-            if pos == 33 {
-                return None;
-            }
-            let sum_a = sum_digits(a);
-            let sum_b = sum_digits(b);
-            if sum_a == sum_b && a - b == d {
-                return Some((a, b));
-            }
-            let pw10 = 10i128.pow(pos as u32);
-            if ((a - b - d) % pw10) != 0 {
-                return None;
-            }
-            let key = (pos, sum_a - sum_b, a - b);
-            if !seen.insert(key) {
-                return None;
-            }
-            for x in 0..10 {
-                for y in 0..10 {
-                    let na = a + x * pw10;
-                    let nb = b + y * pw10;
-                    if let Some(res) = f.call(pos + 1, na, nb) {
-                        return Some(res);
-                    }
-                }
-            }
-            None
-        })
-        .call(0, 0, 0)
-}
+use crate::algo_lib::misc::binary_search::binary_search_first_true;
 fn solve(input: &mut Input, out: &mut Output) {
     let tc = input.usize();
-    let ds = input.vec::<i128>(tc);
-    let res = ds.par_iter().map(|&d| (d, solve_case(d))).collect::<Vec<_>>();
-    let mut cnt_none = 0;
-    for (d, res) in res {
-        if let Some((x, y)) = res {
-            assert!(x - y == d);
-            out.println(vec![x, y]);
-        } else {
-            cnt_none += 1;
-            out.println("NONE");
+    for _ in 0..tc {
+        let n = input.usize();
+        let per_rock = input.usize();
+        let per_round = input.usize();
+        const MAX_TIME: usize = 50_000;
+        const MAX_ROCKS: usize = 5000;
+        let mut dp = vec![1; MAX_TIME + 1];
+        let mut do_cnt_rocks = vec![0; MAX_TIME + 1];
+        for time in 1..=MAX_TIME {
+            for cnt_rocks in 1..=MAX_ROCKS {
+                let need_time = per_rock * cnt_rocks + per_round;
+                if need_time > time {
+                    break;
+                }
+                let left_time = time - need_time;
+                let max_subsegment = dp[left_time];
+                let max_value = max_subsegment * (cnt_rocks + 1);
+                if max_value > dp[time] {
+                    do_cnt_rocks[time] = cnt_rocks;
+                    dp[time] = dp[time].max(max_value);
+                }
+            }
         }
+        let res = binary_search_first_true(0..MAX_TIME, |time| dp[time] >= n);
+        assert!(dp[res] >= n);
+        out.println(res);
+        let cnt_rocks = do_cnt_rocks[res];
+        let segment_len = n.div_ceil(cnt_rocks + 1);
+        let mut positions = vec![];
+        for i in 0..cnt_rocks {
+            let x = (i + 1) * segment_len;
+            assert!(x < n);
+            positions.push(x);
+        }
+        out.println(positions.len());
+        out.println(positions);
     }
-    dbg!(cnt_none);
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
     solve(&mut input, &mut output);
@@ -503,6 +485,37 @@ impl<T: Writable, U: Writable, V: Writable> Writable for (T, U, V) {
 }
 }
 pub mod misc {
+pub mod binary_search {
+use crate::algo_lib::misc::num_traits::Number;
+use std::ops::Range;
+pub fn binary_search_first_true<T>(range: Range<T>, mut f: impl FnMut(T) -> bool) -> T
+where
+    T: Number,
+{
+    let mut left_plus_one = range.start;
+    let mut right = range.end;
+    while right > left_plus_one {
+        let mid = left_plus_one + (right - left_plus_one) / T::TWO;
+        if f(mid) {
+            right = mid;
+        } else {
+            left_plus_one = mid + T::ONE;
+        }
+    }
+    right
+}
+pub fn binary_search_last_true<T>(
+    range: Range<T>,
+    mut f: impl FnMut(T) -> bool,
+) -> Option<T>
+where
+    T: Number,
+{
+    let first_false = binary_search_first_true(range.clone(), |x| !f(x));
+    if first_false == range.start { None } else { Some(first_false - T::ONE) }
+}
+
+}
 pub mod dbg_macro {
 #[macro_export]
 macro_rules! dbg {
@@ -517,51 +530,84 @@ macro_rules! dbg {
     };
 }
 }
-pub mod rec_function {
-use std::cell::UnsafeCell;
-use std::marker::PhantomData;
-macro_rules! recursive_function {
-    ($name:ident, $trait:ident, ($($type:ident $arg:ident,)*)) => {
-        pub trait $trait <$($type,)* Output > { fn call(& mut self, $($arg : $type,)*) ->
-        Output; } pub struct $name < F, $($type,)* Output > where F : FnMut(& mut dyn
-        $trait <$($type,)* Output >, $($type,)*) -> Output, { f : UnsafeCell < F >,
-        $($arg : PhantomData <$type >,)* phantom_output : PhantomData < Output >, } impl
-        < F, $($type,)* Output > $name < F, $($type,)* Output > where F : FnMut(& mut dyn
-        $trait <$($type,)* Output >, $($type,)*) -> Output, { pub fn new(f : F) -> Self {
-        Self { f : f.into(), $($arg : Default::default(),)* phantom_output :
-        Default::default(), } } } impl < F, $($type,)* Output > $trait <$($type,)* Output
-        > for $name < F, $($type,)* Output > where F : FnMut(& mut dyn $trait <$($type,)*
-        Output >, $($type,)*) -> Output, { fn call(& mut self, $($arg : $type,)*) ->
-        Output { let ptr = self.f.get(); unsafe { (* ptr) (self, $($arg,)*) } } }
+pub mod num_traits {
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+pub trait HasConstants<T> {
+    const MAX: T;
+    const MIN: T;
+    const ZERO: T;
+    const ONE: T;
+    const TWO: T;
+}
+pub trait ConvSimple<T> {
+    fn from_i32(val: i32) -> T;
+    fn to_i32(self) -> i32;
+    fn to_f64(self) -> f64;
+}
+pub trait Signum {
+    fn signum(&self) -> i32;
+}
+pub trait Number: Copy + Add<
+        Output = Self,
+    > + AddAssign + Sub<
+        Output = Self,
+    > + SubAssign + Mul<
+        Output = Self,
+    > + MulAssign + Div<
+        Output = Self,
+    > + DivAssign + PartialOrd + PartialEq + HasConstants<
+        Self,
+    > + Default + Debug + Sized + ConvSimple<Self> {}
+impl<
+    T: Copy + Add<Output = Self> + AddAssign + Sub<Output = Self> + SubAssign
+        + Mul<Output = Self> + MulAssign + Div<Output = Self> + DivAssign + PartialOrd
+        + PartialEq + HasConstants<Self> + Default + Debug + Sized + ConvSimple<Self>,
+> Number for T {}
+macro_rules! has_constants_impl {
+    ($t:ident) => {
+        impl HasConstants <$t > for $t { const MAX : $t = $t ::MAX; const MIN : $t = $t
+        ::MIN; const ZERO : $t = 0; const ONE : $t = 1; const TWO : $t = 2; } impl
+        ConvSimple <$t > for $t { fn from_i32(val : i32) -> $t { val as $t } fn
+        to_i32(self) -> i32 { self as i32 } fn to_f64(self) -> f64 { self as f64 } }
     };
 }
-recursive_function!(RecursiveFunction0, Callable0, ());
-recursive_function!(RecursiveFunction, Callable, (Arg arg,));
-recursive_function!(RecursiveFunction2, Callable2, (Arg1 arg1, Arg2 arg2,));
-recursive_function!(RecursiveFunction3, Callable3, (Arg1 arg1, Arg2 arg2, Arg3 arg3,));
-recursive_function!(
-    RecursiveFunction4, Callable4, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4,)
-);
-recursive_function!(
-    RecursiveFunction5, Callable5, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
-    arg5,)
-);
-recursive_function!(
-    RecursiveFunction6, Callable6, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
-    arg5, Arg6 arg6,)
-);
-recursive_function!(
-    RecursiveFunction7, Callable7, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
-    arg5, Arg6 arg6, Arg7 arg7,)
-);
-recursive_function!(
-    RecursiveFunction8, Callable8, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
-    arg5, Arg6 arg6, Arg7 arg7, Arg8 arg8,)
-);
-recursive_function!(
-    RecursiveFunction9, Callable9, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
-    arg5, Arg6 arg6, Arg7 arg7, Arg8 arg8, Arg9 arg9,)
-);
+has_constants_impl!(i32);
+has_constants_impl!(i64);
+has_constants_impl!(i128);
+has_constants_impl!(u32);
+has_constants_impl!(u64);
+has_constants_impl!(u128);
+has_constants_impl!(usize);
+has_constants_impl!(u8);
+impl ConvSimple<Self> for f64 {
+    fn from_i32(val: i32) -> Self {
+        val as f64
+    }
+    fn to_i32(self) -> i32 {
+        self as i32
+    }
+    fn to_f64(self) -> f64 {
+        self
+    }
+}
+impl HasConstants<Self> for f64 {
+    const MAX: Self = Self::MAX;
+    const MIN: Self = -Self::MAX;
+    const ZERO: Self = 0.0;
+    const ONE: Self = 1.0;
+    const TWO: Self = 2.0;
+}
+impl<T: Number + Ord> Signum for T {
+    fn signum(&self) -> i32 {
+        match self.cmp(&T::ZERO) {
+            Ordering::Greater => 1,
+            Ordering::Less => -1,
+            Ordering::Equal => 0,
+        }
+    }
+}
 }
 }
 }
