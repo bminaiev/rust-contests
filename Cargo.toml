@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "tasks/tt",
   # "main",
   # DO not format this file.
   "algo_lib",

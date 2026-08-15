@@ -71,6 +71,10 @@ impl Permutation {
     pub fn len(&self) -> usize {
         self.ids.len()
     }
+
+    pub fn to_vec(&self) -> Vec<usize> {
+        self.ids.clone()
+    }
 }
 
 impl Index<usize> for Permutation {

@@ -1,46 +1,10 @@
 
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
-use crate::algo_lib::misc::binary_search::binary_search_first_true;
 fn solve(input: &mut Input, out: &mut Output) {
-    let tc = input.usize();
-    for _ in 0..tc {
-        let n = input.usize();
-        let per_rock = input.usize();
-        let per_round = input.usize();
-        const MAX_TIME: usize = 50_000;
-        const MAX_ROCKS: usize = 5000;
-        let mut dp = vec![1; MAX_TIME + 1];
-        let mut do_cnt_rocks = vec![0; MAX_TIME + 1];
-        for time in 1..=MAX_TIME {
-            for cnt_rocks in 1..=MAX_ROCKS {
-                let need_time = per_rock * cnt_rocks + per_round;
-                if need_time > time {
-                    break;
-                }
-                let left_time = time - need_time;
-                let max_subsegment = dp[left_time];
-                let max_value = max_subsegment * (cnt_rocks + 1);
-                if max_value > dp[time] {
-                    do_cnt_rocks[time] = cnt_rocks;
-                    dp[time] = dp[time].max(max_value);
-                }
-            }
-        }
-        let res = binary_search_first_true(0..MAX_TIME, |time| dp[time] >= n);
-        assert!(dp[res] >= n);
-        out.println(res);
-        let cnt_rocks = do_cnt_rocks[res];
-        let segment_len = n.div_ceil(cnt_rocks + 1);
-        let mut positions = vec![];
-        for i in 0..cnt_rocks {
-            let x = (i + 1) * segment_len;
-            assert!(x < n);
-            positions.push(x);
-        }
-        out.println(positions.len());
-        out.println(positions);
-    }
+    let x = input.i32();
+    let y = input.i32();
+    out.println(x + y);
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
     solve(&mut input, &mut output);
@@ -485,37 +449,6 @@ impl<T: Writable, U: Writable, V: Writable> Writable for (T, U, V) {
 }
 }
 pub mod misc {
-pub mod binary_search {
-use crate::algo_lib::misc::num_traits::Number;
-use std::ops::Range;
-pub fn binary_search_first_true<T>(range: Range<T>, mut f: impl FnMut(T) -> bool) -> T
-where
-    T: Number,
-{
-    let mut left_plus_one = range.start;
-    let mut right = range.end;
-    while right > left_plus_one {
-        let mid = left_plus_one + (right - left_plus_one) / T::TWO;
-        if f(mid) {
-            right = mid;
-        } else {
-            left_plus_one = mid + T::ONE;
-        }
-    }
-    right
-}
-pub fn binary_search_last_true<T>(
-    range: Range<T>,
-    mut f: impl FnMut(T) -> bool,
-) -> Option<T>
-where
-    T: Number,
-{
-    let first_false = binary_search_first_true(range.clone(), |x| !f(x));
-    if first_false == range.start { None } else { Some(first_false - T::ONE) }
-}
-
-}
 pub mod dbg_macro {
 #[macro_export]
 macro_rules! dbg {
@@ -528,85 +461,6 @@ macro_rules! dbg {
         eprintln!("[{}:{}] {} = {:?}", file!(), line!(), stringify!($first_val),
         &$first_val)
     };
-}
-}
-pub mod num_traits {
-use std::cmp::Ordering;
-use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-pub trait HasConstants<T> {
-    const MAX: T;
-    const MIN: T;
-    const ZERO: T;
-    const ONE: T;
-    const TWO: T;
-}
-pub trait ConvSimple<T> {
-    fn from_i32(val: i32) -> T;
-    fn to_i32(self) -> i32;
-    fn to_f64(self) -> f64;
-}
-pub trait Signum {
-    fn signum(&self) -> i32;
-}
-pub trait Number: Copy + Add<
-        Output = Self,
-    > + AddAssign + Sub<
-        Output = Self,
-    > + SubAssign + Mul<
-        Output = Self,
-    > + MulAssign + Div<
-        Output = Self,
-    > + DivAssign + PartialOrd + PartialEq + HasConstants<
-        Self,
-    > + Default + Debug + Sized + ConvSimple<Self> {}
-impl<
-    T: Copy + Add<Output = Self> + AddAssign + Sub<Output = Self> + SubAssign
-        + Mul<Output = Self> + MulAssign + Div<Output = Self> + DivAssign + PartialOrd
-        + PartialEq + HasConstants<Self> + Default + Debug + Sized + ConvSimple<Self>,
-> Number for T {}
-macro_rules! has_constants_impl {
-    ($t:ident) => {
-        impl HasConstants <$t > for $t { const MAX : $t = $t ::MAX; const MIN : $t = $t
-        ::MIN; const ZERO : $t = 0; const ONE : $t = 1; const TWO : $t = 2; } impl
-        ConvSimple <$t > for $t { fn from_i32(val : i32) -> $t { val as $t } fn
-        to_i32(self) -> i32 { self as i32 } fn to_f64(self) -> f64 { self as f64 } }
-    };
-}
-has_constants_impl!(i32);
-has_constants_impl!(i64);
-has_constants_impl!(i128);
-has_constants_impl!(u32);
-has_constants_impl!(u64);
-has_constants_impl!(u128);
-has_constants_impl!(usize);
-has_constants_impl!(u8);
-impl ConvSimple<Self> for f64 {
-    fn from_i32(val: i32) -> Self {
-        val as f64
-    }
-    fn to_i32(self) -> i32 {
-        self as i32
-    }
-    fn to_f64(self) -> f64 {
-        self
-    }
-}
-impl HasConstants<Self> for f64 {
-    const MAX: Self = Self::MAX;
-    const MIN: Self = -Self::MAX;
-    const ZERO: Self = 0.0;
-    const ONE: Self = 1.0;
-    const TWO: Self = 2.0;
-}
-impl<T: Number + Ord> Signum for T {
-    fn signum(&self) -> i32 {
-        match self.cmp(&T::ZERO) {
-            Ordering::Greater => 1,
-            Ordering::Less => -1,
-            Ordering::Equal => 0,
-        }
-    }
 }
 }
 }
