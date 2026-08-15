@@ -81,59 +81,25 @@ impl SuffixArray {
     {
         str.push(T::ZERO);
         let n = str.len();
-        let mut sorted_suffixes = gen_vec(str.len(), |x| x);
-        // TODO: replace with counting sort?
-        sorted_suffixes.sort_by_key(|&id| str[id]);
-        let mut class_eq = vec![0; n];
-        for win in sorted_suffixes.windows(2) {
+        // Rank-compress to a dense integer alphabet; the appended sentinel gets
+        // rank 0, strictly smaller than everything else.
+        let mut order = gen_vec(n - 1, |x| x);
+        order.sort_unstable_by_key(|&id| str[id]);
+        let mut ranks = vec![0u32; n];
+        let mut num_ranks = 1u32;
+        for (pos, win) in order.windows(2).enumerate() {
+            if pos == 0 {
+                ranks[win[0]] = 1;
+            }
             if str[win[1]] != str[win[0]] {
-                class_eq[win[1]] = class_eq[win[0]] + 1;
-            } else {
-                class_eq[win[1]] = class_eq[win[0]];
+                num_ranks += 1;
             }
+            ranks[win[1]] = num_ranks;
         }
-        let mut num_classes = class_eq.iter().max().unwrap() + 1;
-        let mut suffixes_new = vec![0; n];
-        let mut class_eq_new = vec![0; n];
-        let mut cnt = vec![0; n];
-        for lvl in 0.. {
-            let half = 1 << lvl;
-            if half >= n {
-                break;
-            }
-            for (val_new, val) in suffixes_new.iter_mut().zip(sorted_suffixes.iter()) {
-                let next = (*val as i32) - (half as i32);
-                let next = if next < 0 { next + n as i32 } else { next };
-                *val_new = next as usize;
-            }
-            for i in 0..num_classes {
-                cnt[i] = 0;
-            }
-            for &class_id in class_eq.iter() {
-                cnt[class_id] += 1;
-            }
-            for i in 1..num_classes {
-                cnt[i] += cnt[i - 1];
-            }
-            for i in (0..n).rev() {
-                cnt[class_eq[suffixes_new[i]]] -= 1;
-                sorted_suffixes[cnt[class_eq[suffixes_new[i]]]] = suffixes_new[i];
-            }
-            class_eq_new[sorted_suffixes[0]] = 0;
-            num_classes = 1;
-            for i in 1..n {
-                let mid1 = (sorted_suffixes[i] + half) % n;
-                let mid2 = (sorted_suffixes[i - 1] + half) % n;
-                if class_eq[sorted_suffixes[i]] != class_eq[sorted_suffixes[i - 1]]
-                    || class_eq[mid1] != class_eq[mid2]
-                {
-                    num_classes += 1;
-                }
-                class_eq_new[sorted_suffixes[i]] = num_classes - 1;
-            }
-            class_eq.copy_from_slice(&class_eq_new);
+        if n == 2 {
+            ranks[order[0]] = 1;
         }
-
+        let sorted_suffixes = sais(&ranks, num_ranks as usize + 1);
         let pos_in_sorted = rev_permutation(&sorted_suffixes);
         let lcp = Self::build_lcp(&str, &sorted_suffixes, &pos_in_sorted);
         if cfg!(debug_assertions) {
@@ -169,4 +135,98 @@ impl Index<usize> for SuffixArray {
     fn index(&self, index: usize) -> &Self::Output {
         &self.sorted_suffixes[index]
     }
+}
+
+// SA-IS, O(n). `s` must end with a unique smallest character (sentinel) and
+// contain values in 0..alphabet.
+fn sais(s: &[u32], alphabet: usize) -> Vec<usize> {
+    const EMPTY: usize = usize::MAX;
+    let n = s.len();
+    if n == 1 {
+        return vec![0];
+    }
+    let mut is_s = vec![false; n];
+    is_s[n - 1] = true;
+    for i in (0..n - 1).rev() {
+        is_s[i] = s[i] < s[i + 1] || (s[i] == s[i + 1] && is_s[i + 1]);
+    }
+    let mut cnt = vec![0usize; alphabet];
+    for &c in s {
+        cnt[c as usize] += 1;
+    }
+    let bucket_starts = |bkt: &mut Vec<usize>| {
+        let mut sum = 0;
+        for (b, &c) in bkt.iter_mut().zip(cnt.iter()) {
+            *b = sum;
+            sum += c;
+        }
+    };
+    let bucket_ends = |bkt: &mut Vec<usize>| {
+        let mut sum = 0;
+        for (b, &c) in bkt.iter_mut().zip(cnt.iter()) {
+            sum += c;
+            *b = sum;
+        }
+    };
+    let mut sa = vec![EMPTY; n];
+    let mut bkt = vec![0usize; alphabet];
+    let induce = |sa: &mut Vec<usize>, bkt: &mut Vec<usize>, lms_in_order: &[usize]| {
+        sa.fill(EMPTY);
+        bucket_ends(bkt);
+        for &p in lms_in_order.iter().rev() {
+            let c = s[p] as usize;
+            bkt[c] -= 1;
+            sa[bkt[c]] = p;
+        }
+        bucket_starts(bkt);
+        for i in 0..n {
+            let j = sa[i];
+            if j != EMPTY && j > 0 && !is_s[j - 1] {
+                let c = s[j - 1] as usize;
+                sa[bkt[c]] = j - 1;
+                bkt[c] += 1;
+            }
+        }
+        bucket_ends(bkt);
+        for i in (0..n).rev() {
+            let j = sa[i];
+            if j != EMPTY && j > 0 && is_s[j - 1] {
+                let c = s[j - 1] as usize;
+                bkt[c] -= 1;
+                sa[bkt[c]] = j - 1;
+            }
+        }
+    };
+    let lms: Vec<usize> = (1..n).filter(|&i| is_s[i] && !is_s[i - 1]).collect();
+    induce(&mut sa, &mut bkt, &lms);
+    let mut sorted_lms: Vec<usize> = sa
+        .iter()
+        .copied()
+        .filter(|&p| p > 0 && is_s[p] && !is_s[p - 1])
+        .collect();
+    // Name LMS substrings by their rank; equal substrings get equal names.
+    let mut next_lms = vec![0usize; n];
+    for w in lms.windows(2) {
+        next_lms[w[0]] = w[1];
+    }
+    next_lms[*lms.last().unwrap()] = n - 1;
+    let mut name_of = vec![0u32; n];
+    let mut num_names = 1u32;
+    for w in sorted_lms.windows(2) {
+        let (p1, p2) = (w[0], w[1]);
+        let (e1, e2) = (next_lms[p1], next_lms[p2]);
+        if e1 - p1 != e2 - p2 || s[p1..=e1] != s[p2..=e2] {
+            num_names += 1;
+        }
+        name_of[p2] = num_names - 1;
+    }
+    if (num_names as usize) < sorted_lms.len() {
+        let reduced: Vec<u32> = lms.iter().map(|&p| name_of[p]).collect();
+        let reduced_sa = sais(&reduced, num_names as usize);
+        for (target, &i) in sorted_lms.iter_mut().zip(reduced_sa.iter()) {
+            *target = lms[i];
+        }
+    }
+    induce(&mut sa, &mut bkt, &sorted_lms);
+    sa
 }
