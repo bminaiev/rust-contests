@@ -1,10 +1,40 @@
 
+use crate::algo_lib::graph::two_sat::TwoSat;
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
 fn solve(input: &mut Input, out: &mut Output) {
-    let x = input.i32();
-    let y = input.i32();
-    out.println(x + y);
+    let tc = input.usize();
+    for _ in 0..tc {
+        let n = input.usize();
+        let m = input.usize();
+        let mut ts = TwoSat::new(n);
+        for _ in 0..m {
+            let ty = input.usize();
+            let x = input.usize() - 1;
+            let y = input.usize() - 1;
+            if ty == 1 {
+                ts.add_edge(x, true, x, false);
+                ts.add_edge(y, true, y, false);
+            } else {
+                ts.add_edge(x, false, y, true);
+                ts.add_edge(y, false, x, true);
+            }
+        }
+        if let Some(ans) = ts.find_solution() {
+            out.println("YES");
+            let mut res = vec![];
+            for i in 0..n {
+                if ans[i] {
+                    res.push(-1);
+                } else {
+                    res.push(0);
+                }
+            }
+            out.println(res);
+        } else {
+            out.println("NO");
+        }
+    }
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
     solve(&mut input, &mut output);
@@ -18,6 +48,100 @@ fn main() {
     run(input, output);
 }
 pub mod algo_lib {
+pub mod graph {
+pub mod two_sat {
+pub struct TwoSat {
+    g: Vec<Vec<usize>>,
+    g_rev: Vec<Vec<usize>>,
+    restrictions: Vec<(usize, bool, usize, bool)>,
+}
+impl TwoSat {
+    pub fn new(n: usize) -> Self {
+        Self {
+            g: vec![vec![]; 2 * n],
+            g_rev: vec![vec![]; 2 * n],
+            restrictions: vec![],
+        }
+    }
+    pub fn add_edge(&mut self, u: usize, u_val: bool, v: usize, v_val: bool) {
+        self.restrictions.push((u, u_val, v, v_val));
+        let u = 2 * u + (u_val as usize);
+        let v = 2 * v + (v_val as usize);
+        self.g[u].push(v);
+        self.g_rev[v].push(u);
+        self.g[v ^ 1].push(u ^ 1);
+        self.g_rev[u ^ 1].push(v ^ 1);
+    }
+    pub fn find_solution(&self) -> Option<Vec<bool>> {
+        let n = self.g.len();
+        let mut order = vec![];
+        let mut used = vec![false; n];
+        for i in 0..n {
+            if !used[i] {
+                self.dfs1(i, &mut used, &mut order);
+            }
+        }
+        let mut comp = vec![0; n];
+        let mut used = vec![false; n];
+        let mut c = 0;
+        for &v in order.iter().rev() {
+            if !used[v] {
+                self.dfs2(v, c, &mut used, &mut comp);
+                c += 1;
+            }
+        }
+        for i in 0..n / 2 {
+            if comp[2 * i] == comp[2 * i + 1] {
+                return None;
+            }
+        }
+        let mut res = vec![false; n / 2];
+        for i in 0..n / 2 {
+            res[i] = comp[2 * i + 1] > comp[2 * i];
+        }
+        for &(u, u_val, v, v_val) in self.restrictions.iter() {
+            if res[u] == u_val {
+                assert!(res[v] == v_val);
+            }
+        }
+        Some(res)
+    }
+    fn dfs1(&self, v: usize, used: &mut [bool], order: &mut Vec<usize>) {
+        used[v] = true;
+        let mut stack = vec![(v, 0)];
+        while !stack.is_empty() {
+            let last = stack.len() - 1;
+            let (v, next_edge) = stack[last];
+            if next_edge == self.g[v].len() {
+                order.push(v);
+                stack.pop();
+            } else {
+                let u = self.g[v][next_edge];
+                stack[last].1 += 1;
+                if !used[u] {
+                    used[u] = true;
+                    stack.push((u, 0));
+                }
+            }
+        }
+    }
+    fn dfs2(&self, v: usize, c: usize, used: &mut [bool], comp: &mut [usize]) {
+        used[v] = true;
+        let mut stack = vec![v];
+        while let Some(v) = stack.pop() {
+            comp[v] = c;
+            for &u in self.g_rev[v].iter() {
+                if !used[u] {
+                    used[u] = true;
+                    stack.push(u);
+                }
+            }
+        }
+    }
+}
+
+}
+}
 pub mod io {
 pub mod input {
 use std::fmt::Debug;

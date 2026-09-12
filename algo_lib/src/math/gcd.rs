@@ -56,3 +56,14 @@ where
 {
     x / gcd(x, y) * y
 }
+
+pub fn mod_inv(a: i64, m: i64) -> Option<i64> {
+    let mut x = 0;
+    let mut y = 0;
+    let g = extended_gcd(a, m, &mut x, &mut y);
+    if g != 1 {
+        None
+    } else {
+        Some((x % m + m) % m)
+    }
+}

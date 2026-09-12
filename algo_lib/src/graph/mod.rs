@@ -18,4 +18,5 @@ pub mod simple_algorithms;
 pub mod simple_graph;
 pub mod strongly_connected_components;
 pub mod trees;
+pub mod two_sat;
 pub mod weighted_graph;
