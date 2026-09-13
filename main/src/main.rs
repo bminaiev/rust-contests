@@ -1,39 +1,98 @@
 
-use crate::algo_lib::graph::two_sat::TwoSat;
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
+use crate::algo_lib::math::chinease_remainder::chinease_remainder;
+use crate::algo_lib::math::gcd::lcm;
+use crate::algo_lib::misc::rand::Random;
+use crate::algo_lib::misc::rec_function::{Callable5, RecursiveFunction5};
+use crate::algo_lib::misc::vec_apply_delta::ApplyDelta;
+fn solve_case(parent: &[usize], len_up: &[i128], queries: &[i128]) -> Vec<usize> {
+    let n = parent.len();
+    let mut g = vec![vec![]; n];
+    for i in 1..n {
+        g[parent[i]].push(i);
+    }
+    let q = queries.len();
+    let mut res = vec![n + 1; q];
+    RecursiveFunction5::new(|
+            f,
+            v: usize,
+            cur_len: i128,
+            k: i128,
+            b: i128,
+            cur_req_index: Vec<usize>|
+        {
+            if cur_req_index.is_empty() {
+                return;
+            }
+            if g[v].is_empty() {
+                for id in cur_req_index {
+                    res[id] = v + 1;
+                }
+                return;
+            }
+            let sz = g[v].len();
+            if k > 2_000_000_000_000_000_000_i128 {
+                let req = queries[cur_req_index[0]];
+                let to = g[v][((req + cur_len) % sz as i128) as usize];
+                f.call(to, cur_len + len_up[to], k, b, cur_req_index);
+                return;
+            }
+            let nk = lcm(sz as i128, k);
+            if k == nk {
+                let to = g[v][((cur_len + b) % sz as i128) as usize];
+                f.call(to, cur_len + len_up[to], k, b, cur_req_index);
+                return;
+            }
+            let mut children = vec![vec![]; sz];
+            for id in cur_req_index {
+                let time = ((queries[id] + cur_len) % sz as i128) as usize;
+                children[time].push(id);
+            }
+            for (i, child_queries) in children.into_iter().enumerate() {
+                if child_queries.is_empty() {
+                    continue;
+                }
+                let to = g[v][i];
+                let sz_mod = (((i as i128 - cur_len) % sz as i128) + sz as i128)
+                    % sz as i128;
+                let nb = chinease_remainder(&[sz_mod, b], &[sz as i128, k]).unwrap();
+                f.call(to, cur_len + len_up[to], nk, nb, child_queries);
+            }
+        })
+        .call(0, 0, 1, 0, (0..q).collect());
+    res
+}
 fn solve(input: &mut Input, out: &mut Output) {
     let tc = input.usize();
     for _ in 0..tc {
         let n = input.usize();
-        let m = input.usize();
-        let mut ts = TwoSat::new(n);
-        for _ in 0..m {
-            let ty = input.usize();
-            let x = input.usize() - 1;
-            let y = input.usize() - 1;
-            if ty == 1 {
-                ts.add_edge(x, true, x, false);
-                ts.add_edge(y, true, y, false);
-            } else {
-                ts.add_edge(x, false, y, true);
-                ts.add_edge(y, false, x, true);
-            }
+        let q = input.usize();
+        let mut parent = input.vec::<usize>(n - 1).sub_from_all(1);
+        parent.insert(0, 0);
+        let mut len_up = input.vec::<i128>(n - 1);
+        len_up.insert(0, 0);
+        let queries = input.vec::<i128>(q);
+        let res = solve_case(&parent, &len_up, &queries);
+        out.println(res);
+    }
+}
+fn stress() {
+    for it in 1.. {
+        dbg!(it);
+        let mut rnd = Random::new(it);
+        let n = rnd.gen_range(1..100000);
+        let q = rnd.gen_range(1..100000);
+        let mut parent = vec![0; n];
+        for i in 1..n {
+            parent[i] = rnd.gen_range(0..i.min(10));
         }
-        if let Some(ans) = ts.find_solution() {
-            out.println("YES");
-            let mut res = vec![];
-            for i in 0..n {
-                if ans[i] {
-                    res.push(-1);
-                } else {
-                    res.push(0);
-                }
-            }
-            out.println(res);
-        } else {
-            out.println("NO");
+        let mut len_up = vec![0; n];
+        for i in 1..n {
+            len_up[i] = rnd.gen_range(0..1000);
         }
+        let queries = (0..q).map(|_| rnd.gen_range(0..1_0)).collect::<Vec<_>>();
+        let res = solve_case(&parent, &len_up, &queries);
     }
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
@@ -48,100 +107,6 @@ fn main() {
     run(input, output);
 }
 pub mod algo_lib {
-pub mod graph {
-pub mod two_sat {
-pub struct TwoSat {
-    g: Vec<Vec<usize>>,
-    g_rev: Vec<Vec<usize>>,
-    restrictions: Vec<(usize, bool, usize, bool)>,
-}
-impl TwoSat {
-    pub fn new(n: usize) -> Self {
-        Self {
-            g: vec![vec![]; 2 * n],
-            g_rev: vec![vec![]; 2 * n],
-            restrictions: vec![],
-        }
-    }
-    pub fn add_edge(&mut self, u: usize, u_val: bool, v: usize, v_val: bool) {
-        self.restrictions.push((u, u_val, v, v_val));
-        let u = 2 * u + (u_val as usize);
-        let v = 2 * v + (v_val as usize);
-        self.g[u].push(v);
-        self.g_rev[v].push(u);
-        self.g[v ^ 1].push(u ^ 1);
-        self.g_rev[u ^ 1].push(v ^ 1);
-    }
-    pub fn find_solution(&self) -> Option<Vec<bool>> {
-        let n = self.g.len();
-        let mut order = vec![];
-        let mut used = vec![false; n];
-        for i in 0..n {
-            if !used[i] {
-                self.dfs1(i, &mut used, &mut order);
-            }
-        }
-        let mut comp = vec![0; n];
-        let mut used = vec![false; n];
-        let mut c = 0;
-        for &v in order.iter().rev() {
-            if !used[v] {
-                self.dfs2(v, c, &mut used, &mut comp);
-                c += 1;
-            }
-        }
-        for i in 0..n / 2 {
-            if comp[2 * i] == comp[2 * i + 1] {
-                return None;
-            }
-        }
-        let mut res = vec![false; n / 2];
-        for i in 0..n / 2 {
-            res[i] = comp[2 * i + 1] > comp[2 * i];
-        }
-        for &(u, u_val, v, v_val) in self.restrictions.iter() {
-            if res[u] == u_val {
-                assert!(res[v] == v_val);
-            }
-        }
-        Some(res)
-    }
-    fn dfs1(&self, v: usize, used: &mut [bool], order: &mut Vec<usize>) {
-        used[v] = true;
-        let mut stack = vec![(v, 0)];
-        while !stack.is_empty() {
-            let last = stack.len() - 1;
-            let (v, next_edge) = stack[last];
-            if next_edge == self.g[v].len() {
-                order.push(v);
-                stack.pop();
-            } else {
-                let u = self.g[v][next_edge];
-                stack[last].1 += 1;
-                if !used[u] {
-                    used[u] = true;
-                    stack.push((u, 0));
-                }
-            }
-        }
-    }
-    fn dfs2(&self, v: usize, c: usize, used: &mut [bool], comp: &mut [usize]) {
-        used[v] = true;
-        let mut stack = vec![v];
-        while let Some(v) = stack.pop() {
-            comp[v] = c;
-            for &u in self.g_rev[v].iter() {
-                if !used[u] {
-                    used[u] = true;
-                    stack.push(u);
-                }
-            }
-        }
-    }
-}
-
-}
-}
 pub mod io {
 pub mod input {
 use std::fmt::Debug;
@@ -572,6 +537,128 @@ impl<T: Writable, U: Writable, V: Writable> Writable for (T, U, V) {
 }
 }
 }
+pub mod math {
+pub mod chinease_remainder {
+use std::ops::Rem;
+use crate::algo_lib::{math::gcd::gcd, misc::num_traits::Number};
+fn add_mod<N: Number + Rem<Output = N>>(a: N, b: N, modulus: N) -> N {
+    if a >= modulus - b { a - (modulus - b) } else { a + b }
+}
+fn mul_mod<N: Number + Rem<Output = N>>(mut a: N, mut b: N, modulus: N) -> N {
+    let mut result = N::ZERO;
+    a = a % modulus;
+    while b > N::ZERO {
+        if b % N::TWO != N::ZERO {
+            result = add_mod(result, a, modulus);
+        }
+        b /= N::TWO;
+        if b > N::ZERO {
+            a = add_mod(a, a, modulus);
+        }
+    }
+    result
+}
+fn mod_inverse<N: Number + Rem<Output = N>>(value: N, modulus: N) -> Option<N> {
+    if modulus == N::ONE {
+        return Some(N::ZERO);
+    }
+    let (mut r0, mut r1) = (modulus, value % modulus);
+    let (mut x0, mut x1) = (N::ZERO, N::ONE);
+    while r1 != N::ZERO {
+        let quotient = r0 / r1;
+        (r0, r1) = (r1, r0 % r1);
+        let sub = mul_mod(quotient % modulus, x1, modulus);
+        let x2 = if x0 >= sub { x0 - sub } else { modulus - (sub - x0) };
+        (x0, x1) = (x1, x2);
+    }
+    (r0 == N::ONE).then_some(x0)
+}
+pub fn chinease_remainder<N: Number + Rem<Output = N>>(a: &[N], m: &[N]) -> Option<N> {
+    (a.len() == m.len()).then_some(())?;
+    let (mut result, mut step) = (N::ZERO, N::ONE);
+    for (&value, &modulus) in a.iter().zip(m) {
+        (modulus > N::ZERO).then_some(())?;
+        let value = (value % modulus + modulus) % modulus;
+        let g = gcd(step, modulus);
+        let result_mod = result % modulus;
+        (value % g == result_mod % g).then_some(())?;
+        let reduced_modulus = modulus / g;
+        let difference = if value >= result_mod {
+            (value - result_mod) / g
+        } else {
+            reduced_modulus - (result_mod - value) / g
+        };
+        let inverse = mod_inverse((step / g) % reduced_modulus, reduced_modulus)?;
+        let multiplier = mul_mod(difference, inverse, reduced_modulus);
+        result += step * multiplier;
+        step *= reduced_modulus;
+    }
+    Some(result)
+}
+}
+pub mod gcd {
+use crate::algo_lib::misc::num_traits::Number;
+fn extended_gcd(a: i64, b: i64, x: &mut i64, y: &mut i64) -> i64 {
+    if a == 0 {
+        *x = 0;
+        *y = 1;
+        return b;
+    }
+    let mut x1 = 0;
+    let mut y1 = 0;
+    let d = extended_gcd(b % a, a, &mut x1, &mut y1);
+    *x = y1 - (b / a) * x1;
+    *y = x1;
+    d
+}
+///
+///
+/// Find any solution to equation A*x + B*y = C
+///
+/// Returns [false] if [C] is not divisible by gcd(A, B)
+///
+pub fn diophantine(
+    a: i64,
+    b: i64,
+    c: i64,
+    x0: &mut i64,
+    y0: &mut i64,
+    g: &mut i64,
+) -> bool {
+    *g = extended_gcd(a.abs(), b.abs(), x0, y0);
+    if c % *g != 0 {
+        return false;
+    }
+    *x0 *= c / *g;
+    *y0 *= c / *g;
+    if a < 0 {
+        *x0 *= -1;
+    }
+    if b < 0 {
+        *y0 *= -1;
+    }
+    true
+}
+pub fn gcd<T>(x: T, y: T) -> T
+where
+    T: Number + std::ops::Rem<Output = T>,
+{
+    if x == T::ZERO { y } else { gcd(y % x, x) }
+}
+pub fn lcm<T>(x: T, y: T) -> T
+where
+    T: Number + std::ops::Rem<Output = T>,
+{
+    x / gcd(x, y) * y
+}
+pub fn mod_inv(a: i64, m: i64) -> Option<i64> {
+    let mut x = 0;
+    let mut y = 0;
+    let g = extended_gcd(a, m, &mut x, &mut y);
+    if g != 1 { None } else { Some((x % m + m) % m) }
+}
+}
+}
 pub mod misc {
 pub mod dbg_macro {
 #[macro_export]
@@ -585,6 +672,274 @@ macro_rules! dbg {
         eprintln!("[{}:{}] {} = {:?}", file!(), line!(), stringify!($first_val),
         &$first_val)
     };
+}
+}
+pub mod gen_vector {
+pub fn gen_vec<T>(n: usize, f: impl FnMut(usize) -> T) -> Vec<T> {
+    (0..n).map(f).collect()
+}
+}
+pub mod num_traits {
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+pub trait HasConstants<T> {
+    const MAX: T;
+    const MIN: T;
+    const ZERO: T;
+    const ONE: T;
+    const TWO: T;
+}
+pub trait ConvSimple<T> {
+    fn from_i32(val: i32) -> T;
+    fn to_i32(self) -> i32;
+    fn to_f64(self) -> f64;
+}
+pub trait Signum {
+    fn signum(&self) -> i32;
+}
+pub trait Number: Copy + Add<
+        Output = Self,
+    > + AddAssign + Sub<
+        Output = Self,
+    > + SubAssign + Mul<
+        Output = Self,
+    > + MulAssign + Div<
+        Output = Self,
+    > + DivAssign + PartialOrd + PartialEq + HasConstants<
+        Self,
+    > + Default + Debug + Sized + ConvSimple<Self> {}
+impl<
+    T: Copy + Add<Output = Self> + AddAssign + Sub<Output = Self> + SubAssign
+        + Mul<Output = Self> + MulAssign + Div<Output = Self> + DivAssign + PartialOrd
+        + PartialEq + HasConstants<Self> + Default + Debug + Sized + ConvSimple<Self>,
+> Number for T {}
+macro_rules! has_constants_impl {
+    ($t:ident) => {
+        impl HasConstants <$t > for $t { const MAX : $t = $t ::MAX; const MIN : $t = $t
+        ::MIN; const ZERO : $t = 0; const ONE : $t = 1; const TWO : $t = 2; } impl
+        ConvSimple <$t > for $t { fn from_i32(val : i32) -> $t { val as $t } fn
+        to_i32(self) -> i32 { self as i32 } fn to_f64(self) -> f64 { self as f64 } }
+    };
+}
+has_constants_impl!(i32);
+has_constants_impl!(i64);
+has_constants_impl!(i128);
+has_constants_impl!(u32);
+has_constants_impl!(u64);
+has_constants_impl!(u128);
+has_constants_impl!(usize);
+has_constants_impl!(u8);
+impl ConvSimple<Self> for f64 {
+    fn from_i32(val: i32) -> Self {
+        val as f64
+    }
+    fn to_i32(self) -> i32 {
+        self as i32
+    }
+    fn to_f64(self) -> f64 {
+        self
+    }
+}
+impl HasConstants<Self> for f64 {
+    const MAX: Self = Self::MAX;
+    const MIN: Self = -Self::MAX;
+    const ZERO: Self = 0.0;
+    const ONE: Self = 1.0;
+    const TWO: Self = 2.0;
+}
+impl<T: Number + Ord> Signum for T {
+    fn signum(&self) -> i32 {
+        match self.cmp(&T::ZERO) {
+            Ordering::Greater => 1,
+            Ordering::Less => -1,
+            Ordering::Equal => 0,
+        }
+    }
+}
+}
+pub mod rand {
+use crate::algo_lib::misc::gen_vector::gen_vec;
+use crate::algo_lib::misc::num_traits::Number;
+use std::ops::Range;
+use std::time::{SystemTime, UNIX_EPOCH};
+pub struct Random {
+    state: u64,
+}
+impl Random {
+    pub fn gen_u64(&mut self) -> u64 {
+        let mut x = self.state;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.state = x;
+        x
+    }
+    #[allow(dead_code)]
+    pub fn next_in_range(&mut self, from: usize, to: usize) -> usize {
+        assert!(from < to);
+        (from as u64 + self.gen_u64() % ((to - from) as u64)) as usize
+    }
+    pub fn gen_index<T>(&mut self, a: &[T]) -> usize {
+        self.gen_range(0..a.len())
+    }
+    #[allow(dead_code)]
+    #[inline(always)]
+    pub fn gen_double(&mut self) -> f64 {
+        (self.gen_u64() as f64) / (usize::MAX as f64)
+    }
+    #[allow(dead_code)]
+    pub fn new(seed: u64) -> Self {
+        let state = if seed == 0 { 787788 } else { seed };
+        Self { state }
+    }
+    pub fn new_time_seed() -> Self {
+        let time = SystemTime::now();
+        let seed = (time.duration_since(UNIX_EPOCH).unwrap().as_nanos() % 1_000_000_000)
+            as u64;
+        if seed == 0 { Self::new(787788) } else { Self::new(seed) }
+    }
+    #[allow(dead_code)]
+    pub fn gen_permutation(&mut self, n: usize) -> Vec<usize> {
+        let mut result: Vec<_> = (0..n).collect();
+        for i in 0..n {
+            let idx = self.next_in_range(0, i + 1);
+            result.swap(i, idx);
+        }
+        result
+    }
+    pub fn shuffle<T>(&mut self, a: &mut [T]) {
+        for i in 1..a.len() {
+            a.swap(i, self.gen_range(0..i + 1));
+        }
+    }
+    pub fn gen_range<T>(&mut self, range: Range<T>) -> T
+    where
+        T: Number,
+    {
+        let from = T::to_i32(range.start);
+        let to = T::to_i32(range.end);
+        assert!(from < to);
+        let len = (to - from) as usize;
+        T::from_i32(self.next_in_range(0, len) as i32 + from)
+    }
+    pub fn gen_vec<T>(&mut self, n: usize, range: Range<T>) -> Vec<T>
+    where
+        T: Number,
+    {
+        gen_vec(n, |_| self.gen_range(range.clone()))
+    }
+    pub fn gen_nonempty_range(&mut self, n: usize) -> Range<usize> {
+        let x = self.gen_range(0..n);
+        let y = self.gen_range(0..n);
+        if x <= y { x..y + 1 } else { y..x + 1 }
+    }
+    pub fn gen_bool(&mut self) -> bool {
+        self.gen_range(0..2) == 0
+    }
+}
+}
+pub mod rec_function {
+use std::cell::UnsafeCell;
+use std::marker::PhantomData;
+macro_rules! recursive_function {
+    ($name:ident, $trait:ident, ($($type:ident $arg:ident,)*)) => {
+        pub trait $trait <$($type,)* Output > { fn call(& mut self, $($arg : $type,)*) ->
+        Output; } pub struct $name < F, $($type,)* Output > where F : FnMut(& mut dyn
+        $trait <$($type,)* Output >, $($type,)*) -> Output, { f : UnsafeCell < F >,
+        $($arg : PhantomData <$type >,)* phantom_output : PhantomData < Output >, } impl
+        < F, $($type,)* Output > $name < F, $($type,)* Output > where F : FnMut(& mut dyn
+        $trait <$($type,)* Output >, $($type,)*) -> Output, { pub fn new(f : F) -> Self {
+        Self { f : f.into(), $($arg : Default::default(),)* phantom_output :
+        Default::default(), } } } impl < F, $($type,)* Output > $trait <$($type,)* Output
+        > for $name < F, $($type,)* Output > where F : FnMut(& mut dyn $trait <$($type,)*
+        Output >, $($type,)*) -> Output, { fn call(& mut self, $($arg : $type,)*) ->
+        Output { let ptr = self.f.get(); unsafe { (* ptr) (self, $($arg,)*) } } }
+    };
+}
+recursive_function!(RecursiveFunction0, Callable0, ());
+recursive_function!(RecursiveFunction, Callable, (Arg arg,));
+recursive_function!(RecursiveFunction2, Callable2, (Arg1 arg1, Arg2 arg2,));
+recursive_function!(RecursiveFunction3, Callable3, (Arg1 arg1, Arg2 arg2, Arg3 arg3,));
+recursive_function!(
+    RecursiveFunction4, Callable4, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4,)
+);
+recursive_function!(
+    RecursiveFunction5, Callable5, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
+    arg5,)
+);
+recursive_function!(
+    RecursiveFunction6, Callable6, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
+    arg5, Arg6 arg6,)
+);
+recursive_function!(
+    RecursiveFunction7, Callable7, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
+    arg5, Arg6 arg6, Arg7 arg7,)
+);
+recursive_function!(
+    RecursiveFunction8, Callable8, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
+    arg5, Arg6 arg6, Arg7 arg7, Arg8 arg8,)
+);
+recursive_function!(
+    RecursiveFunction9, Callable9, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
+    arg5, Arg6 arg6, Arg7 arg7, Arg8 arg8, Arg9 arg9,)
+);
+}
+pub mod vec_apply_delta {
+use crate::algo_lib::misc::num_traits::Number;
+pub trait ApplyDelta<T> {
+    fn add_to_all(self, delta: T) -> Self;
+    fn sub_from_all(self, sub: T) -> Self;
+}
+impl<T> ApplyDelta<T> for Vec<T>
+where
+    T: Number,
+{
+    fn add_to_all(mut self, delta: T) -> Self {
+        self.iter_mut().for_each(|val| *val += delta);
+        self
+    }
+    fn sub_from_all(mut self, sub: T) -> Self {
+        self.iter_mut().for_each(|val| *val -= sub);
+        self
+    }
+}
+impl<T> ApplyDelta<T> for Vec<(T, T)>
+where
+    T: Number,
+{
+    fn add_to_all(mut self, delta: T) -> Self {
+        self.iter_mut()
+            .for_each(|(val1, val2)| {
+                *val1 += delta;
+                *val2 += delta;
+            });
+        self
+    }
+    fn sub_from_all(mut self, sub: T) -> Self {
+        self.iter_mut()
+            .for_each(|(val1, val2)| {
+                *val1 -= sub;
+                *val2 -= sub;
+            });
+        self
+    }
+}
+pub trait ApplyDelta2<T> {
+    fn add_to_all(&mut self, delta: T);
+    fn sub_from_all(&mut self, sub: T);
+}
+impl<T> ApplyDelta2<T> for [T]
+where
+    T: Number,
+    T: Sized,
+{
+    fn add_to_all(self: &mut [T], delta: T) {
+        self.iter_mut().for_each(|x| *x += delta);
+    }
+    fn sub_from_all(&mut self, sub: T) {
+        self.iter_mut().for_each(|x| *x -= sub);
+    }
 }
 }
 }
