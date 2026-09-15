@@ -29,6 +29,7 @@ pub struct PrimesIter<'a> {
     value: usize,
 }
 
+#[derive(Clone, Copy)]
 pub struct Prime {
     pub value: usize,
     pub power: usize,

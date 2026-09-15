@@ -1,104 +1,120 @@
+use std::collections::BTreeSet;
+use std::unreachable;
 
 use crate::algo_lib::io::input::Input;
 use crate::algo_lib::io::output::Output;
-use crate::algo_lib::math::chinease_remainder::chinease_remainder;
-use crate::algo_lib::math::gcd::lcm;
+use crate::algo_lib::math::gcd::{gcd, lcm};
+use crate::algo_lib::math::primes::{factorize, gen_largest_prime_table};
 use crate::algo_lib::misc::rand::Random;
-use crate::algo_lib::misc::rec_function::{Callable5, RecursiveFunction5};
-use crate::algo_lib::misc::vec_apply_delta::ApplyDelta;
-fn solve_case(parent: &[usize], len_up: &[i128], queries: &[i128]) -> Vec<usize> {
-    let n = parent.len();
-    let mut g = vec![vec![]; n];
-    for i in 1..n {
-        g[parent[i]].push(i);
+use crate::algo_lib::seg_trees::lazy_seg_tree_max::{MaxValNode, SegTreeMax};
+type SegTree = SegTreeMax<usize>;
+fn solve_case(a: &[usize]) -> Vec<usize> {
+    let n = a.len();
+    let largest_primes = gen_largest_prime_table(2 * n + 10);
+    let mut primes_powers = vec![];
+    for x in 2..largest_primes.len() {
+        let fact: Vec<_> = factorize(&largest_primes, x).collect();
+        if fact.len() == 1 {
+            primes_powers.push(x);
+        }
     }
-    let q = queries.len();
-    let mut res = vec![n + 1; q];
-    RecursiveFunction5::new(|
-            f,
-            v: usize,
-            cur_len: i128,
-            k: i128,
-            b: i128,
-            cur_req_index: Vec<usize>|
-        {
-            if cur_req_index.is_empty() {
-                return;
-            }
-            if g[v].is_empty() {
-                for id in cur_req_index {
-                    res[id] = v + 1;
+    let mut st = SegTree::new(primes_powers.len(), |pos| MaxValNode { max_val: n, pos });
+    let mut exist = vec![false; primes_powers.len()];
+    for left in (0..n).rev() {
+        for prime in factorize(&largest_primes, a[left]) {
+            let mut real_power = 1;
+            for _pw in 1..=prime.power {
+                real_power *= prime.value;
+                let idx = primes_powers.binary_search(&real_power).unwrap();
+                let right = st.get(idx..idx + 1).max_val;
+                if idx == 0 || st.get(0..idx).max_val < right {
+                    if right != left + 1 {
+                        exist[idx] = true;
+                    }
                 }
-                return;
             }
-            let sz = g[v].len();
-            if k > 2_000_000_000_000_000_000_i128 {
-                let req = queries[cur_req_index[0]];
-                let to = g[v][((req + cur_len) % sz as i128) as usize];
-                f.call(to, cur_len + len_up[to], k, b, cur_req_index);
-                return;
+        }
+        for prime in factorize(&largest_primes, a[left]) {
+            let mut real_power = 1;
+            for _pw in 1..=prime.power {
+                real_power *= prime.value;
+                let idx = primes_powers.binary_search(&real_power).unwrap();
+                st.update_point(
+                    idx,
+                    MaxValNode {
+                        max_val: left,
+                        pos: idx,
+                    },
+                );
             }
-            let nk = lcm(sz as i128, k);
-            if k == nk {
-                let to = g[v][((cur_len + b) % sz as i128) as usize];
-                f.call(to, cur_len + len_up[to], k, b, cur_req_index);
-                return;
+        }
+    }
+    for i in 0..primes_powers.len() {
+        let right = st.get(i..i + 1).max_val;
+        if i == 0 || st.get(0..i).max_val < right {
+            if right != 0 {
+                exist[i] = true;
             }
-            let mut children = vec![vec![]; sz];
-            for id in cur_req_index {
-                let time = ((queries[id] + cur_len) % sz as i128) as usize;
-                children[time].push(id);
-            }
-            for (i, child_queries) in children.into_iter().enumerate() {
-                if child_queries.is_empty() {
-                    continue;
-                }
-                let to = g[v][i];
-                let sz_mod = (((i as i128 - cur_len) % sz as i128) + sz as i128)
-                    % sz as i128;
-                let nb = chinease_remainder(&[sz_mod, b], &[sz as i128, k]).unwrap();
-                f.call(to, cur_len + len_up[to], nk, nb, child_queries);
-            }
-        })
-        .call(0, 0, 1, 0, (0..q).collect());
+        }
+    }
+    let mut res = vec![];
+    for i in 0..exist.len() {
+        if exist[i] {
+            res.push(primes_powers[i]);
+        }
+    }
     res
 }
 fn solve(input: &mut Input, out: &mut Output) {
     let tc = input.usize();
     for _ in 0..tc {
         let n = input.usize();
-        let q = input.usize();
-        let mut parent = input.vec::<usize>(n - 1).sub_from_all(1);
-        parent.insert(0, 0);
-        let mut len_up = input.vec::<i128>(n - 1);
-        len_up.insert(0, 0);
-        let queries = input.vec::<i128>(q);
-        let res = solve_case(&parent, &len_up, &queries);
+        let a = input.vec::<usize>(n);
+        let res = solve_case(&a);
+        out.println(res.len());
         out.println(res);
-    }
-}
-fn stress() {
-    for it in 1.. {
-        dbg!(it);
-        let mut rnd = Random::new(it);
-        let n = rnd.gen_range(1..100000);
-        let q = rnd.gen_range(1..100000);
-        let mut parent = vec![0; n];
-        for i in 1..n {
-            parent[i] = rnd.gen_range(0..i.min(10));
-        }
-        let mut len_up = vec![0; n];
-        for i in 1..n {
-            len_up[i] = rnd.gen_range(0..1000);
-        }
-        let queries = (0..q).map(|_| rnd.gen_range(0..1_0)).collect::<Vec<_>>();
-        let res = solve_case(&parent, &len_up, &queries);
     }
 }
 pub(crate) fn run(mut input: Input, mut output: Output) -> bool {
     solve(&mut input, &mut output);
     output.flush();
     true
+}
+fn solve_slow(a: &[usize]) -> Vec<usize> {
+    let n = a.len();
+    let mut res = BTreeSet::new();
+    for l in 0..n {
+        for r in l + 1..=n {
+            for test in 2.. {
+                let mut cur_test = 1;
+                for i in l..r {
+                    cur_test = lcm(cur_test, gcd(a[i], test));
+                }
+                if cur_test != test {
+                    res.insert(test);
+                    break;
+                }
+            }
+        }
+    }
+    res.into_iter().collect()
+}
+fn stress() {
+    for it in 354.. {
+        dbg!(it);
+        let mut rnd = Random::new(it);
+        let n = rnd.gen_range(2..50);
+        let mut a = vec![0; n];
+        for i in 0..n {
+            a[i] = rnd.gen_range(1..n);
+        }
+        let res = solve_case(&a);
+        let res_slow = solve_slow(&a);
+        if res != res_slow {
+            dbg!(a, res, res_slow);
+            unreachable!();
+        }
+    }
 }
 
 fn main() {
@@ -538,64 +554,6 @@ impl<T: Writable, U: Writable, V: Writable> Writable for (T, U, V) {
 }
 }
 pub mod math {
-pub mod chinease_remainder {
-use std::ops::Rem;
-use crate::algo_lib::{math::gcd::gcd, misc::num_traits::Number};
-fn add_mod<N: Number + Rem<Output = N>>(a: N, b: N, modulus: N) -> N {
-    if a >= modulus - b { a - (modulus - b) } else { a + b }
-}
-fn mul_mod<N: Number + Rem<Output = N>>(mut a: N, mut b: N, modulus: N) -> N {
-    let mut result = N::ZERO;
-    a = a % modulus;
-    while b > N::ZERO {
-        if b % N::TWO != N::ZERO {
-            result = add_mod(result, a, modulus);
-        }
-        b /= N::TWO;
-        if b > N::ZERO {
-            a = add_mod(a, a, modulus);
-        }
-    }
-    result
-}
-fn mod_inverse<N: Number + Rem<Output = N>>(value: N, modulus: N) -> Option<N> {
-    if modulus == N::ONE {
-        return Some(N::ZERO);
-    }
-    let (mut r0, mut r1) = (modulus, value % modulus);
-    let (mut x0, mut x1) = (N::ZERO, N::ONE);
-    while r1 != N::ZERO {
-        let quotient = r0 / r1;
-        (r0, r1) = (r1, r0 % r1);
-        let sub = mul_mod(quotient % modulus, x1, modulus);
-        let x2 = if x0 >= sub { x0 - sub } else { modulus - (sub - x0) };
-        (x0, x1) = (x1, x2);
-    }
-    (r0 == N::ONE).then_some(x0)
-}
-pub fn chinease_remainder<N: Number + Rem<Output = N>>(a: &[N], m: &[N]) -> Option<N> {
-    (a.len() == m.len()).then_some(())?;
-    let (mut result, mut step) = (N::ZERO, N::ONE);
-    for (&value, &modulus) in a.iter().zip(m) {
-        (modulus > N::ZERO).then_some(())?;
-        let value = (value % modulus + modulus) % modulus;
-        let g = gcd(step, modulus);
-        let result_mod = result % modulus;
-        (value % g == result_mod % g).then_some(())?;
-        let reduced_modulus = modulus / g;
-        let difference = if value >= result_mod {
-            (value - result_mod) / g
-        } else {
-            reduced_modulus - (result_mod - value) / g
-        };
-        let inverse = mod_inverse((step / g) % reduced_modulus, reduced_modulus)?;
-        let multiplier = mul_mod(difference, inverse, reduced_modulus);
-        result += step * multiplier;
-        step *= reduced_modulus;
-    }
-    Some(result)
-}
-}
 pub mod gcd {
 use crate::algo_lib::misc::num_traits::Number;
 fn extended_gcd(a: i64, b: i64, x: &mut i64, y: &mut i64) -> i64 {
@@ -656,6 +614,76 @@ pub fn mod_inv(a: i64, m: i64) -> Option<i64> {
     let mut y = 0;
     let g = extended_gcd(a, m, &mut x, &mut y);
     if g != 1 { None } else { Some((x % m + m) % m) }
+}
+}
+pub mod primes {
+pub fn gen_primes_table(up_to: usize) -> Vec<bool> {
+    let mut is_prime = vec![true; up_to + 1];
+    is_prime[0] = false;
+    is_prime[1] = false;
+    for p in 2..is_prime.len() {
+        if is_prime[p] {
+            for another in (2 * p..is_prime.len()).step_by(p) {
+                is_prime[another] = false;
+            }
+        }
+    }
+    is_prime
+}
+pub fn gen_largest_prime_table(up_to: usize) -> Vec<usize> {
+    let mut largest_prime = vec![0; up_to + 1];
+    for p in 2..largest_prime.len() {
+        if largest_prime[p] == 0 {
+            for another in (p..largest_prime.len()).step_by(p) {
+                largest_prime[another] = p;
+            }
+        }
+    }
+    largest_prime
+}
+pub struct PrimesIter<'a> {
+    largest_primes: &'a [usize],
+    value: usize,
+}
+#[derive(Clone, Copy)]
+pub struct Prime {
+    pub value: usize,
+    pub power: usize,
+}
+pub fn factorize(largest_primes: &[usize], value: usize) -> PrimesIter<'_> {
+    PrimesIter {
+        largest_primes,
+        value,
+    }
+}
+impl<'a> Iterator for PrimesIter<'a> {
+    type Item = Prime;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.value == 1 {
+            None
+        } else {
+            let prime = self.largest_primes[self.value];
+            let mut power = 0;
+            while self.value % prime == 0 {
+                self.value /= prime;
+                power += 1;
+            }
+            Some(Prime { value: prime, power })
+        }
+    }
+}
+pub fn is_prime(x: i64) -> bool {
+    if x <= 1 {
+        return false;
+    }
+    let mut i = 2;
+    while i * i <= x {
+        if x % i == 0 {
+            return false;
+        }
+        i += 1;
+    }
+    true
 }
 }
 }
@@ -839,107 +867,354 @@ impl Random {
     }
 }
 }
-pub mod rec_function {
-use std::cell::UnsafeCell;
-use std::marker::PhantomData;
-macro_rules! recursive_function {
-    ($name:ident, $trait:ident, ($($type:ident $arg:ident,)*)) => {
-        pub trait $trait <$($type,)* Output > { fn call(& mut self, $($arg : $type,)*) ->
-        Output; } pub struct $name < F, $($type,)* Output > where F : FnMut(& mut dyn
-        $trait <$($type,)* Output >, $($type,)*) -> Output, { f : UnsafeCell < F >,
-        $($arg : PhantomData <$type >,)* phantom_output : PhantomData < Output >, } impl
-        < F, $($type,)* Output > $name < F, $($type,)* Output > where F : FnMut(& mut dyn
-        $trait <$($type,)* Output >, $($type,)*) -> Output, { pub fn new(f : F) -> Self {
-        Self { f : f.into(), $($arg : Default::default(),)* phantom_output :
-        Default::default(), } } } impl < F, $($type,)* Output > $trait <$($type,)* Output
-        > for $name < F, $($type,)* Output > where F : FnMut(& mut dyn $trait <$($type,)*
-        Output >, $($type,)*) -> Output, { fn call(& mut self, $($arg : $type,)*) ->
-        Output { let ptr = self.f.get(); unsafe { (* ptr) (self, $($arg,)*) } } }
-    };
 }
-recursive_function!(RecursiveFunction0, Callable0, ());
-recursive_function!(RecursiveFunction, Callable, (Arg arg,));
-recursive_function!(RecursiveFunction2, Callable2, (Arg1 arg1, Arg2 arg2,));
-recursive_function!(RecursiveFunction3, Callable3, (Arg1 arg1, Arg2 arg2, Arg3 arg3,));
-recursive_function!(
-    RecursiveFunction4, Callable4, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4,)
-);
-recursive_function!(
-    RecursiveFunction5, Callable5, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
-    arg5,)
-);
-recursive_function!(
-    RecursiveFunction6, Callable6, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
-    arg5, Arg6 arg6,)
-);
-recursive_function!(
-    RecursiveFunction7, Callable7, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
-    arg5, Arg6 arg6, Arg7 arg7,)
-);
-recursive_function!(
-    RecursiveFunction8, Callable8, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
-    arg5, Arg6 arg6, Arg7 arg7, Arg8 arg8,)
-);
-recursive_function!(
-    RecursiveFunction9, Callable9, (Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5
-    arg5, Arg6 arg6, Arg7 arg7, Arg8 arg8, Arg9 arg9,)
-);
+pub mod seg_trees {
+pub mod lazy_seg_tree {
+use std::ops::Range;
+use crate::algo_lib::seg_trees::seg_tree_trait::SegTreeNode;
+///
+/// Segment Tree
+///
+#[derive(Clone)]
+pub struct SegTree<T: SegTreeNode> {
+    n: usize,
+    tree: Vec<T>,
+    updates_to_push: Vec<Option<T::Update>>,
+    context: T::Context,
+    right_nodes: Vec<usize>,
 }
-pub mod vec_apply_delta {
-use crate::algo_lib::misc::num_traits::Number;
-pub trait ApplyDelta<T> {
-    fn add_to_all(self, delta: T) -> Self;
-    fn sub_from_all(self, sub: T) -> Self;
+impl<T: SegTreeNode> SegTree<T> {
+    fn pull(&mut self, v: usize, vr: usize) {
+        self.tree[v] = T::join_nodes(&self.tree[v + 1], &self.tree[vr], &self.context);
+    }
+    fn build(&mut self, v: usize, l: usize, r: usize, init_val: &T) {
+        if l + 1 == r {
+            self.tree[v] = init_val.clone();
+        } else {
+            let m = (l + r) >> 1;
+            let vr = v + ((m - l) << 1);
+            self.build(v + 1, l, m, init_val);
+            self.build(vr, m, r, init_val);
+            self.pull(v, vr);
+        }
+    }
+    fn push(&mut self, v: usize, l: usize, r: usize) {
+        let update = self.updates_to_push[v].clone();
+        self.updates_to_push[v] = None;
+        match update {
+            None => {}
+            Some(update) => {
+                let m = (l + r) >> 1;
+                self.apply_update(v + 1, &update, m - l == 1);
+                self.apply_update(v + ((r - l) & !1), &update, r - m == 1);
+            }
+        }
+    }
+    fn get_(&mut self, v: usize, l: usize, r: usize, ql: usize, qr: usize) -> T {
+        assert!(qr >= l);
+        assert!(ql < r);
+        if ql <= l && r <= qr {
+            return self.tree[v].clone();
+        }
+        let m = (l + r) >> 1;
+        let vr = v + ((m - l) << 1);
+        self.push(v, l, r);
+        let res = if ql >= m {
+            self.get_(vr, m, r, ql, qr)
+        } else if qr <= m {
+            self.get_(v + 1, l, m, ql, qr)
+        } else {
+            T::join_nodes(
+                &self.get_(v + 1, l, m, ql, qr),
+                &self.get_(vr, m, r, ql, qr),
+                &self.context,
+            )
+        };
+        self.pull(v, vr);
+        res
+    }
+    fn visit_(
+        &mut self,
+        v: usize,
+        l: usize,
+        r: usize,
+        ql: usize,
+        qr: usize,
+        f: &mut impl FnMut(&T),
+    ) {
+        assert!(qr >= l);
+        assert!(ql < r);
+        if ql <= l && r <= qr {
+            f(&self.tree[v]);
+            return;
+        }
+        let m = (l + r) >> 1;
+        let vr = v + ((m - l) << 1);
+        self.push(v, l, r);
+        if ql >= m {
+            self.visit_(vr, m, r, ql, qr, f);
+        } else if qr <= m {
+            self.visit_(v + 1, l, m, ql, qr, f)
+        } else {
+            self.visit_(v + 1, l, m, ql, qr, f);
+            self.visit_(vr, m, r, ql, qr, f);
+        };
+        self.pull(v, vr);
+    }
+    fn join_updates(current: &mut Option<T::Update>, add: &T::Update) {
+        match current {
+            None => *current = Some(add.clone()),
+            Some(current) => T::join_updates(current, add),
+        };
+    }
+    fn apply_update(&mut self, v: usize, update: &T::Update, is_leaf: bool) {
+        T::apply_update(&mut self.tree[v], update);
+        if !is_leaf {
+            Self::join_updates(&mut self.updates_to_push[v], update);
+        }
+    }
+    fn modify_(
+        &mut self,
+        v: usize,
+        l: usize,
+        r: usize,
+        ql: usize,
+        qr: usize,
+        update: &T::Update,
+    ) {
+        assert!(qr >= l);
+        assert!(ql < r);
+        if ql <= l && r <= qr {
+            self.apply_update(v, update, r - l == 1);
+            return;
+        }
+        let m = (l + r) >> 1;
+        let vr = v + ((m - l) << 1);
+        self.push(v, l, r);
+        if ql >= m {
+            self.modify_(vr, m, r, ql, qr, update);
+        } else if qr <= m {
+            self.modify_(v + 1, l, m, ql, qr, update);
+        } else {
+            self.modify_(v + 1, l, m, ql, qr, update);
+            self.modify_(vr, m, r, ql, qr, update);
+        };
+        self.pull(v, vr);
+    }
+    pub fn update(&mut self, range: Range<usize>, update: T::Update) {
+        if range.is_empty() {
+            return;
+        }
+        assert!(! range.is_empty());
+        self.modify_(0, 0, self.n, range.start, range.end, &update);
+    }
+    pub fn update_point(&mut self, pos: usize, new_node: T) {
+        let mut l = 0;
+        let mut r = self.n;
+        let mut v: usize = 0;
+        let mut to_pull = vec![];
+        while r - l > 1 {
+            let m = (l + r) >> 1;
+            let vr = v + ((m - l) << 1);
+            self.push(v, l, r);
+            to_pull.push((v, vr));
+            if pos < m {
+                r = m;
+                v = v + 1;
+            } else {
+                l = m;
+                v = vr;
+            }
+        }
+        self.tree[v] = new_node;
+        for (v, vr) in to_pull.into_iter().rev() {
+            self.pull(v, vr);
+        }
+    }
+    fn find_last_true_(
+        &mut self,
+        v: usize,
+        l: usize,
+        r: usize,
+        range: Range<usize>,
+        f: &impl Fn(&T) -> bool,
+    ) -> Option<usize> {
+        if range.start >= r || l >= range.end {
+            return None;
+        }
+        let m = (l + r) >> 1;
+        let vr = v + ((m - l) << 1);
+        if range.start <= l && r <= range.end {
+            if !f(&self.tree[v]) {
+                return None;
+            }
+            if r - l == 1 {
+                return Some(l);
+            }
+        }
+        self.push(v, l, r);
+        if let Some(res) = self.find_last_true_(vr, m, r, range.clone(), f) {
+            Some(res)
+        } else {
+            self.find_last_true_(v + 1, l, m, range, f)
+        }
+    }
+    pub fn find_last_true(
+        &mut self,
+        range: Range<usize>,
+        f: impl Fn(&T) -> bool,
+    ) -> Option<usize> {
+        self.find_last_true_(0, 0, self.n, range, &f)
+    }
+    pub fn get(&mut self, range: Range<usize>) -> T {
+        if range.is_empty() {
+            return T::default();
+        }
+        self.get_(0, 0, self.n, range.start, range.end)
+    }
+    pub fn visit(&mut self, range: Range<usize>, f: &mut impl FnMut(&T)) {
+        if range.is_empty() {
+            return;
+        }
+        self.visit_(0, 0, self.n, range.start, range.end, f);
+    }
+    pub fn new_with_context(
+        n: usize,
+        f: impl Fn(usize) -> T,
+        context: T::Context,
+    ) -> Self {
+        assert!(n > 0);
+        let tree = vec![T::default(); 2 * n - 1];
+        let updates_to_push = vec![None; 2 * n - 1];
+        let mut res = SegTree {
+            n,
+            tree,
+            updates_to_push,
+            context,
+            right_nodes: vec![],
+        };
+        res.build_f(0, 0, n, &f);
+        res
+    }
+    pub fn new(n: usize, f: impl Fn(usize) -> T) -> Self
+    where
+        T::Context: Default,
+    {
+        assert!(n > 0);
+        let tree = vec![T::default(); 2 * n - 1];
+        let updates_to_push = vec![None; 2 * n - 1];
+        let mut res = SegTree {
+            n,
+            tree,
+            updates_to_push,
+            context: T::Context::default(),
+            right_nodes: vec![],
+        };
+        res.build_f(0, 0, n, &f);
+        res
+    }
+    fn build_f(&mut self, v: usize, l: usize, r: usize, f: &impl Fn(usize) -> T) {
+        if l + 1 == r {
+            self.tree[v] = f(l);
+        } else {
+            let m = (l + r) >> 1;
+            let vr = v + ((m - l) << 1);
+            self.build_f(v + 1, l, m, f);
+            self.build_f(vr, m, r, f);
+            self.pull(v, vr);
+        }
+    }
+    pub fn len(&self) -> usize {
+        self.n
+    }
+    pub fn expert_get_node(&self, node: usize) -> &T {
+        &self.tree[node]
+    }
+    pub fn expert_get_left_node(&self, node: usize) -> usize {
+        node + 1
+    }
+    fn build_right_nodes(&mut self, v: usize, l: usize, r: usize) {
+        if l + 1 == r {
+            self.right_nodes.push(0);
+        } else {
+            let m = (l + r) >> 1;
+            let vr = v + ((m - l) << 1);
+            self.right_nodes.push(vr);
+            self.build_right_nodes(v + 1, l, m);
+            self.build_right_nodes(vr, m, r);
+        }
+    }
+    pub fn expert_get_right_node(&mut self, node: usize) -> usize {
+        if self.right_nodes.is_empty() {
+            self.build_right_nodes(0, 0, self.n);
+        }
+        self.right_nodes[node]
+    }
+    pub fn expert_rebuild_nodes(
+        &mut self,
+        should_rebuild: impl Fn(&T, &T::Context) -> bool,
+    ) {
+        self.expert_rebuild_nodes_(0, 0, self.n, &should_rebuild);
+    }
+    fn expert_rebuild_nodes_(
+        &mut self,
+        v: usize,
+        l: usize,
+        r: usize,
+        should_rebuild: &impl Fn(&T, &T::Context) -> bool,
+    ) {
+        if r - l <= 1 || !should_rebuild(&self.tree[v], &self.context) {
+            return;
+        }
+        let m = (l + r) >> 1;
+        let vr = v + ((m - l) << 1);
+        self.push(v, l, r);
+        self.expert_rebuild_nodes_(v + 1, l, m, should_rebuild);
+        self.expert_rebuild_nodes_(vr, m, r, should_rebuild);
+        self.pull(v, vr);
+    }
+    pub fn update_context(&mut self, f: impl Fn(&mut T::Context)) {
+        f(&mut self.context);
+    }
+    pub fn get_context(&self) -> &T::Context {
+        &self.context
+    }
 }
-impl<T> ApplyDelta<T> for Vec<T>
+}
+pub mod lazy_seg_tree_max {
+use crate::algo_lib::seg_trees::{lazy_seg_tree::SegTree, seg_tree_trait::SegTreeNode};
+#[derive(Clone, Default, Copy, Debug)]
+pub struct MaxValNode<T> {
+    pub max_val: T,
+    pub pos: usize,
+}
+impl<T> SegTreeNode for MaxValNode<T>
 where
-    T: Number,
+    T: Default + Clone + Ord + Copy,
 {
-    fn add_to_all(mut self, delta: T) -> Self {
-        self.iter_mut().for_each(|val| *val += delta);
-        self
+    #[allow(unused)]
+    fn join_nodes(l: &Self, r: &Self, context: &()) -> Self {
+        if l.max_val > r.max_val { *l } else { *r }
     }
-    fn sub_from_all(mut self, sub: T) -> Self {
-        self.iter_mut().for_each(|val| *val -= sub);
-        self
+    fn apply_update(node: &mut Self, update: &Self::Update) {
+        node.max_val = *update;
     }
+    #[allow(unused)]
+    fn join_updates(current: &mut Self::Update, add: &Self::Update) {
+        *current = *add;
+    }
+    type Update = T;
+    type Context = ();
 }
-impl<T> ApplyDelta<T> for Vec<(T, T)>
-where
-    T: Number,
-{
-    fn add_to_all(mut self, delta: T) -> Self {
-        self.iter_mut()
-            .for_each(|(val1, val2)| {
-                *val1 += delta;
-                *val2 += delta;
-            });
-        self
-    }
-    fn sub_from_all(mut self, sub: T) -> Self {
-        self.iter_mut()
-            .for_each(|(val1, val2)| {
-                *val1 -= sub;
-                *val2 -= sub;
-            });
-        self
-    }
+pub type SegTreeMax<T> = SegTree<MaxValNode<T>>;
 }
-pub trait ApplyDelta2<T> {
-    fn add_to_all(&mut self, delta: T);
-    fn sub_from_all(&mut self, sub: T);
-}
-impl<T> ApplyDelta2<T> for [T]
-where
-    T: Number,
-    T: Sized,
-{
-    fn add_to_all(self: &mut [T], delta: T) {
-        self.iter_mut().for_each(|x| *x += delta);
-    }
-    fn sub_from_all(&mut self, sub: T) {
-        self.iter_mut().for_each(|x| *x -= sub);
-    }
+pub mod seg_tree_trait {
+pub trait SegTreeNode: Clone + Default {
+    fn join_nodes(l: &Self, r: &Self, context: &Self::Context) -> Self;
+    fn apply_update(node: &mut Self, update: &Self::Update);
+    fn join_updates(current: &mut Self::Update, add: &Self::Update);
+    type Update: Clone;
+    type Context;
 }
 }
 }
