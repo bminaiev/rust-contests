@@ -1,6 +1,7 @@
 pub mod array_2d;
 pub mod bit_set;
 pub mod bit_set_fixed_size;
+pub mod compressed_coords;
 pub mod fx_hash_map;
 pub mod id_map;
 pub mod index_of;

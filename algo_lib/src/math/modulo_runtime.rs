@@ -244,6 +244,10 @@ impl ConvSimple<ModRuntime> for ModRuntime {
     fn to_f64(self) -> f64 {
         self.value as f64
     }
+
+    fn to_i128(self) -> i128 {
+        self.value as i128
+    }
 }
 
 pub struct RuntimeModBuilder {

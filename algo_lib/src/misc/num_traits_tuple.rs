@@ -161,6 +161,10 @@ impl<T1: Number, T2: Number> ConvSimple<Self> for NumberPair<T1, T2> {
     fn to_f64(self) -> f64 {
         panic!("Can't convert tuple to f64");
     }
+
+    fn to_i128(self) -> i128 {
+        panic!("")
+    }
 }
 
 pub fn number_pair<T1: Number, T2: Number>(first: T1, second: T2) -> NumberPair<T1, T2> {

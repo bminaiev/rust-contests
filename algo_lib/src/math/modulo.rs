@@ -272,6 +272,10 @@ where
     fn to_f64(self) -> f64 {
         self.0 as f64
     }
+
+    fn to_i128(self) -> i128 {
+        self.0 as i128
+    }
 }
 
 pub trait ConstValue: Value + Copy {

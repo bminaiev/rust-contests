@@ -33,7 +33,8 @@ impl<T: Number + std::ops::Rem<Output = T> + Ord> FracT<T> {
             num *= T::ZERO - T::ONE;
             denom *= T::ZERO - T::ONE;
         }
-        let g = gcd(num, denom);
+        let num_abs = if num < T::ZERO { T::ZERO - num } else { num };
+        let g = gcd(num_abs, denom);
         Self {
             num: num / g,
             denom: denom / g,
@@ -160,5 +161,9 @@ impl<T: Number + std::ops::Rem<Output = T> + Ord> ConvSimple<Self> for FracT<T> 
 
     fn to_f64(self) -> f64 {
         self.num.to_f64() / self.denom.to_f64()
+    }
+
+    fn to_i128(self) -> i128 {
+        (self.num / self.denom).to_i128()
     }
 }

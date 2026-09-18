@@ -17,3 +17,5 @@ pub mod polygon;
 pub mod range_tree;
 pub mod segment;
 pub mod segment_intersection;
+pub mod segment_intersection_coef;
+pub mod segment_intersection_coef_test;

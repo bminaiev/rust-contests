@@ -14,6 +14,7 @@ pub trait ConvSimple<T> {
     fn from_i32(val: i32) -> T;
     fn to_i32(self) -> i32;
     fn to_f64(self) -> f64;
+    fn to_i128(self) -> i128;
 }
 
 pub trait Signum {
@@ -22,6 +23,8 @@ pub trait Signum {
 
 pub trait Number:
     Copy
+    + Clone
+    + Default
     + Add<Output = Self>
     + AddAssign
     + Sub<Output = Self>
@@ -83,6 +86,10 @@ macro_rules! has_constants_impl {
             fn to_f64(self) -> f64 {
                 self as f64
             }
+
+            fn to_i128(self) -> i128 {
+                self as i128
+            }
         }
     };
 }
@@ -107,6 +114,10 @@ impl ConvSimple<Self> for f64 {
 
     fn to_f64(self) -> f64 {
         self
+    }
+
+    fn to_i128(self) -> i128 {
+        self as i128
     }
 }
 

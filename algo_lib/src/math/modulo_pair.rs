@@ -208,6 +208,10 @@ where
     fn to_f64(self) -> f64 {
         self.0.to_f64()
     }
+
+    fn to_i128(self) -> i128 {
+        self.0.to_i128()
+    }
 }
 
 pub type ModPair998_007 = ModPair<Value_998_244_353, Value7>;
