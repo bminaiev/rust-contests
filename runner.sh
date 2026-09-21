@@ -1,13 +1,17 @@
 #!/usr/bin/bash
 
-project=$(echo "$1" | tr '/' ' ' | awk '{print $2 }')
+project=${1:?Usage: runner.sh tasks/NAME/src/main.rs [program arguments...]}
+project=${project#*/}
+project=${project%%/*}
+shift
+
 echo "Running $project"
 
-cargo build --bin "$project" || exit $?
+cargo build --release --bin "$project" || exit $?
 
 (
     # These limits are specified in KiB.
-    ulimit -v $((2 * 1024 * 1024))
+    ulimit -v $((5 * 1024 * 1024))
     ulimit -s $((512 * 1024))
-    RUST_BACKTRACE=1 exec "./target/debug/$project" "${@:2}"
+    RUST_BACKTRACE=1 exec "./target/release/$project" "$@"
 )
