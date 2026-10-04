@@ -1,5 +1,8 @@
 pub mod all_submasks_iter;
 pub mod arena_allocator;
+pub mod avx2;
+#[cfg(test)]
+mod avx2_tests;
 pub mod big_stack;
 pub mod binary_search;
 pub mod binary_search_float;

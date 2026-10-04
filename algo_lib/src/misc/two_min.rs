@@ -1,4 +1,4 @@
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TwoMin<IdType: Eq, ValueType: Ord> {
     cnt: usize,
     values: [(IdType, ValueType); 2],
@@ -20,6 +20,10 @@ impl<IdType: Eq + Copy, ValueType: Ord + Copy> TwoMin<IdType, ValueType> {
 
     pub fn get_values(&self) -> &[(IdType, ValueType)] {
         &self.values[..self.cnt]
+    }
+
+    pub fn get_values_mut(&mut self) -> &mut [(IdType, ValueType)] {
+        &mut self.values[..self.cnt]
     }
 
     pub fn add(&mut self, id: IdType, value: ValueType) -> bool {

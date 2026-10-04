@@ -33,6 +33,12 @@ impl<T: Number + std::ops::Rem<Output = T> + Ord> FracT<T> {
             num *= T::ZERO - T::ONE;
             denom *= T::ZERO - T::ONE;
         }
+        Self { num, denom }
+    }
+
+    pub fn norm(&self) -> Self {
+        let num = self.num;
+        let denom = self.denom;
         let num_abs = if num < T::ZERO { T::ZERO - num } else { num };
         let g = gcd(num_abs, denom);
         Self {
