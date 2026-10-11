@@ -11,6 +11,9 @@ pub mod bump_allocator;
 pub mod current_package;
 pub mod dbg_macro;
 pub mod digits;
+pub mod double_double;
+#[cfg(test)]
+mod double_double_tests;
 pub mod dragon;
 pub mod exp_iter;
 pub mod expr_eval;

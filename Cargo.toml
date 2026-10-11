@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "tasks/h",
-    "tasks/i",
+    "tasks/problem_f_friend_meetup",
+  "tasks/problem_e_evil_judges",
   # "main",
   # DO not format this file.
   "algo_lib",
