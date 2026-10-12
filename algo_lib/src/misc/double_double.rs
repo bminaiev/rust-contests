@@ -8,7 +8,8 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 /// Arithmetic retains the low component; converting to `f64` rounds back to
 /// ordinary double precision. The exponent range is still that of `f64`, and
 /// the extra precision is not guaranteed near overflow or underflow.
-/// Comparisons follow floating-point semantics: NaN is unordered.
+/// Comparisons follow floating-point semantics: NaN is unordered, and
+/// `Ord::cmp` panics when either operand is NaN.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct DoubleDouble {
     hi: f64,
@@ -40,6 +41,7 @@ impl DoubleDouble {
         hi: -Self::MAX.hi,
         lo: -Self::MAX.lo,
     };
+    pub const EPS: Self = Self { hi: 1e-9, lo: 0.0 };
 
     /// Normalizes `hi + lo` using error-free TwoSum, without requiring either
     /// input to have the larger magnitude. The fields stay private so that
@@ -96,6 +98,38 @@ impl DoubleDouble {
         } else {
             self
         }
+    }
+
+    /// Compares using either absolute or relative tolerance, as in `OrdF64`.
+    /// NaN never compares equal; infinities compare equal only to themselves.
+    pub fn eq_with_eps(&self, other: &Self, eps: Self) -> bool {
+        if !self.is_finite() || !other.is_finite() {
+            return self == other;
+        }
+        let abs_diff = (*self - *other).abs();
+        abs_diff <= eps || abs_diff <= self.abs().min(other.abs()) * eps
+    }
+
+    pub fn eq_with_default_eps(&self, other: &Self) -> bool {
+        self.eq_with_eps(other, Self::EPS)
+    }
+
+    /// Square root with a correction retaining double-double precision.
+    /// Negative inputs return NaN; signed zero and positive infinity are preserved.
+    pub fn sqrt(self) -> Self {
+        let root = self.hi.sqrt();
+        if root == 0.0 || !root.is_finite() {
+            return Self::from(root);
+        }
+        // Scale tiny inputs so the squared-root residual does not underflow.
+        // Even the smallest subnormal becomes large enough after this scaling.
+        if self.hi < f64::MIN_POSITIVE / f64::EPSILON {
+            let scaled = self * Self::from(2.0_f64.powi(108));
+            return scaled.sqrt() * Self::from(2.0_f64.powi(-54));
+        }
+        // FMA computes hi - root^2 without rounding (or overflowing) root^2 first.
+        let residual = (-root).mul_add(root, self.hi) + self.lo;
+        Self::new(root, residual / (2.0 * root))
     }
 
     pub fn is_finite(self) -> bool {
@@ -193,6 +227,14 @@ impl MulAssign for DoubleDouble {
 impl DivAssign for DoubleDouble {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
+    }
+}
+
+impl Eq for DoubleDouble {}
+
+impl Ord for DoubleDouble {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
 

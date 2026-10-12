@@ -4,6 +4,8 @@ use crate::geometry::direction::DirectionT;
 use crate::geometry::line::Line;
 use crate::geometry::point::PointT;
 use crate::geometry::segment_intersection::inside_bounding_box;
+use crate::geometry::segment_intersection_dd::inside_bounding_box_dd;
+use crate::misc::double_double::DoubleDouble;
 use crate::misc::num_traits::{HasConstants, Number};
 use crate::misc::ord_f64::OrdF64;
 
@@ -57,6 +59,26 @@ impl SegmentT<OrdF64> {
     }
 
     pub fn len(&self) -> OrdF64 {
+        self.len2().sqrt()
+    }
+}
+
+impl SegmentT<DoubleDouble> {
+    pub fn to_line(&self) -> crate::geometry::line_dd::Line {
+        crate::geometry::line_dd::Line::new(&self.from, &self.to)
+    }
+
+    pub fn contains(&self, p: &PointT<DoubleDouble>) -> bool {
+        inside_bounding_box_dd(self, p)
+            && PointT::vect_mul(&self.from, &self.to, p)
+                .eq_with_eps(&DoubleDouble::ZERO, DoubleDouble::EPS)
+    }
+
+    pub fn len2(&self) -> DoubleDouble {
+        self.from.dist2(&self.to)
+    }
+
+    pub fn len(&self) -> DoubleDouble {
         self.len2().sqrt()
     }
 }

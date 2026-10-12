@@ -1,6 +1,9 @@
 use super::double_double::DoubleDouble as DD;
 use super::num_traits::{ConvSimple, HasConstants, Number};
+use crate::geometry::line_dd::Line;
 use crate::geometry::point::PointT;
+use crate::geometry::segment::SegmentT;
+use crate::geometry::segment_intersection_dd::segment_intersection_dd;
 use std::cmp::Ordering;
 
 #[test]
@@ -55,6 +58,140 @@ fn comparisons_use_the_low_component_and_normalize_inputs() {
     assert_eq!(DD::ONE.partial_cmp(&DD::NAN), None);
     assert_ne!(DD::NAN, DD::NAN);
     assert_eq!(DD::INFINITY.partial_cmp(&DD::MAX), Some(Ordering::Greater));
+}
+
+#[test]
+fn ordering_sorts_using_both_components() {
+    let large = DD::from(1_i128 << 100);
+    let mut values = [
+        large + DD::ONE,
+        DD::INFINITY,
+        large - DD::ONE,
+        DD::ZERO,
+        DD::NEG_INFINITY,
+        large,
+        -DD::ONE,
+    ];
+    values.sort();
+    assert_eq!(
+        values,
+        [
+            DD::NEG_INFINITY,
+            -DD::ONE,
+            DD::ZERO,
+            large - DD::ONE,
+            large,
+            large + DD::ONE,
+            DD::INFINITY,
+        ]
+    );
+    assert_eq!(DD::from(-0.0).cmp(&DD::ZERO), Ordering::Equal);
+    assert_eq!(large.cmp(&large), Ordering::Equal);
+}
+
+#[test]
+#[should_panic]
+fn ordering_panics_on_nan() {
+    let _ = DD::ONE.cmp(&DD::NAN);
+}
+
+#[test]
+fn approximate_equality_uses_absolute_and_relative_tolerances() {
+    assert!(DD::ZERO.eq_with_default_eps(&DD::EPS));
+    assert!(!DD::ZERO.eq_with_default_eps(&(DD::EPS * DD::TWO)));
+
+    let large = DD::from(1_i128 << 100);
+    let next = large + DD::ONE;
+    let eps = DD::from(2.0_f64.powi(-100));
+    assert!(large.eq_with_eps(&next, eps));
+    assert!(next.eq_with_eps(&large, eps));
+    assert!((-large).eq_with_eps(&-next, eps));
+    assert!(!large.eq_with_eps(&next, eps / DD::TWO));
+    assert!(!large.eq_with_eps(&next, DD::ZERO));
+    assert!(DD::from(-0.0).eq_with_eps(&DD::ZERO, DD::ZERO));
+
+    assert!(DD::INFINITY.eq_with_default_eps(&DD::INFINITY));
+    assert!(DD::NEG_INFINITY.eq_with_default_eps(&DD::NEG_INFINITY));
+    assert!(!DD::INFINITY.eq_with_default_eps(&DD::NEG_INFINITY));
+    assert!(!DD::INFINITY.eq_with_default_eps(&DD::ONE));
+    assert!(!DD::ONE.eq_with_default_eps(&DD::INFINITY));
+    assert!(!DD::NAN.eq_with_default_eps(&DD::ONE));
+    assert!(!DD::ONE.eq_with_default_eps(&DD::NAN));
+    assert!(!DD::NAN.eq_with_default_eps(&DD::NAN));
+}
+
+#[test]
+fn square_root_keeps_low_components() {
+    assert_eq!(DD::from(9).sqrt(), DD::from(3));
+    let tiny = 2.0_f64.powi(-60);
+    assert_eq!(DD::new(1.0, tiny).sqrt(), DD::new(1.0, tiny / 2.0));
+    assert_eq!(DD::new(1.0, -tiny).sqrt(), DD::new(1.0, -tiny / 2.0));
+
+    let root = DD::TWO.sqrt();
+    assert_ne!(root, DD::from(2.0_f64.sqrt()));
+    assert!((root * root - DD::TWO).abs() < DD::from(1e-30));
+
+    // Scaling by even powers of two must preserve both components of sqrt(2).
+    // This covers subnormal inputs, the scaling boundary, and huge inputs.
+    for exponent in [-537, -511, -486, -485, -484, -200, 200, 511] {
+        let value = DD::from(if exponent == -537 {
+            f64::from_bits(2)
+        } else {
+            2.0_f64.powi(2 * exponent + 1)
+        });
+        let scale = DD::from(2.0_f64.powi(exponent));
+        assert!(
+            (value.sqrt() / scale - root).abs() < DD::from(1e-30),
+            "exponent = {exponent}"
+        );
+    }
+    assert_eq!(
+        DD::from(f64::from_bits(1)).sqrt(),
+        DD::from(2.0_f64.powi(-537))
+    );
+    let max_root = DD::MAX.sqrt();
+    assert!(max_root.is_finite());
+    assert!(max_root > DD::ZERO);
+}
+
+#[test]
+fn square_root_handles_special_values() {
+    assert_eq!(DD::ZERO.sqrt(), DD::ZERO);
+    assert_eq!(DD::ONE / DD::from(-0.0).sqrt(), DD::NEG_INFINITY);
+    assert_eq!(DD::INFINITY.sqrt(), DD::INFINITY);
+    assert!(DD::NEG_INFINITY.sqrt().is_nan());
+    assert!(DD::NAN.sqrt().is_nan());
+    assert!((-DD::ONE).sqrt().is_nan());
+}
+
+#[test]
+fn double_double_geometry_uses_sqrt_and_tolerances() {
+    let origin = PointT::<DD>::new(DD::ZERO, DD::ZERO);
+    let diagonal = SegmentT::new(origin, PointT::new(DD::from(3), DD::from(4)));
+    assert_eq!(diagonal.len(), DD::from(5));
+    let line = diagonal.to_line();
+    assert!(line.on_line(&PointT::new(DD::from(6), DD::from(8))));
+    assert!(line
+        .abs_dist(&PointT::new(DD::from(4), DD::from(-3)))
+        .eq_with_default_eps(&DD::from(5)));
+
+    let horizontal = SegmentT::new(origin, PointT::new(DD::from(4), DD::ZERO));
+    assert!(horizontal.contains(&PointT::new(DD::ONE, DD::EPS / DD::from(8))));
+    assert!(!horizontal.contains(&PointT::new(DD::ONE, DD::EPS)));
+    assert!(!horizontal.contains(&PointT::new(DD::from(5), DD::ZERO)));
+    let vertical = SegmentT::new(
+        PointT::new(DD::TWO, -DD::ONE),
+        PointT::new(DD::TWO, DD::ONE),
+    );
+    assert_eq!(
+        segment_intersection_dd(&horizontal, &vertical),
+        Some(PointT::new(DD::TWO, DD::ZERO))
+    );
+    let parallel = Line::new(
+        &PointT::new(DD::ZERO, DD::ONE),
+        &PointT::new(DD::ONE, DD::ONE),
+    );
+    assert!(horizontal.to_line().intersect(&parallel).is_none());
 }
 
 #[test]
