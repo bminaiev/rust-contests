@@ -2,7 +2,7 @@ use crate::f;
 use crate::io::input::{Input, Readable};
 use crate::io::output::{Output, Writable};
 use crate::iters::shifts::Shift;
-use crate::misc::num_traits::Number;
+use crate::misc::num_traits::{Double, Number};
 use crate::misc::ord_f64::OrdF64;
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 
@@ -200,9 +200,15 @@ where
     }
 }
 
-impl PointWithIdT<OrdF64> {
-    pub fn dist(&self, other: &Self) -> OrdF64 {
-        self.p.dist2(&other.p).sqrt()
+impl<T: Double> PointWithIdT<T> {
+    pub fn dist(&self, other: &Self) -> T {
+        self.p.dist(&other.p)
+    }
+}
+
+impl<T: Double> PointT<T> {
+    pub fn dist(&self, other: &Self) -> T {
+        self.dist2(other).sqrt()
     }
 }
 
@@ -216,10 +222,10 @@ impl PointT<OrdF64> {
     }
 }
 
-impl Mul<OrdF64> for PointT<OrdF64> {
-    type Output = PointT<OrdF64>;
+impl<T: Number> Mul<T> for PointT<T> {
+    type Output = Self;
 
-    fn mul(self, rhs: OrdF64) -> Self::Output {
+    fn mul(self, rhs: T) -> Self::Output {
         Self {
             x: self.x * rhs,
             y: self.y * rhs,

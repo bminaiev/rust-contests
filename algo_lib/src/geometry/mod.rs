@@ -5,10 +5,11 @@ pub mod convex_hull_tests;
 pub mod convex_polygon_intersection;
 pub mod dcel;
 pub mod direction;
+#[cfg(test)]
+mod double_tests;
 pub mod half_plane_intersection;
 pub mod half_plane_intersection_test;
 pub mod line;
-pub mod line_dd;
 pub mod nearest_points;
 pub mod nearest_points_test;
 pub mod orientation;
@@ -20,4 +21,3 @@ pub mod segment;
 pub mod segment_intersection;
 pub mod segment_intersection_coef;
 pub mod segment_intersection_coef_test;
-pub mod segment_intersection_dd;

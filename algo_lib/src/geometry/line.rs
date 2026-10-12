@@ -1,21 +1,22 @@
 use crate::geometry::point::PointT;
 use crate::math::gcd::gcd;
-use crate::misc::num_traits::HasConstants;
+use crate::misc::num_traits::Double;
 use crate::misc::ord_f64::OrdF64;
 use std::fmt::Debug;
 
-type Point = PointT<OrdF64>;
+/// The ordinary double-precision line type. Use `LineT<T>` for other doubles.
+pub type Line = LineT<OrdF64>;
 
 // a*x + b*y + c = 0
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Line {
-    pub a: OrdF64,
-    pub b: OrdF64,
-    pub c: OrdF64,
+pub struct LineT<T: Double> {
+    pub a: T,
+    pub b: T,
+    pub c: T,
 }
 
-impl Line {
-    pub fn new(p1: &Point, p2: &Point) -> Self {
+impl<T: Double> LineT<T> {
+    pub fn new(p1: &PointT<T>, p2: &PointT<T>) -> Self {
         let a = p2.y - p1.y;
         let b = p1.x - p2.x;
         let res = Self {
@@ -46,13 +47,13 @@ impl Line {
     }
 
     pub fn norm(&mut self) {
-        if self.a > OrdF64::EPS {
-        } else if self.a < -OrdF64::EPS {
+        if self.a > T::EPS {
+        } else if self.a < -T::EPS {
             self.a = -self.a;
             self.b = -self.b;
             self.c = -self.c;
-        } else if self.b > OrdF64::EPS {
-        } else if self.b < -OrdF64::EPS {
+        } else if self.b > T::EPS {
+        } else if self.b < -T::EPS {
             self.b = -self.b;
             self.c = -self.c;
         }
@@ -70,34 +71,31 @@ impl Line {
             b: b.into(),
             c: c.into(),
         };
-        debug_assert!(res.a != OrdF64::ZERO || res.b != OrdF64::ZERO);
+        debug_assert!(res.a != T::ZERO || res.b != T::ZERO);
         res
     }
 
-    pub fn on_line(&self, p: &Point) -> bool {
-        (self.a * p.x + self.b * p.y + self.c).eq_with_default_eps(&OrdF64::ZERO)
+    pub fn on_line(&self, p: &PointT<T>) -> bool {
+        (self.a * p.x + self.b * p.y + self.c).eq_with_default_eps(&T::ZERO)
     }
 
-    pub fn intersect(&self, other: &Self) -> Option<Point> {
+    pub fn intersect(&self, other: &Self) -> Option<PointT<T>> {
         let denom = self.b * other.a - other.b * self.a;
-        if denom.eq_with_default_eps(&OrdF64::ZERO) {
+        if denom.eq_with_default_eps(&T::ZERO) {
             return None;
         }
         let y_num = other.c * self.a - self.c * other.a;
         let x_num = self.c * other.b - other.c * self.b;
-        let res = Point::new(x_num / denom, y_num / denom);
+        let res = PointT::new(x_num / denom, y_num / denom);
         debug_assert!(
-            self.abs_dist(&res)
-                .eq_with_eps(&OrdF64::ZERO, OrdF64::SMALL_EPS),
+            self.abs_dist(&res).eq_with_eps(&T::ZERO, T::SMALL_EPS),
             "line = {:?}, p = {:?}, dist = {:?}",
             self,
             res,
             self.abs_dist(&res)
         );
         debug_assert!(
-            other
-                .abs_dist(&res)
-                .eq_with_eps(&OrdF64::ZERO, OrdF64::SMALL_EPS),
+            other.abs_dist(&res).eq_with_eps(&T::ZERO, T::SMALL_EPS),
             "line = {:?}, p = {:?}, dist = {:?}",
             other,
             res,
@@ -106,36 +104,36 @@ impl Line {
         Some(res)
     }
 
-    pub fn signed_dist(&self, p: &Point) -> OrdF64 {
+    pub fn signed_dist(&self, p: &PointT<T>) -> T {
         (self.a * p.x + self.b * p.y + self.c) / (self.a * self.a + self.b * self.b).sqrt()
     }
 
-    pub fn abs_dist(&self, p: &Point) -> OrdF64 {
+    pub fn abs_dist(&self, p: &PointT<T>) -> T {
         self.signed_dist(p).abs()
     }
 
-    pub fn abs_dist2(&self, p: &Point) -> OrdF64 {
+    pub fn abs_dist2(&self, p: &PointT<T>) -> T {
         let z = self.a * p.x + self.b * p.y + self.c;
         z * z / (self.a * self.a + self.b * self.b)
     }
 
-    pub fn closest_to_zero(&self) -> Point {
+    pub fn closest_to_zero(&self) -> PointT<T> {
         let den = self.a * self.a + self.b * self.b;
-        Point::new(-self.a * self.c / den, -self.b * self.c / den)
+        PointT::new(-self.a * self.c / den, -self.b * self.c / den)
     }
 
-    pub fn closest_on_line(&self, p: Point) -> Point {
+    pub fn closest_on_line(&self, p: PointT<T>) -> PointT<T> {
         let den = self.a * self.a + self.b * self.b;
         let num = self.a * p.x + self.b * p.y + self.c;
-        Point::new(p.x - self.a * num / den, p.y - self.b * num / den)
+        PointT::new(p.x - self.a * num / den, p.y - self.b * num / den)
     }
 
-    pub fn mirror(&self, p: Point) -> Point {
+    pub fn mirror(&self, p: PointT<T>) -> PointT<T> {
         let closest = self.closest_on_line(p);
-        Point::new(OrdF64::TWO * closest.x - p.x, OrdF64::TWO * closest.y - p.y)
+        PointT::new(T::TWO * closest.x - p.x, T::TWO * closest.y - p.y)
     }
 
-    pub fn project(&self, p: Point) -> OrdF64 {
+    pub fn project(&self, p: PointT<T>) -> T {
         (-self.b * p.x + self.a * p.y) / (self.a * self.a + self.b * self.b).sqrt()
     }
 }

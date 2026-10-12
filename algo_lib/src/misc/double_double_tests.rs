@@ -1,9 +1,9 @@
 use super::double_double::DoubleDouble as DD;
 use super::num_traits::{ConvSimple, HasConstants, Number};
-use crate::geometry::line_dd::Line;
+use crate::geometry::line::LineT;
 use crate::geometry::point::PointT;
 use crate::geometry::segment::SegmentT;
-use crate::geometry::segment_intersection_dd::segment_intersection_dd;
+use crate::geometry::segment_intersection::segment_intersection;
 use std::cmp::Ordering;
 
 #[test]
@@ -184,10 +184,10 @@ fn double_double_geometry_uses_sqrt_and_tolerances() {
         PointT::new(DD::TWO, DD::ONE),
     );
     assert_eq!(
-        segment_intersection_dd(&horizontal, &vertical),
+        segment_intersection(&horizontal, &vertical),
         Some(PointT::new(DD::TWO, DD::ZERO))
     );
-    let parallel = Line::new(
+    let parallel = LineT::new(
         &PointT::new(DD::ZERO, DD::ONE),
         &PointT::new(DD::ONE, DD::ONE),
     );

@@ -5,7 +5,7 @@ use algo_lib::io::input::Input;
 use algo_lib::io::output::Output;
 
 use algo_lib::geometry::segment::SegmentT;
-use algo_lib::geometry::segment_intersection_dd::segment_intersection_dd;
+use algo_lib::geometry::segment_intersection::segment_intersection;
 use algo_lib::misc::double_double::DoubleDouble;
 
 type Point = PointT<DoubleDouble>;
@@ -30,7 +30,7 @@ fn solve_case(a: &[Point]) -> f64 {
         let p3 = get_p(base, offsets[3]);
         let seg1 = SegmentT::new(p0, p1);
         let seg2 = SegmentT::new(p2, p3);
-        let inter = segment_intersection_dd(&seg1, &seg2);
+        let inter = segment_intersection(&seg1, &seg2);
         inter.unwrap()
     };
     let get_def = |i: usize| -> DoubleDouble {

@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 pub trait HasConstants<T> {
     const MAX: T;
@@ -41,6 +41,33 @@ pub trait Number:
     + Sized
     + ConvSimple<Self>
 {
+}
+
+/// Ordered floating-point arithmetic used by geometry algorithms.
+/// Implementations must retain their own precision in arithmetic and square roots.
+/// As with `OrdF64`, ordering assumes operands are not NaN.
+pub trait Double: Number + Ord + Neg<Output = Self> + From<f64> + From<i64> {
+    const EPS: Self;
+    /// Tolerance for checking computed intersections in debug assertions.
+    const SMALL_EPS: Self = Self::EPS;
+
+    fn abs(self) -> Self;
+    fn sqrt(self) -> Self;
+    fn is_finite(self) -> bool;
+
+    /// Accepts either absolute error or relative error against the smaller magnitude.
+    /// NaN never compares equal; infinities compare equal only to themselves.
+    fn eq_with_eps(&self, other: &Self, eps: Self) -> bool {
+        if !self.is_finite() || !other.is_finite() {
+            return self == other;
+        }
+        let abs_diff = (*self - *other).abs();
+        abs_diff <= eps || abs_diff <= self.abs().min(other.abs()) * eps
+    }
+
+    fn eq_with_default_eps(&self, other: &Self) -> bool {
+        self.eq_with_eps(other, Self::EPS)
+    }
 }
 
 impl<

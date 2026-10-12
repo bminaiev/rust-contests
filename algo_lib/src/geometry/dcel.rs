@@ -1,13 +1,10 @@
 use crate::{
-    f,
-    geometry::{line::Line, point::PointT, polygon::PolygonT},
-    misc::ord_f64::OrdF64,
+    geometry::{line::LineT, point::PointT, polygon::PolygonT},
+    misc::num_traits::Double,
 };
 
 // assumes no equal lines
-pub fn dcel(lines: &[Line]) -> Vec<PolygonT<OrdF64>> {
-    type Point = PointT<OrdF64>;
-
+pub fn dcel<T: Double>(lines: &[LineT<T>]) -> Vec<PolygonT<T>> {
     let mut all_points = vec![];
     let mut on_line = vec![vec![]; lines.len()];
     for i in 0..lines.len() {
@@ -17,9 +14,9 @@ pub fn dcel(lines: &[Line]) -> Vec<PolygonT<OrdF64>> {
             }
         }
     }
-    let cmp = |p1: &Point, p2: &Point| {
+    let cmp = |p1: &PointT<T>, p2: &PointT<T>| {
         let dx = (p1.x - p2.x).abs();
-        if dx < OrdF64::EPS {
+        if dx < T::EPS {
             p1.y.partial_cmp(&p2.y).unwrap()
         } else {
             p1.x.partial_cmp(&p2.x).unwrap()
@@ -29,7 +26,7 @@ pub fn dcel(lines: &[Line]) -> Vec<PolygonT<OrdF64>> {
     all_points.dedup_by(|p1, p2| {
         let dx = (p1.x - p2.x).abs();
         let dy = (p1.y - p2.y).abs();
-        dx < OrdF64::EPS && dy < OrdF64::EPS
+        dx < T::EPS && dy < T::EPS
     });
     for i in 0..lines.len() {
         for j in 0..all_points.len() {
@@ -60,7 +57,7 @@ pub fn dcel(lines: &[Line]) -> Vec<PolygonT<OrdF64>> {
             if s1 != s2 {
                 s1.cmp(&s2)
             } else {
-                Point::vect_mul2(&p1, &p2).cmp(&f!(0.0))
+                PointT::vect_mul2(&p1, &p2).cmp(&T::ZERO)
             }
         });
     }
@@ -88,8 +85,8 @@ pub fn dcel(lines: &[Line]) -> Vec<PolygonT<OrdF64>> {
             cur_edge = g[to][need_pos];
         }
         let polygon = PolygonT::new(points);
-        let area = polygon.area_signed().0;
-        if area < 0.0 {
+        let area = polygon.area_signed();
+        if area < T::ZERO {
             // skip external side
             continue;
         }

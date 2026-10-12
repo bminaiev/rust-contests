@@ -1,13 +1,10 @@
 use std::cmp::Ordering;
 
 use crate::geometry::direction::DirectionT;
-use crate::geometry::line::Line;
+use crate::geometry::line::LineT;
 use crate::geometry::point::PointT;
 use crate::geometry::segment_intersection::inside_bounding_box;
-use crate::geometry::segment_intersection_dd::inside_bounding_box_dd;
-use crate::misc::double_double::DoubleDouble;
-use crate::misc::num_traits::{HasConstants, Number};
-use crate::misc::ord_f64::OrdF64;
+use crate::misc::num_traits::{Double, Number};
 
 #[derive(Copy, Clone, Debug)]
 pub struct SegmentT<T>
@@ -44,41 +41,22 @@ where
     }
 }
 
-impl SegmentT<OrdF64> {
-    pub fn to_line(&self) -> Line {
-        Line::new(&self.from, &self.to)
+impl<T: Double> SegmentT<T> {
+    pub fn to_line(&self) -> LineT<T> {
+        LineT::new(&self.from, &self.to)
     }
 
-    pub fn contains(&self, p: &PointT<OrdF64>) -> bool {
-        // TODO: should use eps?
-        inside_bounding_box(self, p) && PointT::vect_mul(&self.from, &self.to, p) == OrdF64::ZERO
+    /// Uses `T::EPS` for both bounding-box and collinearity checks.
+    pub fn contains(&self, p: &PointT<T>) -> bool {
+        inside_bounding_box(self, p)
+            && PointT::vect_mul(&self.from, &self.to, p).eq_with_default_eps(&T::ZERO)
     }
 
-    pub fn len2(&self) -> OrdF64 {
+    pub fn len2(&self) -> T {
         self.from.dist2(&self.to)
     }
 
-    pub fn len(&self) -> OrdF64 {
-        self.len2().sqrt()
-    }
-}
-
-impl SegmentT<DoubleDouble> {
-    pub fn to_line(&self) -> crate::geometry::line_dd::Line {
-        crate::geometry::line_dd::Line::new(&self.from, &self.to)
-    }
-
-    pub fn contains(&self, p: &PointT<DoubleDouble>) -> bool {
-        inside_bounding_box_dd(self, p)
-            && PointT::vect_mul(&self.from, &self.to, p)
-                .eq_with_eps(&DoubleDouble::ZERO, DoubleDouble::EPS)
-    }
-
-    pub fn len2(&self) -> DoubleDouble {
-        self.from.dist2(&self.to)
-    }
-
-    pub fn len(&self) -> DoubleDouble {
+    pub fn len(&self) -> T {
         self.len2().sqrt()
     }
 }

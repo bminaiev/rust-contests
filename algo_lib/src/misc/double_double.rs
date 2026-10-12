@@ -1,4 +1,4 @@
-use crate::misc::num_traits::{ConvSimple, HasConstants};
+use crate::misc::num_traits::{ConvSimple, Double, HasConstants};
 use std::cmp::Ordering;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -103,11 +103,7 @@ impl DoubleDouble {
     /// Compares using either absolute or relative tolerance, as in `OrdF64`.
     /// NaN never compares equal; infinities compare equal only to themselves.
     pub fn eq_with_eps(&self, other: &Self, eps: Self) -> bool {
-        if !self.is_finite() || !other.is_finite() {
-            return self == other;
-        }
-        let abs_diff = (*self - *other).abs();
-        abs_diff <= eps || abs_diff <= self.abs().min(other.abs()) * eps
+        <Self as Double>::eq_with_eps(self, other, eps)
     }
 
     pub fn eq_with_default_eps(&self, other: &Self) -> bool {
@@ -138,6 +134,22 @@ impl DoubleDouble {
 
     pub fn is_nan(self) -> bool {
         self.hi.is_nan()
+    }
+}
+
+impl Double for DoubleDouble {
+    const EPS: Self = Self::EPS;
+
+    fn abs(self) -> Self {
+        Self::abs(self)
+    }
+
+    fn sqrt(self) -> Self {
+        Self::sqrt(self)
+    }
+
+    fn is_finite(self) -> bool {
+        Self::is_finite(self)
     }
 }
 

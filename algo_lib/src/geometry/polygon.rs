@@ -2,7 +2,7 @@ use crate::geometry::line::Line;
 use crate::geometry::point::PointT;
 use crate::geometry::segment::SegmentT;
 use crate::io::input::{Input, Readable};
-use crate::misc::num_traits::{HasConstants, Number, Signum};
+use crate::misc::num_traits::{Double, HasConstants, Number, Signum};
 use crate::misc::ord_f64::OrdF64;
 use std::fmt::{Debug, Formatter};
 
@@ -176,8 +176,8 @@ where
     }
 }
 
-impl PolygonT<OrdF64> {
-    pub fn area(&self) -> OrdF64 {
-        self.area_x2() / OrdF64::TWO
+impl<T: Double> PolygonT<T> {
+    pub fn area(&self) -> T {
+        self.area_x2() / T::TWO
     }
 }

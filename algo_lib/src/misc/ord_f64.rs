@@ -1,7 +1,7 @@
 use crate::io::input::{Input, Readable};
 use crate::io::output::{Output, Writable};
-use crate::misc::num_traits::{ConvSimple, HasConstants};
-use std::cmp::{min, Ordering};
+use crate::misc::num_traits::{ConvSimple, Double, HasConstants};
+use std::cmp::Ordering;
 use std::f64::consts::PI;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::Write;
@@ -22,8 +22,7 @@ impl OrdF64 {
     }
 
     pub fn eq_with_eps(&self, other: &Self, eps: Self) -> bool {
-        let abs_diff = (*self - *other).abs();
-        abs_diff <= eps || abs_diff <= min(self.abs(), other.abs()) * eps
+        <Self as Double>::eq_with_eps(self, other, eps)
     }
 
     pub fn eq_with_default_eps(&self, other: &Self) -> bool {
@@ -36,6 +35,23 @@ impl OrdF64 {
 
     pub fn powf(&self, n: f64) -> Self {
         Self(self.0.powf(n))
+    }
+}
+
+impl Double for OrdF64 {
+    const EPS: Self = Self::EPS;
+    const SMALL_EPS: Self = Self::SMALL_EPS;
+
+    fn abs(self) -> Self {
+        Self::abs(&self)
+    }
+
+    fn sqrt(self) -> Self {
+        Self::sqrt(&self)
+    }
+
+    fn is_finite(self) -> bool {
+        self.0.is_finite()
     }
 }
 
